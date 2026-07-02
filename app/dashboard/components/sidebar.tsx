@@ -52,11 +52,11 @@ export function Sidebar({ items, activeKey, onChange }: SidebarProps) {
 
       <div className="mb-2 flex items-center gap-3 p-4">
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-600 text-sm font-bold">
-          M
+          A
         </div>
         <div>
-          <div className="text-sm font-medium">Mingxiang Cai</div>
-          <div className="text-xs text-gray-400">m.cai@s-3.io</div>
+          <div className="text-sm font-medium">Admin</div>
+          <div className="text-xs text-gray-400">admin@s-3.io</div>
         </div>
       </div>
     </aside>

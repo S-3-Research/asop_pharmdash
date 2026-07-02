@@ -28,7 +28,7 @@ export default function LoginPage() {
     if (!response.ok) {
       const data = (await response.json()) as { message?: string };
       setState("error");
-      setErrorMessage(data.message ?? "登录失败");
+      setErrorMessage(data.message ?? "Login failed");
       return;
     }
 
@@ -41,12 +41,12 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
       <section className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg shadow-slate-200">
         <h1 className="text-2xl font-semibold text-slate-900">ASOP PharmDash</h1>
-        <p className="mt-2 text-sm text-slate-500">请使用账号密码登录</p>
+        <p className="mt-2 text-sm text-slate-500">Sign in with your credentials</p>
 
         <form className="mt-6 space-y-4" onSubmit={onSubmit}>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="username">
-              账号
+              Username
             </label>
             <input
               id="username"
@@ -59,7 +59,7 @@ export default function LoginPage() {
 
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="password">
-              密码
+              Password
             </label>
             <input
               id="password"
@@ -80,7 +80,7 @@ export default function LoginPage() {
             className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
             disabled={state === "loading"}
           >
-            {state === "loading" ? "登录中..." : "登录"}
+            {state === "loading" ? "Signing in..." : "Sign in"}
           </button>
         </form>
       </section>
