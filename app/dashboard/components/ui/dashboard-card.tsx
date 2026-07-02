@@ -7,6 +7,7 @@ type DashboardCardProps = {
   variant?: "light" | "teal";
   className?: string;
   children: ReactNode;
+  note?: ReactNode;
 };
 
 export function DashboardCard({
@@ -16,6 +17,7 @@ export function DashboardCard({
   variant = "light",
   className,
   children,
+  note,
 }: DashboardCardProps) {
   const isTeal = variant === "teal";
 
@@ -43,6 +45,13 @@ export function DashboardCard({
         </header>
       ) : null}
       {children}
+      {note ? (
+        <div className={`mt-3 border-t pt-2.5 ${
+          isTeal ? "border-white/10" : "border-gray-100"
+        }`}>
+          {note}
+        </div>
+      ) : null}
     </section>
   );
 }

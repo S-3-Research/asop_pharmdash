@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import Highcharts from "highcharts";
 
+import type { ReactNode } from "react";
 import type { ChartCardData } from "../types";
 import { DashboardCard } from "../ui/dashboard-card";
 
@@ -12,14 +13,16 @@ const HighchartsReact = dynamic(() => import("highcharts-react-official"), {
 
 type HighchartsCardProps = {
   chart: ChartCardData;
+  note?: ReactNode;
 };
 
-export function HighchartsCard({ chart }: HighchartsCardProps) {
+export function HighchartsCard({ chart, note }: HighchartsCardProps) {
   return (
     <DashboardCard
       title={chart.title}
       subtitle={chart.subtitle}
       className="p-5"
+      note={note}
       rightSlot={
         <button type="button" className="text-sm text-slate-400 hover:text-slate-600">
           •••
