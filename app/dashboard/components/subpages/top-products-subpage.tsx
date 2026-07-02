@@ -9,7 +9,7 @@ import { MetricsRow } from "./top-products/metrics-row";
 import { TopProductsRanked } from "./top-products/ranked";
 import { ListingTrendChart } from "./top-products/trend-chart";
 import { ProductDistribution } from "./top-products/distribution";
-import { parseMonthKey } from "./top-products/config";
+import { parseCbuKey } from "./top-products/config";
 
 // ── API response shape ────────────────────────────────────────────────────────
 interface TopProductsPayload {
@@ -50,9 +50,9 @@ export function TopProductsSubpage() {
   }, [data?.listings, selectedPrimaryName]);
 
   // Derived from full dataset so x-axis stays stable across filter changes
-  const allMonthKeys = useMemo((): string[] => {
-    const keys = [...new Set((data?.listings ?? []).map((l) => l.month))];
-    return keys.sort((a, b) => parseMonthKey(a).getTime() - parseMonthKey(b).getTime());
+  const allCbuKeys = useMemo((): string[] => {
+    const keys = [...new Set((data?.listings ?? []).map((l) => l.cbuId))];
+    return keys.sort((a, b) => parseCbuKey(a).getTime() - parseCbuKey(b).getTime());
   }, [data?.listings]);
 
   if (isLoading) {
@@ -110,7 +110,7 @@ export function TopProductsSubpage() {
         <div className="col-span-12 flex flex-col gap-6 lg:col-span-6">
           <ListingTrendChart
             filteredListings={filteredListings}
-            allMonthKeys={allMonthKeys}
+            allCbuKeys={allCbuKeys}
             selectedPrimaryName={selectedPrimaryName}
           />
           <ProductDistribution

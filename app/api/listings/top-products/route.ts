@@ -21,13 +21,12 @@ export async function GET() {
     drillablePieData,
     // Strip detectedAt — not used by the UI, avoids Date serialisation ambiguity
     listings: (listings ?? []).map(
-      ({ id, source, primaryCategory, secondaryCategory, quarter, month }) => ({
+      ({ id, source, primaryCategory, secondaryCategory, cbuId }) => ({
         id,
         source,
         primaryCategory,
         secondaryCategory,
-        quarter,
-        month,
+        cbuId,
       }),
     ),
   });

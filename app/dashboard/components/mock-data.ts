@@ -3,9 +3,16 @@ import type Highcharts from "highcharts";
 import { ALL_PRIMARY, CATEGORY_COLORS } from "./subpages/top-products/config";
 import type {
   CategoryOption,
+  Domain,
+  DomainGeoLocation,
+  DomainPaymentInfo,
+  DomainPlatform,
+  DomainType,
+  DomainWhois,
   Listing,
   MetricCardData,
   RankedItem,
+  SocialMediaPost,
   SubPageData,
   SubPageKey,
   SubPageNavItem,
@@ -173,24 +180,14 @@ const generateListings = (): Listing[] => {
   const sources: ("online" | "social")[] = ["online", "social"];
 
   let id = 1;
-  // Generate listings for Q2 2024 (April, May, June)
-  const months = [
-    { name: "April-2024", count: 45 },
-    { name: "May-2024", count: 52 },
-    { name: "June-2024", count: 58 },
+  // Generate listings across two CBUs (Contract Baseline Units)
+  const cbus = [
+    // { cbuId: "2026-CBU-01", count: 97 },
+    { cbuId: "2026-CBU-02", count: 58 },
   ];
 
-  for (const month of months) {
-    // Derive year, month index, quarter, and days-in-month from the month key itself
-    const dashIdx = month.name.lastIndexOf("-");
-    const monthName = month.name.slice(0, dashIdx);
-    const year = parseInt(month.name.slice(dashIdx + 1), 10);
-    const monthIndex = new Date(`${monthName} 1, ${year}`).getMonth(); // 0-based
-    const quarterNum = Math.floor(monthIndex / 3) + 1;
-    const quarter = `Q${quarterNum}-${year}`;
-    const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-
-    for (let i = 0; i < month.count; i++) {
+  for (const cbu of cbus) {
+    for (let i = 0; i < cbu.count; i++) {
       const primaryCat =
         primaryCategories[Math.floor(seededRandom() * primaryCategories.length)];
       const secondaryCat =
@@ -200,12 +197,11 @@ const generateListings = (): Listing[] => {
 
       listings.push({
         id: `listing-${id}`,
-        detectedAt: new Date(year, monthIndex, Math.floor(seededRandom() * daysInMonth) + 1),
+        detectedAt: new Date(2026, (parseInt(cbu.cbuId.slice(-2), 10) - 1) * 3, Math.floor(seededRandom() * 28) + 1),
         source: sources[Math.floor(seededRandom() * 2)],
         primaryCategory: primaryCat,
         secondaryCategory: secondaryCat,
-        quarter,
-        month: month.name,
+        cbuId: cbu.cbuId,
       });
       id++;
     }
@@ -500,3 +496,324 @@ export const subPageDataMap: Record<SubPageKey, SubPageData> = {
     rankedItems: socialRankedItems,
   },
 };
+
+// ── Domain mock data ──────────────────────────────────────────────────────────
+
+const CITY_GEO: Record<string, DomainGeoLocation> = {
+  Vancouver:   { city: "Vancouver",   state: "BC",  country: "Canada",        lat: 49.28, lng: -123.12 },
+  Calgary:     { city: "Calgary",     state: "AB",  country: "Canada",        lat: 51.04, lng: -114.07 },
+  Chicago:     { city: "Chicago",     state: "IL",  country: "United States", lat: 41.88, lng: -87.63  },
+  "New York":  { city: "New York",    state: "NY",  country: "United States", lat: 40.71, lng: -74.01  },
+  "Los Angeles": { city: "Los Angeles", state: "CA", country: "United States", lat: 34.05, lng: -118.24 },
+};
+
+const REGISTRARS = ["GoDaddy", "Namecheap", "Tucows", "Other"] as const;
+
+const PAYMENT_COMBOS: DomainPaymentInfo[] = [
+  { type: "Credit Card", provider: "Visa" },
+  { type: "Credit Card", provider: "Mastercard" },
+  { type: "Credit Card", provider: "Amex" },
+  { type: "Crypto",      provider: "BTC" },
+  { type: "Crypto",      provider: "ETH" },
+  { type: "Bank Transfer", provider: "Wire" },
+  { type: "Bank Transfer", provider: "ACH" },
+];
+
+const DOMAIN_TYPES: DomainType[] = [
+  "rogue-pharmacy", "social-media", "counterfeit", "unregistered",
+];
+
+const PLATFORMS: DomainPlatform[] = [
+  "Google", "Bing", "DuckDuckGo", "Social", "Manual Insert",
+];
+
+const KEYWORDS_BY_PRIMARY: Record<string, string[]> = {
+  "GLP-1":       ["buy ozempic online", "cheap semaglutide", "ozempic no rx", "wegovy discount"],
+  "Cancer Med":  ["buy olaparib", "pembrolizumab online", "cheap nivolumab"],
+  "CNS Med":     ["aripiprazole without prescription", "risperidone cheap"],
+  "Pain Med":    ["tramadol online", "gabapentin no rx", "pregabalin cheap"],
+};
+
+const SECONDARY_BY_PRIMARY: Record<string, string[]> = {
+  "GLP-1":      ["Ozempic", "Mounjaro", "Wegovy", "Rybelsus"],
+  "Cancer Med": ["Olaparib", "Pembrolizumab", "Nivolumab"],
+  "CNS Med":    ["Aripiprazole", "Risperidone", "Olanzapine"],
+  "Pain Med":   ["Tramadol", "Gabapentin", "Pregabalin"],
+};
+
+const domainSeeded = (() => {
+  let s = 137;
+  return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+})();
+
+const pick = <T>(arr: readonly T[]): T =>
+  arr[Math.floor(domainSeeded() * arr.length)];
+
+function generateDomains(): Domain[] {
+  const cities = Object.keys(CITY_GEO);
+  const domains: Domain[] = [];
+  const primaryCategories = Object.keys(SECONDARY_BY_PRIMARY);
+  const cbus = ["2026-CBU-01", "2026-CBU-02"] as const;
+
+  // distribute: 12 in CBU-01, 15 in CBU-02
+  const cbуCounts: Record<string, number> = { "2026-CBU-02": 15 };
+
+  let idx = 1;
+  for (const cbuId of cbus) {
+    for (let i = 0; i < cbуCounts[cbuId]; i++) {
+      const primaryCategory = pick(primaryCategories);
+      const secondaryCategory = pick(SECONDARY_BY_PRIMARY[primaryCategory]);
+      const registrar = pick(REGISTRARS);
+      const city = pick(cities);
+      const cbuNum = parseInt(cbuId.slice(-2), 10);
+      // createDate within the CBU window (3-month window starting at month (cbuNum-1)*3)
+      const monthOffset = (cbuNum - 1) * 3 + Math.floor(domainSeeded() * 3);
+      const day = 1 + Math.floor(domainSeeded() * 27);
+      const createDate = `2026-${String(monthOffset + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      const createTimestamp = Math.floor(new Date(`${createDate}T00:00:00Z`).getTime() / 1000);
+      const numPlatforms = 1 + Math.floor(domainSeeded() * 3);
+      const platformSet = new Set<DomainPlatform>();
+      while (platformSet.size < numPlatforms) platformSet.add(pick(PLATFORMS));
+      const kws = KEYWORDS_BY_PRIMARY[primaryCategory];
+      const numKw = 1 + Math.floor(domainSeeded() * kws.length);
+      const keyword = Array.from({ length: numKw }, () =>
+        domainSeeded() > 0.1 ? pick(kws) : null,
+      );
+
+      domains.push({
+        domain: `${secondaryCategory.toLowerCase().replace(/\s+/g, "-")}-${idx}.example`,
+        platforms: [...platformSet],
+        resource: domainSeeded() > 0.5 ? `social_account_${idx}` : `search_result_${idx}`,
+        createDate,
+        isLive: domainSeeded() > 0.2,
+        createTimestamp,
+        whois: {
+          registrar,
+          createdDate: `${2024 + Math.floor(domainSeeded() * 2)}-${String(1 + Math.floor(domainSeeded() * 12)).padStart(2, "0")}-01`,
+          expiryDate:  `${2027 + Math.floor(domainSeeded() * 2)}-${String(1 + Math.floor(domainSeeded() * 12)).padStart(2, "0")}-01`,
+          registrant:  domainSeeded() > 0.4 ? `Registrant ${idx}` : undefined,
+        } as DomainWhois,
+        sem: {
+          keywords: keyword.filter(Boolean) as string[],
+          adSpend:  domainSeeded() > 0.5 ? Math.round(domainSeeded() * 5000) : undefined,
+          impressions: domainSeeded() > 0.5 ? Math.round(domainSeeded() * 50000) : undefined,
+        },
+        primaryCategory,
+        secondaryCategory,
+        domainType: pick(DOMAIN_TYPES),
+        paymentInfo: pick(PAYMENT_COMBOS),
+        geoLocation: CITY_GEO[city],
+        associatedBusinessName: domainSeeded() > 0.5 ? `Pharma Co. ${idx}` : null,
+        keyword,
+        products: { primaryCategory, secondaryCategory },
+        cbuId,
+      });
+      idx++;
+    }
+  }
+  return domains;
+}
+
+export const mockDomains: Domain[] = generateDomains();
+
+// ── Social Media mock data ────────────────────────────────────────────────────
+
+const socialSeeded = (() => {
+  let s = 7373;
+  return () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+})();
+
+const socialRngPick = <T>(arr: readonly T[]): T =>
+  arr[Math.floor(socialSeeded() * arr.length)];
+
+const socialRngPickN = <T>(arr: readonly T[], n: number): T[] => {
+  const copy = [...arr];
+  const result: T[] = [];
+  const count = Math.min(n, copy.length);
+  for (let i = 0; i < count; i++) {
+    const idx = Math.floor(socialSeeded() * copy.length);
+    result.push(copy.splice(idx, 1)[0]);
+  }
+  return result;
+};
+
+const SOCIAL_PLATFORMS_POOL = [
+  "Reddit", "X", "YouTube", "Instagram", "TikTok",
+  "Telegram", "Discord", "Quora",
+] as const;
+
+const EXTERNAL_APPS = [
+  "WhatsApp", "Venmo", "Snapchat", "Signal", "Cash App",
+  "Zelle", "PayPal", "Wickr", "Telegram", "Kik",
+] as const;
+
+const SOCIAL_KW_BY_PRIMARY: Record<string, string[]> = {
+  "GLP-1":      ["ozempic", "semaglutide", "wegovy", "mounjaro", "tirzepatide", "glp-1"],
+  "Cancer Med": ["olaparib", "pembrolizumab", "nivolumab", "keytruda", "immunotherapy"],
+  "CNS Med":    ["aripiprazole", "adderall", "vyvanse", "xanax", "benzodiazepine", "risperidone"],
+  "Pain Med":   ["tramadol", "gabapentin", "pregabalin", "fentanyl", "opioids"],
+};
+
+const SECONDARY_SOCIAL_BY_PRIMARY: Record<string, string[]> = {
+  "GLP-1":      ["Ozempic", "Mounjaro", "Wegovy", "Rybelsus"],
+  "Cancer Med": ["Olaparib", "Pembrolizumab", "Nivolumab"],
+  "CNS Med":    ["Aripiprazole", "Risperidone", "Adderall", "Vyvanse"],
+  "Pain Med":   ["Tramadol", "Gabapentin", "Pregabalin"],
+};
+
+const SOCIAL_TEXTS: Record<string, string[]> = {
+  "GLP-1": [
+    "Lost 25lbs with {kw}! My supplier accepts {app1} and {app2}. DM for info 💉",
+    "Anyone selling {kw} without Rx? Pay via {app1}, message on {app2} 👇",
+    "Quality {kw} pens available $150 each. {app1} accepted, contact via {app2}",
+    "{kw} in stock! Fast shipping worldwide. {app1} or {app2} payments only",
+    "Selling {kw} 2mg pens. DM. {app1} or {app2} accepted. Discreet packaging",
+    "My {kw} journey week 12 update — sourced via {app1}. Contact {app2} for supplier",
+  ],
+  "Cancer Med": [
+    "{kw} at 60% off retail price. {app1} payments. Contact on {app2}",
+    "Generic {kw} shipped internationally. {app1} or {app2} for orders",
+    "Need {kw} urgently — anyone have a source? Will pay via {app1} or {app2}",
+    "Bulk {kw} available. {app1} only. Message me on {app2}",
+    "{kw} without prescription available. {app1} payment method. {app2} for details",
+  ],
+  "CNS Med": [
+    "{kw} 60mg available. HMU on {app2}. {app1} or {app2} accepted 💊",
+    "Need {kw} for exams, anyone? Pay via {app1}. Contact on {app2}",
+    "Selling {kw} bars — {app1} or {app2} only. Discreet shipping",
+    "{kw} script for sale. {app1} payments only. Details on {app2}",
+    "Got {kw} 30mg left. DM via {app2}. {app1} or {app2} accepted",
+  ],
+  "Pain Med": [
+    "{kw} no Rx needed. Ships anywhere. {app1} payment. Contact: {app2}",
+    "Chronic pain? {kw} available discreetly. {app1} or {app2} for payment",
+    "Quality {kw} 300mg in stock. {app1} payments. Message on {app2}",
+    "{kw} available — {app1} only. Hit me up on {app2} for details",
+    "Selling {kw} 50mg tabs. {app1} or {app2} accepted. Worldwide shipping",
+  ],
+};
+
+const SOCIAL_USERNAMES: Record<string, string[]> = {
+  Reddit:    ["u/pharmbro_99", "u/health_seeker", "u/rx_deals_daily", "u/medinfo_hub", "u/ozempic_fan", "u/swmfox", "u/brisbanegreen"],
+  X:         ["@pharmwatch", "@healthhacks_", "@rx_street", "@medsupply_ok", "@discountmeds24"],
+  YouTube:   ["PharmaReview", "MedDealsDaily", "HealthSourcerTV", "RxGuideChannel"],
+  Instagram: ["@medshop.online", "@pharma_direct", "@discount_meds_official"],
+  TikTok:    ["@medtok_official", "@pharmalife", "@rx_street_tok"],
+  Telegram:  ["t.me/rxsupply", "t.me/pharmdeal", "t.me/medshop_global"],
+  Discord:   ["pharmacist#1234", "medsource#5678", "rxdealer#9012", "healthhub#3456"],
+  Quora:     ["John_Pharma", "MedWatcher_Q", "HealthSeeker99", "PharmaExpert"],
+};
+
+function buildSocialText(
+  primaryCategory: string,
+  keyword: string,
+): { text: string; mentions: string[] } {
+  const templates = SOCIAL_TEXTS[primaryCategory] ?? SOCIAL_TEXTS["Pain Med"];
+  const template = socialRngPick(templates);
+  const app1 = socialRngPick(EXTERNAL_APPS);
+  let app2 = socialRngPick(EXTERNAL_APPS);
+  while (app2 === app1) app2 = socialRngPick(EXTERNAL_APPS);
+  const text = template
+    .replace("{kw}", keyword)
+    .replace("{app1}", app1)
+    .replace("{app2}", app2);
+  const mentions = [...new Set([app1, app2].filter((a) => text.includes(a)))];
+  return { text, mentions };
+}
+
+function generateSocialPosts(): SocialMediaPost[] {
+  const posts: SocialMediaPost[] = [];
+  const primaryCategories = Object.keys(SOCIAL_KW_BY_PRIMARY);
+
+  for (let i = 0; i < 120; i++) {
+    const primaryCategory = socialRngPick(primaryCategories);
+    const secondaryCategory = socialRngPick(SECONDARY_SOCIAL_BY_PRIMARY[primaryCategory]);
+
+    // 30% chance of a second category association (cross-category posts)
+    const categories: Array<{ primaryCategory: string; secondaryCategory: string }> = [
+      { primaryCategory, secondaryCategory },
+    ];
+    if (socialSeeded() < 0.3) {
+      const p2 = socialRngPick(primaryCategories);
+      const s2 = socialRngPick(SECONDARY_SOCIAL_BY_PRIMARY[p2]);
+      if (p2 !== primaryCategory || s2 !== secondaryCategory) {
+        categories.push({ primaryCategory: p2, secondaryCategory: s2 });
+      }
+    }
+
+    const platform = socialRngPick(SOCIAL_PLATFORMS_POOL) as string;
+    const keyword = socialRngPick(SOCIAL_KW_BY_PRIMARY[primaryCategory]);
+    const { text, mentions } = buildSocialText(primaryCategory, keyword);
+    const usernames = SOCIAL_USERNAMES[platform] ?? ["user_unknown"];
+    const username = socialRngPick(usernames);
+
+    // Random timestamp within last 180 days from 2026-06-30
+    const daysAgo = Math.floor(socialSeeded() * 180);
+    const ts = new Date(2026, 5, 30);
+    ts.setDate(ts.getDate() - daysAgo);
+
+    const status: "active" | "inactive" = socialSeeded() > 0.28 ? "active" : "inactive";
+    const kwPool = SOCIAL_KW_BY_PRIMARY[primaryCategory];
+    const numKw = 1 + Math.floor(socialSeeded() * 3);
+    const keywords = socialRngPickN(kwPool, numKw);
+
+    posts.push({
+      id: `social-${i + 1}`,
+      link: `https://${platform.toLowerCase().replace(/[^a-z0-9]/g, "")}.com/post/${1000 + i}`,
+      platform,
+      text,
+      mentions,
+      username,
+      userlink: `https://${platform.toLowerCase().replace(/[^a-z0-9]/g, "")}.com/${username.replace(/[@#/u]/g, "")}`,
+      timestamp: ts.toISOString(),
+      status,
+      keywords,
+      categories,
+    });
+  }
+  return posts;
+}
+
+export const mockSocialPosts: SocialMediaPost[] = generateSocialPosts();
+
+// ── Keyword raw-count mock (CBU window, per platform) ─────────────────────────
+// Simulates search-result counts for each keyword on each platform during
+// the current CBU window (2026-04-01 ~ 2026-06-30).
+// Intentionally larger than signalCount — represents broader search universe.
+const kwRawCountSeeded = (() => {
+  let s = 5571;
+  return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+})();
+
+const ALL_TRACKED_KEYWORDS_LIST = [
+  "ozempic", "semaglutide", "wegovy", "mounjaro", "tirzepatide", "glp-1",
+  "olaparib", "pembrolizumab", "nivolumab", "keytruda", "immunotherapy",
+  "aripiprazole", "adderall", "vyvanse", "xanax", "benzodiazepine", "risperidone",
+  "tramadol", "gabapentin", "pregabalin", "fentanyl", "opioids",
+] as const;
+
+const TRACKED_PLATFORMS_LIST = [
+  "Reddit", "X", "YouTube", "Instagram", "TikTok", "Telegram", "Discord", "Quora",
+] as const;
+
+function generateKwRawCounts(): Record<string, Record<string, number>> {
+  const result: Record<string, Record<string, number>> = {};
+  for (const kw of ALL_TRACKED_KEYWORDS_LIST) {
+    result[kw] = {};
+    let allTotal = 0;
+    for (const platform of TRACKED_PLATFORMS_LIST) {
+      const count = Math.round(kwRawCountSeeded() * 1800 + 200); // 200–2000
+      result[kw][platform] = count;
+      allTotal += count;
+    }
+    result[kw]["all"] = allTotal;
+  }
+  return result;
+}
+
+/** Pre-computed CBU-window search-result counts: keyword → platform → count */
+export const mockKwRawCounts: Record<string, Record<string, number>> = generateKwRawCounts();
+
