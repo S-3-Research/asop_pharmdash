@@ -22,7 +22,7 @@ interface HeatmapCardProps {
 
 export function HeatmapCard({ domains }: HeatmapCardProps) {
   return (
-    <DashboardCard title="Domain Heatmap" className="flex-1 flex flex-col overflow-hidden">
+    <DashboardCard title="Domain Heatmap" className="h-full flex flex-col overflow-hidden">
       <div className="flex-1 min-h-0 relative -mx-4 -mb-4 rounded-b-xl overflow-hidden">
         <HeatmapMapClient domains={domains} />
       </div>
