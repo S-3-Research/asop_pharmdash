@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 
 import useSWR from "swr";
 import type { DomainApiPayload } from "../types";
 import { MultiCategoryDropdown } from "../ui/multi-category-dropdown";
+import { useCopilot } from "../copilot/copilot-context";
+import type { FilterAction } from "../copilot/types";
 import { DOMAIN_PRIMARY_CATEGORIES } from "./domain-insights/config";
 import { TotalDomainCard }    from "./domain-insights/total-domain-card";
 import { DomainStatusCard }   from "./domain-insights/domain-status-card";
@@ -13,6 +15,7 @@ import { PaymentTreemapCard } from "./domain-insights/payment-treemap-card";
 import { RegistrarSunburst }  from "./domain-insights/registrar-sunburst";
 import { TrafficChart }       from "./domain-insights/traffic-chart";
 import { HeatmapCard }        from "./domain-insights/heatmap-card";
+import { SelectableCard }     from "../ui/selectable-card";
 
 const fetcher = (url: string) =>
   fetch(url).then((r) => {
@@ -22,6 +25,7 @@ const fetcher = (url: string) =>
 
 export function DomainInsightsSubpage() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const { updatePageContext, registerFilterHandler } = useCopilot();
   const { data, error, isLoading } = useSWR<DomainApiPayload>(
     "/api/domains",
     fetcher,
@@ -43,6 +47,33 @@ export function DomainInsightsSubpage() {
       prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
     );
   }
+
+  // ── Register filter handler for Copilot ──────────────────────────────────
+  const applyFilter = useCallback((action: FilterAction) => {
+    if (action.type === "SET_CATEGORIES") {
+      // Copilot uses primaryCategory names; categories state stores the same
+      setSelectedCategories(action.categories);
+    } else if (action.type === "CLEAR_FILTERS") {
+      setSelectedCategories([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    registerFilterHandler(applyFilter);
+  }, [registerFilterHandler, applyFilter]);
+
+  // ── Sync page context ────────────────────────────────────────────────────
+  useEffect(() => {
+    const live = filteredDomains.filter((d) => d.isLive).length;
+    updatePageContext({
+      filters: { categories: selectedCategories },
+      stats: [
+        { label: "Total Domains", value: filteredDomains.length },
+        { label: "Live", value: live },
+        { label: "Inactive", value: filteredDomains.length - live },
+      ],
+    });
+  }, [updatePageContext, selectedCategories, filteredDomains]);
 
   return (
     <section>
@@ -81,17 +112,94 @@ export function DomainInsightsSubpage() {
       {!isLoading && !error && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 auto-rows-[300px]">
 
-          {/* Row 1 — four equal cards */}
-          <TotalDomainCard    domains={filteredDomains} />
-          <DomainStatusCard   domains={filteredDomains} />
-          <SocialMediaCard    domains={filteredDomains} />
-          <PaymentTreemapCard domains={filteredDomains} />
+          {/* Row 1 — four equal cards, all selectable */}
+          <SelectableCard
+            widget={{
+              widgetId: "domain-total",
+              title: "Total Domain",
+              type: "chart",
+              description: "Total rogue domains detected in current CBU with trend",
+              dataPoints: [
+                { label: "Total", value: filteredDomains.length },
+                { label: "Live", value: filteredDomains.filter((d) => d.isLive).length },
+              ],
+            }}
+          >
+            <TotalDomainCard domains={filteredDomains} />
+          </SelectableCard>
+
+          <SelectableCard
+            widget={{
+              widgetId: "domain-status",
+              title: "Domain Status",
+              type: "chart",
+              description: "Live vs inactive domain breakdown",
+              dataPoints: [
+                { label: "Live", value: filteredDomains.filter((d) => d.isLive).length },
+                { label: "Inactive", value: filteredDomains.filter((d) => !d.isLive).length },
+              ],
+            }}
+          >
+            <DomainStatusCard domains={filteredDomains} />
+          </SelectableCard>
+
+          <SelectableCard
+            widget={{
+              widgetId: "domain-social-media",
+              title: "Social Media Platforms",
+              type: "distribution",
+              description: "Platform distribution of rogue domain signals",
+            }}
+          >
+            <SocialMediaCard domains={filteredDomains} />
+          </SelectableCard>
+
+          <SelectableCard
+            widget={{
+              widgetId: "domain-payment",
+              title: "Payment Methods",
+              type: "chart",
+              description: "Payment type distribution (Credit Card, Crypto, Bank Transfer)",
+            }}
+          >
+            <PaymentTreemapCard domains={filteredDomains} />
+          </SelectableCard>
 
           {/* Row 2 — two single + one double-wide */}
-          <RegistrarSunburst domains={filteredDomains} />
-          <TrafficChart      domains={filteredDomains} />
+          <SelectableCard
+            widget={{
+              widgetId: "domain-registrar",
+              title: "Registrar Distribution",
+              type: "distribution",
+              description: "Sunburst chart of domain registrars",
+            }}
+          >
+            <RegistrarSunburst domains={filteredDomains} />
+          </SelectableCard>
+
+          <SelectableCard
+            widget={{
+              widgetId: "domain-traffic",
+              title: "Traffic Chart",
+              type: "chart",
+              description: "Domain traffic timeline within the CBU window",
+            }}
+          >
+            <TrafficChart domains={filteredDomains} />
+          </SelectableCard>
+
           <div className="col-span-1 md:col-span-2 xl:col-span-2 flex flex-col">
-            <HeatmapCard domains={filteredDomains} />
+            <SelectableCard
+              className="h-full flex flex-col"
+              widget={{
+                widgetId: "domain-heatmap",
+                title: "Geographic Heatmap",
+                type: "map",
+                description: "Geographic distribution of rogue domains by city",
+              }}
+            >
+              <HeatmapCard domains={filteredDomains} />
+            </SelectableCard>
           </div>
 
         </div>

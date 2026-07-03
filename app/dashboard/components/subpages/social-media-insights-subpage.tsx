@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import useSWR from "swr";
 
 import type { SocialMediaPayload } from "../types";
 import { MultiCategoryDropdown } from "../ui/multi-category-dropdown";
+import { useCopilot } from "../copilot/copilot-context";
+import type { FilterAction } from "../copilot/types";
+import { SelectableCard } from "../ui/selectable-card";
 import { SOCIAL_PRIMARY_CATEGORIES } from "./social-media/config";
 import { StatsRow }               from "./social-media/stats-row";
 import { PlatformTabs }           from "./social-media/platform-tabs";
@@ -23,6 +26,7 @@ export function SocialMediaInsightsSubpage() {
   // selectedIds = CategoryOption.id values = primaryCategory names (e.g. "GLP-1")
   const [selectedIds, setSelectedIds]           = useState<string[]>([]);
   const [selectedPlatform, setSelectedPlatform] = useState<string>("all");
+  const { updatePageContext, registerFilterHandler } = useCopilot();
 
   // Build API query string
   const params = new URLSearchParams();
@@ -46,6 +50,42 @@ export function SocialMediaInsightsSubpage() {
     setSelectedIds([]);
     setSelectedPlatform("all");
   }
+
+  // ── Register filter handler for Copilot ──────────────────────────────────
+  const applyFilter = useCallback((action: FilterAction) => {
+    if (action.type === "SET_CATEGORIES") {
+      setSelectedIds(action.categories);
+      setSelectedPlatform("all");
+    } else if (action.type === "SET_PLATFORM") {
+      setSelectedPlatform(action.platform);
+    } else if (action.type === "CLEAR_FILTERS") {
+      setSelectedIds([]);
+      setSelectedPlatform("all");
+    }
+  }, []);
+
+  useEffect(() => {
+    registerFilterHandler(applyFilter);
+  }, [registerFilterHandler, applyFilter]);
+
+  // ── Sync page context ────────────────────────────────────────────────────
+  useEffect(() => {
+    const m = data?.metrics;
+    updatePageContext({
+      filters: {
+        categories: selectedIds,
+        platform: selectedPlatform !== "all" ? selectedPlatform : undefined,
+      },
+      stats: m
+        ? [
+            { label: "Posts / Comments", value: m.totalPosts },
+            { label: "Unique Accounts", value: m.uniqueAccounts },
+            { label: "Active Signals", value: m.activeCount },
+            { label: "Active Keywords", value: m.activeKeywords },
+          ]
+        : [],
+    });
+  }, [updatePageContext, selectedIds, selectedPlatform, data?.metrics]);
 
   return (
     <section>
@@ -101,20 +141,69 @@ export function SocialMediaInsightsSubpage() {
                   <StatsRow metrics={data.metrics} />
                 </div>
                 <div className="col-span-12 lg:col-span-7 h-[300px]">
-                  <KeywordRankingsCard rankings={data.keywordRankings} platform={selectedPlatform} />
+                  <SelectableCard
+                    className="h-full"
+                    widget={{
+                      widgetId: "social-keyword-rankings",
+                      title: "Keyword Rankings",
+                      type: "ranked-list",
+                      description: "Top keywords ranked by signal count and growth rate",
+                      dataPoints: data.keywordRankings.slice(0, 5).map((r) => ({
+                        label: r.keyword,
+                        value: r.signalCount,
+                      })),
+                    }}
+                  >
+                    <KeywordRankingsCard rankings={data.keywordRankings} platform={selectedPlatform} />
+                  </SelectableCard>
                 </div>
               </div>
 
               {/* Row 2: Mentions (4) + Samples (4) + Performance (4) */}
               <div className="grid grid-cols-12 gap-4">
                 <div className="col-span-12 lg:col-span-4">
-                  <MentionsChartCard mentionsByApp={data.mentionsByApp} />
+                  <SelectableCard
+                    widget={{
+                      widgetId: "social-mentions-by-app",
+                      title: "Mentions by App",
+                      type: "chart",
+                      description: "External app mention counts derived from post text analysis",
+                      dataPoints: data.mentionsByApp.slice(0, 5).map((m) => ({
+                        label: m.app,
+                        value: m.count,
+                      })),
+                    }}
+                  >
+                    <MentionsChartCard mentionsByApp={data.mentionsByApp} />
+                  </SelectableCard>
                 </div>
                 <div className="col-span-12 lg:col-span-4">
-                  <SignalSamplesCard categories={selectedIds} platform={selectedPlatform} />
+                  <SelectableCard
+                    widget={{
+                      widgetId: "social-signal-samples",
+                      title: "Signal Samples",
+                      type: "table",
+                      description: "Sample posts flagged as pharmaceutical signals",
+                    }}
+                  >
+                    <SignalSamplesCard categories={selectedIds} platform={selectedPlatform} />
+                  </SelectableCard>
                 </div>
                 <div className="col-span-12 lg:col-span-4">
-                  <KeywordPerformanceCard bubbles={data.keywordBubbles} platform={selectedPlatform} />
+                  <SelectableCard
+                    widget={{
+                      widgetId: "social-keyword-performance",
+                      title: "Keyword Performance",
+                      type: "chart",
+                      description: "Bubble chart of keyword signal volume and distribution",
+                      dataPoints: data.keywordBubbles.slice(0, 5).map((b) => ({
+                        label: b.keyword,
+                        value: b.signalCount,
+                      })),
+                    }}
+                  >
+                    <KeywordPerformanceCard bubbles={data.keywordBubbles} platform={selectedPlatform} />
+                  </SelectableCard>
                 </div>
               </div>
             </>

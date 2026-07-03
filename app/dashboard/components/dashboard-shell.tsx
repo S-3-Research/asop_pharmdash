@@ -1,8 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Sparkles } from "lucide-react";
 
 import { LogoutButton } from "../logout-button";
+import { CopilotPanel } from "./copilot/copilot-panel";
+import { CopilotProvider, useCopilot } from "./copilot/copilot-context";
 import { sidebarItems } from "./mock-data";
 import { Sidebar } from "./sidebar";
 import {
@@ -21,18 +24,56 @@ const subpageTitleMap: Record<SubPageKey, string> = {
   "social-media-insights": "Social Media Insights",
 };
 
-export function DashboardShell() {
+// ── Toggle button (needs context, so lives inside CopilotProvider) ────────────
+
+function CopilotToggleButton() {
+  const { togglePanel, isPanelOpen } = useCopilot();
+  return (
+    <button
+      type="button"
+      onClick={togglePanel}
+      title={isPanelOpen ? "Close Copilot" : "Open Copilot"}
+      className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-all active:scale-95"
+      style={
+        isPanelOpen
+          ? {
+              background: "linear-gradient(135deg, #64D6D8 0%, #4ecdd0 100%)",
+              color: "#fff",
+              boxShadow: "0 2px 10px #64D6D850",
+            }
+          : {
+              background: "rgba(255,255,255,0.12)",
+              color: "rgba(255,255,255,0.75)",
+              border: "1px solid rgba(255,255,255,0.18)",
+            }
+      }
+    >
+      <Sparkles className="h-3.5 w-3.5" strokeWidth={1.8} />
+      Copilot
+    </button>
+  );
+}
+
+// ── Inner shell (uses context) ────────────────────────────────────────────────
+
+function DashboardShellInner() {
   const [activeSubPage, setActiveSubPage] = useState<SubPageKey>(defaultSubPage);
+  const { setSelectedWidget, updatePageContext } = useCopilot();
+
+  // Clear selection when navigating between pages
+  useEffect(() => {
+    setSelectedWidget(null);
+    updatePageContext({
+      page: activeSubPage,
+      pageTitle: subpageTitleMap[activeSubPage],
+      filters: { categories: [] },
+      stats: [],
+    });
+  }, [activeSubPage, setSelectedWidget, updatePageContext]);
 
   const subPageContent = useMemo(() => {
-    if (activeSubPage === "domain-insights") {
-      return <DomainInsightsSubpage />;
-    }
-
-    if (activeSubPage === "social-media-insights") {
-      return <SocialMediaInsightsSubpage />;
-    }
-
+    if (activeSubPage === "domain-insights") return <DomainInsightsSubpage />;
+    if (activeSubPage === "social-media-insights") return <SocialMediaInsightsSubpage />;
     return <TopProductsSubpage />;
   }, [activeSubPage]);
 
@@ -48,12 +89,29 @@ export function DashboardShell() {
         <TopNav
           title={subpageTitleMap[activeSubPage]}
           rightSlot={
-            <LogoutButton className="rounded px-1 text-slate-300 transition-colors hover:text-white" />
+            <div className="flex items-center gap-3">
+              <CopilotToggleButton />
+              <LogoutButton className="rounded px-1 text-slate-300 transition-colors hover:text-white" />
+            </div>
           }
         />
-
-        <main className="flex-1 overflow-y-auto p-6 rounded-tl-3xl bg-[#f3f7f9]">{subPageContent}</main>
+        <main className="flex-1 overflow-y-auto p-6 rounded-tl-3xl bg-[#f3f7f9]">
+          {subPageContent}
+        </main>
       </div>
+
+      {/* Right-side Copilot panel — full height, shows/hides via context */}
+      <CopilotPanel />
     </div>
+  );
+}
+
+// ── Public export ─────────────────────────────────────────────────────────────
+
+export function DashboardShell() {
+  return (
+    <CopilotProvider>
+      <DashboardShellInner />
+    </CopilotProvider>
   );
 }

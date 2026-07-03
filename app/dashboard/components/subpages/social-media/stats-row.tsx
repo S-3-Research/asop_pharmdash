@@ -2,6 +2,7 @@
 
 import type { MetricCardData, SocialMetrics } from "../../types";
 import { MetricCard } from "../../ui/metric-card";
+import { SelectableCard } from "../../ui/selectable-card";
 
 interface StatsRowProps {
   metrics: SocialMetrics;
@@ -42,7 +43,19 @@ export function StatsRow({ metrics }: StatsRowProps) {
   return (
     <div className="grid grid-cols-2 gap-4 h-full">
       {cards.map((item) => (
-        <MetricCard key={item.id} item={item} />
+        <SelectableCard
+          key={item.id}
+          className="h-full"
+          widget={{
+            widgetId: `social-${item.id}`,
+            title: item.label,
+            type: "metric-card",
+            description: `Social media signal metric for the current CBU window`,
+            dataPoints: [{ label: item.label, value: item.value }],
+          }}
+        >
+          <MetricCard item={item} />
+        </SelectableCard>
       ))}
     </div>
   );

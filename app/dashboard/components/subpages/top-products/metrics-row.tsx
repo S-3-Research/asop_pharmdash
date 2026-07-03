@@ -4,6 +4,7 @@ import { useMemo } from "react";
 
 import type { ApiListing, MetricCardData } from "../../types";
 import { MetricCard } from "../../ui/metric-card";
+import { SelectableCard } from "../../ui/selectable-card";
 import { CURRENT_PERIOD } from "./config";
 
 interface MetricsRowProps {
@@ -40,7 +41,19 @@ export function MetricsRow({ filteredListings, selectedPrimaryName }: MetricsRow
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {metrics.map((item) => (
-        <MetricCard key={item.id} item={item} />
+        <SelectableCard
+          key={item.id}
+          className="h-full"
+          widget={{
+            widgetId: `top-products-${item.id}`,
+            title: item.label,
+            type: "metric-card",
+            description: `Listing count metric for the current CBU window`,
+            dataPoints: [{ label: item.label, value: item.value }],
+          }}
+        >
+          <MetricCard item={item} />
+        </SelectableCard>
       ))}
     </div>
   );

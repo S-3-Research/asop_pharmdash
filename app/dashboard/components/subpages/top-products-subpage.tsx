@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import useSWR from "swr";
 
 import type { ApiListing, CategoryOption, PieChartNodeData } from "../types";
 import { CategoryDropdown } from "../ui/category-dropdown";
+import { useCopilot } from "../copilot/copilot-context";
+import type { FilterAction } from "../copilot/types";
+import { SelectableCard } from "../ui/selectable-card";
 import { MetricsRow } from "./top-products/metrics-row";
 import { TopProductsRanked } from "./top-products/ranked";
 import { ListingTrendChart } from "./top-products/trend-chart";
@@ -29,6 +32,7 @@ const fetcher = (url: string) =>
 // ── Component ─────────────────────────────────────────────────────────────────
 export function TopProductsSubpage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
+  const { updatePageContext, registerFilterHandler } = useCopilot();
 
   const { data, error, isLoading } = useSWR<TopProductsPayload>(
     "/api/listings/top-products",
@@ -54,6 +58,48 @@ export function TopProductsSubpage() {
     const keys = [...new Set((data?.listings ?? []).map((l) => l.cbuId))];
     return keys.sort((a, b) => parseCbuKey(a).getTime() - parseCbuKey(b).getTime());
   }, [data?.listings]);
+
+  // ── Register filter handler for Copilot ──────────────────────────────────
+  const applyFilter = useCallback(
+    (action: FilterAction) => {
+      if (action.type === "SET_CATEGORIES" && data) {
+        const matched = data.categories.find((c) =>
+          action.categories.includes(c.name),
+        );
+        setSelectedCategoryId(matched?.id ?? "all");
+      } else if (action.type === "CLEAR_FILTERS") {
+        setSelectedCategoryId("all");
+      }
+    },
+    [data],
+  );
+
+  useEffect(() => {
+    registerFilterHandler(applyFilter);
+  }, [registerFilterHandler, applyFilter]);
+
+  // ── Sync page context ────────────────────────────────────────────────────
+  useEffect(() => {
+    updatePageContext({
+      filters: {
+        categories: selectedPrimaryName ? [selectedPrimaryName] : [],
+      },
+      stats: [
+        {
+          label: "Total Listings",
+          value: filteredListings.length,
+        },
+        {
+          label: "Online",
+          value: filteredListings.filter((l) => l.source === "online").length,
+        },
+        {
+          label: "Social",
+          value: filteredListings.filter((l) => l.source === "social").length,
+        },
+      ],
+    });
+  }, [updatePageContext, selectedPrimaryName, filteredListings]);
 
   if (isLoading) {
     return (
@@ -99,26 +145,69 @@ export function TopProductsSubpage() {
             selectedPrimaryName={selectedPrimaryName}
           />
           <div className="flex-1 grid">
-            <TopProductsRanked
-              filteredListings={filteredListings}
-              selectedPrimaryName={selectedPrimaryName}
-            />
+            <SelectableCard
+              className="h-full"
+              widget={{
+                widgetId: "top-products-ranked",
+                title: selectedPrimaryName ? `${selectedPrimaryName} — Top Products` : "Top Ranked Products",
+                type: "ranked-list",
+                description: "Products ranked by listing count in the current CBU window",
+                dataPoints: filteredListings
+                  .reduce<Record<string, number>>((acc, l) => {
+                    acc[l.secondaryCategory] = (acc[l.secondaryCategory] ?? 0) + 1;
+                    return acc;
+                  }, {})
+                  ? Object.entries(
+                      filteredListings.reduce<Record<string, number>>((acc, l) => {
+                        acc[l.secondaryCategory] = (acc[l.secondaryCategory] ?? 0) + 1;
+                        return acc;
+                      }, {})
+                    )
+                    .sort(([,a],[,b]) => b - a)
+                    .slice(0, 5)
+                    .map(([name, count]) => ({ label: name, value: count }))
+                  : [],
+              }}
+            >
+              <TopProductsRanked
+                filteredListings={filteredListings}
+                selectedPrimaryName={selectedPrimaryName}
+              />
+            </SelectableCard>
           </div>
         </div>
 
         {/* Right column */}
         <div className="col-span-12 flex flex-col gap-6 lg:col-span-6">
-          <ListingTrendChart
-            filteredListings={filteredListings}
-            allCbuKeys={allCbuKeys}
-            selectedPrimaryName={selectedPrimaryName}
-          />
-          <ProductDistribution
-            drillablePieData={data.drillablePieData}
-            categories={data.categories}
-            selectedCategoryId={selectedCategoryId}
-            onCategorySelect={setSelectedCategoryId}
-          />
+          <SelectableCard
+            widget={{
+              widgetId: "top-products-trend",
+              title: selectedPrimaryName ? `${selectedPrimaryName} — Listing Trend` : "Listing Trend",
+              type: "chart",
+              description: "Listing volume trend across CBU windows by category",
+            }}
+          >
+            <ListingTrendChart
+              filteredListings={filteredListings}
+              allCbuKeys={allCbuKeys}
+              selectedPrimaryName={selectedPrimaryName}
+            />
+          </SelectableCard>
+          <SelectableCard
+            widget={{
+              widgetId: "top-products-distribution",
+              title: "Product Distribution",
+              type: "distribution",
+              description: "Sunburst chart showing category and product breakdown",
+            }}
+          >
+            <ProductDistribution
+              drillablePieData={data.drillablePieData}
+              categories={data.categories}
+              selectedCategoryId={selectedCategoryId}
+              onCategorySelect={setSelectedCategoryId}
+            />
+          </SelectableCard>
         </div>
       </div>
     </section>
