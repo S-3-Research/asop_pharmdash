@@ -48,7 +48,7 @@ export function MetricsRow({ filteredListings, selectedPrimaryName }: MetricsRow
             widgetId: `top-products-${item.id}`,
             title: item.label,
             type: "metric-card",
-            description: `Listing count metric for the current CBU window`,
+            description: `Listing count metric for the current rpt. period`,
             dataPoints: [{ label: item.label, value: item.value }],
           }}
         >

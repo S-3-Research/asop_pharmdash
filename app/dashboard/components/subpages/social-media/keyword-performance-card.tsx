@@ -73,7 +73,7 @@ export function KeywordPerformanceCard({ bubbles, platform }: KeywordPerformance
     legend:   { enabled: false },
     accessibility: { enabled: false },
     xAxis: {
-      title: { text: "Raw Count (CBU)", style: { fontSize: "10px", color: "#9ca3af" } },
+      title: { text: "Raw Count (Rpt. Period)", style: { fontSize: "10px", color: "#9ca3af" } },
       gridLineWidth: 1,
       gridLineColor: "#f3f4f6",
       lineColor: "#e5e7eb",

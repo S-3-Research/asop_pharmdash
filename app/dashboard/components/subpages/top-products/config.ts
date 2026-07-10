@@ -2,8 +2,8 @@
 // Single source of truth — imported by trend-chart.tsx, mock-data.ts,
 // and the parent subpage component.
 
-/** Current reporting CBU — update here to reflect across all cards */
-export const CURRENT_PERIOD = "2026-CBU-02";
+/** Current reporting period — update here to reflect across all cards */
+export const CURRENT_PERIOD = "2026-RPT-02";
 
 export const ALL_PRIMARY = ["GLP-1", "Cancer Med", "CNS Med", "Pain Med"] as const;
 
@@ -14,13 +14,13 @@ export const CATEGORY_COLORS: Record<string, string> = {
   "Pain Med": "#f59e0b",
 };
 
-// ── CBU helpers ───────────────────────────────────────────────────────────────
-// CBU format: "YYYY-CBU-NN"  e.g. "2026-CBU-01"
-// Each CBU is a rolling 3-month independent measurement window.
-// 4 CBUs per year: 01, 02, 03, 04.
+// ── Rpt. Period helpers ──────────────────────────────────────────────────────
+// Rpt. Period format: "YYYY-RPT-NN"  e.g. "2026-RPT-01"
+// Each reporting period is a rolling 3-month independent measurement window.
+// 4 per year: 01, 02, 03, 04.
 
-/** Parse "2026-CBU-01" → Date (used for chronological sorting only) */
-export function parseCbuKey(key: string): Date {
+/** Parse "2026-RPT-01" → Date (used for chronological sorting only) */
+export function parseRptPeriodKey(key: string): Date {
   const [yearStr, , numStr] = key.split("-");
   const year = parseInt(yearStr, 10);
   const num  = parseInt(numStr, 10); // 1–4
@@ -28,18 +28,18 @@ export function parseCbuKey(key: string): Date {
   return new Date(year, month, 1);
 }
 
-/** "2026-CBU-01" → "2026 CBU-01" (chart axis label) */
-export function formatCbuLabel(key: string): string {
+/** "2026-RPT-01" → "2026 RPT-01" (chart axis label) */
+export function formatRptPeriodLabel(key: string): string {
   return key.replace("-", " ");
 }
 
-/** Returns the immediately preceding CBU key.
- *  "2026-CBU-02" → "2026-CBU-01"  |  "2026-CBU-01" → "2025-CBU-04" */
-export function prevCbuKey(key: string): string {
+/** Returns the immediately preceding rpt. period key.
+ *  "2026-RPT-02" → "2026-RPT-01"  |  "2026-RPT-01" → "2025-RPT-04" */
+export function prevRptPeriodKey(key: string): string {
   if (!key) return "";
   const [yearStr, , numStr] = key.split("-");
   const year = parseInt(yearStr, 10);
   const num  = parseInt(numStr, 10);
-  if (num === 1) return `${year - 1}-CBU-04`;
-  return `${year}-CBU-${String(num - 1).padStart(2, "0")}`;
+  if (num === 1) return `${year - 1}-RPT-04`;
+  return `${year}-RPT-${String(num - 1).padStart(2, "0")}`;
 }

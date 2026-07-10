@@ -6,7 +6,7 @@ import Highcharts from "highcharts";
 
 import type { Domain } from "../../types";
 import { DashboardCard } from "../../ui/dashboard-card";
-import { buildTotalDomainChart, CURRENT_CBU } from "./config";
+import { buildTotalDomainChart, CURRENT_RPT_PERIOD } from "./config";
 
 const HighchartsReact = dynamic(() => import("highcharts-react-official"), {
   ssr: false,
@@ -19,7 +19,7 @@ interface TotalDomainCardProps {
 
 export function TotalDomainCard({ domains }: TotalDomainCardProps) {
   const { count, pctChange, noPriorData, options } = useMemo(
-    () => buildTotalDomainChart(domains, CURRENT_CBU),
+    () => buildTotalDomainChart(domains, CURRENT_RPT_PERIOD),
     [domains],
   );
 
@@ -39,7 +39,7 @@ export function TotalDomainCard({ domains }: TotalDomainCardProps) {
       className="h-full overflow-hidden"
       note={
         noPriorData ? (
-          <span className="text-[10px] text-slate-400">Prior CBU data unavailable</span>
+          <span className="text-[10px] text-slate-400">Prior Rpt. Period data unavailable</span>
         ) : undefined
       }
     >
@@ -49,7 +49,7 @@ export function TotalDomainCard({ domains }: TotalDomainCardProps) {
           {changeLabel}
         </span>
       </div>
-      <p className="text-xs text-slate-400 mb-2">vs prior CBU</p>
+      <p className="text-xs text-slate-400 mb-2">vs prior rpt. period</p>
       <div className="-mx-4 -mb-4">
         <HighchartsReact highcharts={Highcharts} options={options} />
       </div>

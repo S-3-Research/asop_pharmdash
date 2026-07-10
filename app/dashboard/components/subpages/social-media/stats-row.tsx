@@ -50,7 +50,7 @@ export function StatsRow({ metrics }: StatsRowProps) {
             widgetId: `social-${item.id}`,
             title: item.label,
             type: "metric-card",
-            description: `Social media signal metric for the current CBU window`,
+            description: `Social media signal metric for the current rpt. period`,
             dataPoints: [{ label: item.label, value: item.value }],
           }}
         >

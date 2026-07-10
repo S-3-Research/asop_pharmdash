@@ -6,7 +6,7 @@ import type { CategoryOption, Domain } from "../../types";
 
 const CHART_STYLE = { fontFamily: "var(--font-geist-sans)" };
 
-export const CURRENT_CBU = "2026-CBU-02";
+export const CURRENT_RPT_PERIOD = "2026-RPT-02";
 
 // ── Domain primary-category filter options ────────────────────────────────────
 export const DOMAIN_PRIMARY_CATEGORIES: CategoryOption[] = [
@@ -35,15 +35,15 @@ export interface TotalDomainChartResult {
 
 export function buildTotalDomainChart(
   allDomains: Domain[],
-  currentCbuId: string,
+  currentRptPeriodId: string,
 ): TotalDomainChartResult {
   const grouped: Record<string, number> = {};
   for (const d of allDomains) {
-    grouped[d.cbuId] = (grouped[d.cbuId] ?? 0) + 1;
+    grouped[d.reportingPeriodId] = (grouped[d.reportingPeriodId] ?? 0) + 1;
   }
-  const cbuKeys = Object.keys(grouped).sort();
-  const currentCount = grouped[currentCbuId] ?? 0;
-  const prevKey = cbuKeys[cbuKeys.indexOf(currentCbuId) - 1];
+  const rptPeriodKeys = Object.keys(grouped).sort();
+  const currentCount = grouped[currentRptPeriodId] ?? 0;
+  const prevKey = rptPeriodKeys[rptPeriodKeys.indexOf(currentRptPeriodId) - 1];
   const prevCount = prevKey != null ? (grouped[prevKey] ?? 0) : null;
   const pctChange =
     prevCount !== null && prevCount > 0
@@ -52,12 +52,12 @@ export function buildTotalDomainChart(
 
   const noPriorData = prevKey == null;
 
-  const areaSeries = cbuKeys.map((k) => grouped[k] ?? 0);
-  const liveSeries = cbuKeys.map(
-    (k) => allDomains.filter((d) => d.cbuId === k && d.isLive).length,
+  const areaSeries = rptPeriodKeys.map((k) => grouped[k] ?? 0);
+  const liveSeries = rptPeriodKeys.map(
+    (k) => allDomains.filter((d) => d.reportingPeriodId === k && d.isLive).length,
   );
 
-  // When no prior CBU: prepend ghost baseline (0) and mark segment as dashed+faded
+  // When no prior rpt. period: prepend ghost baseline (0) and mark segment as dashed+faded
   const areaData: Highcharts.SeriesAreaOptions["data"] = noPriorData
     ? [0, currentCount]
     : areaSeries;
