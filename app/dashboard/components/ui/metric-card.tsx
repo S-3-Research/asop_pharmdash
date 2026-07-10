@@ -38,7 +38,7 @@ export function MetricCard({ item }: MetricCardProps) {
               </span>
             ) : (
               <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-white/10 text-white/40">
-                —
+                -%
               </span>
             )}
           </div>

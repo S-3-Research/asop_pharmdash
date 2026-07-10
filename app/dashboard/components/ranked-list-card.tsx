@@ -37,7 +37,7 @@ export function RankedListCard({ title, subtitle, items }: RankedListCardProps) 
                 {directionSymbol[item.direction]} {item.change}
               </div>
             ) : (
-              <div className="text-xs font-medium text-white/25">—</div>
+              <div className="text-xs font-medium text-white/25">-%</div>
             )}
           </li>
         ))}
