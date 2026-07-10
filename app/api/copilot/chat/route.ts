@@ -68,7 +68,7 @@ function buildSystemPrompt(
     "",
     "=== CURRENT PAGE CONTEXT ===",
     `Page: ${ctx.pageTitle} (${ctx.page})`,
-    `CBU Window: ${ctx.cbuWindow}`,
+    `Reporting Period: ${ctx.reportingPeriod}`,
     `Active Filters: ${
       ctx.filters.categories.length > 0
         ? ctx.filters.categories.join(", ")
@@ -184,7 +184,7 @@ export async function POST(req: Request) {
       pageContext ?? {
         page: "top-products",
         pageTitle: "Top Products",
-        cbuWindow: "2026-04-01 ~ 2026-06-30",
+        reportingPeriod: "2026-04-01 ~ 2026-06-30",
         filters: { categories: [] },
         stats: [],
       },

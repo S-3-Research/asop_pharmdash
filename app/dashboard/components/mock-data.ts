@@ -180,14 +180,14 @@ const generateListings = (): Listing[] => {
   const sources: ("online" | "social")[] = ["online", "social"];
 
   let id = 1;
-  // Generate listings across two CBUs (Contract Baseline Units)
-  const cbus = [
-    // { cbuId: "2026-CBU-01", count: 97 },
-    { cbuId: "2026-CBU-02", count: 58 },
+  // Generate listings across two reporting periods
+  const rptPeriods = [
+    // { reportingPeriodId: "2026-RPT-01", count: 97 },
+    { reportingPeriodId: "2026-RPT-02", count: 58 },
   ];
 
-  for (const cbu of cbus) {
-    for (let i = 0; i < cbu.count; i++) {
+  for (const rptPeriod of rptPeriods) {
+    for (let i = 0; i < rptPeriod.count; i++) {
       const primaryCat =
         primaryCategories[Math.floor(seededRandom() * primaryCategories.length)];
       const secondaryCat =
@@ -197,11 +197,11 @@ const generateListings = (): Listing[] => {
 
       listings.push({
         id: `listing-${id}`,
-        detectedAt: new Date(2026, (parseInt(cbu.cbuId.slice(-2), 10) - 1) * 3, Math.floor(seededRandom() * 28) + 1),
+        detectedAt: new Date(2026, (parseInt(rptPeriod.reportingPeriodId.slice(-2), 10) - 1) * 3, Math.floor(seededRandom() * 28) + 1),
         source: sources[Math.floor(seededRandom() * 2)],
         primaryCategory: primaryCat,
         secondaryCategory: secondaryCat,
-        cbuId: cbu.cbuId,
+        reportingPeriodId: rptPeriod.reportingPeriodId,
       });
       id++;
     }
@@ -553,21 +553,21 @@ function generateDomains(): Domain[] {
   const cities = Object.keys(CITY_GEO);
   const domains: Domain[] = [];
   const primaryCategories = Object.keys(SECONDARY_BY_PRIMARY);
-  const cbus = ["2026-CBU-01", "2026-CBU-02"] as const;
+  const rptPeriods = ["2026-RPT-01", "2026-RPT-02"] as const;
 
-  // distribute: 12 in CBU-01, 15 in CBU-02
-  const cbуCounts: Record<string, number> = { "2026-CBU-02": 15 };
+  // distribute: 12 in RPT-01, 15 in RPT-02
+  const rptPeriodCounts: Record<string, number> = { "2026-RPT-02": 15 };
 
   let idx = 1;
-  for (const cbuId of cbus) {
-    for (let i = 0; i < cbуCounts[cbuId]; i++) {
+  for (const rptPeriodId of rptPeriods) {
+    for (let i = 0; i < rptPeriodCounts[rptPeriodId]; i++) {
       const primaryCategory = pick(primaryCategories);
       const secondaryCategory = pick(SECONDARY_BY_PRIMARY[primaryCategory]);
       const registrar = pick(REGISTRARS);
       const city = pick(cities);
-      const cbuNum = parseInt(cbuId.slice(-2), 10);
-      // createDate within the CBU window (3-month window starting at month (cbuNum-1)*3)
-      const monthOffset = (cbuNum - 1) * 3 + Math.floor(domainSeeded() * 3);
+      const rptPeriodNum = parseInt(rptPeriodId.slice(-2), 10);
+      // createDate within the rpt. period window (3-month window starting at month (rptPeriodNum-1)*3)
+      const monthOffset = (rptPeriodNum - 1) * 3 + Math.floor(domainSeeded() * 3);
       const day = 1 + Math.floor(domainSeeded() * 27);
       const createDate = `2026-${String(monthOffset + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
       const createTimestamp = Math.floor(new Date(`${createDate}T00:00:00Z`).getTime() / 1000);
@@ -606,7 +606,7 @@ function generateDomains(): Domain[] {
         associatedBusinessName: domainSeeded() > 0.5 ? `Pharma Co. ${idx}` : null,
         keyword,
         products: { primaryCategory, secondaryCategory },
-        cbuId,
+        reportingPeriodId: rptPeriodId,
       });
       idx++;
     }
@@ -779,9 +779,9 @@ function generateSocialPosts(): SocialMediaPost[] {
 
 export const mockSocialPosts: SocialMediaPost[] = generateSocialPosts();
 
-// ── Keyword raw-count mock (CBU window, per platform) ─────────────────────────
+// ── Keyword raw-count mock (reporting period, per platform) ──────────────────
 // Simulates search-result counts for each keyword on each platform during
-// the current CBU window (2026-04-01 ~ 2026-06-30).
+// the current reporting period (2026-04-01 ~ 2026-06-30).
 // Intentionally larger than signalCount — represents broader search universe.
 const kwRawCountSeeded = (() => {
   let s = 5571;
@@ -814,6 +814,6 @@ function generateKwRawCounts(): Record<string, Record<string, number>> {
   return result;
 }
 
-/** Pre-computed CBU-window search-result counts: keyword → platform → count */
+/** Pre-computed reporting-period search-result counts: keyword → platform → count */
 export const mockKwRawCounts: Record<string, Record<string, number>> = generateKwRawCounts();
 

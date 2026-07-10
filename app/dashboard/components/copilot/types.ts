@@ -1,6 +1,6 @@
 import type { SubPageKey, TrendDirection } from "../types";
 
-export const CBU_WINDOW = "2026-04-01 ~ 2026-06-30";
+export const REPORTING_PERIOD_WINDOW = "2026-04-01 ~ 2026-06-30";
 
 // ── Page Context ──────────────────────────────────────────────────────────────
 
@@ -21,7 +21,7 @@ export interface PageStat {
 export interface PageContext {
   page: SubPageKey;
   pageTitle: string;
-  cbuWindow: string;
+  reportingPeriod: string;
   filters: PageFilters;
   /** Snapshot of visible metrics on the current page */
   stats: PageStat[];

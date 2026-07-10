@@ -16,14 +16,14 @@ import type {
   PendingAction,
   SelectedWidget,
 } from "./types";
-import { CBU_WINDOW } from "./types";
+import { REPORTING_PERIOD_WINDOW } from "./types";
 
 // ── Defaults ──────────────────────────────────────────────────────────────────
 
 const defaultPageContext: PageContext = {
   page: "top-products",
   pageTitle: "Top Products",
-  cbuWindow: CBU_WINDOW,
+  reportingPeriod: REPORTING_PERIOD_WINDOW,
   filters: { categories: [] },
   stats: [],
 };

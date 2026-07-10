@@ -15,7 +15,7 @@ export interface Listing {
   source: ListingSource;
   primaryCategory: string; // e.g., "GLP-1", "Cancer Med", "CNS Med", "Pain Med"
   secondaryCategory: string; // e.g., "Ozempic", "Olaparib"
-  cbuId: string; // e.g., "2026-CBU-01" — Contract Baseline Unit (rolling 3-month window)
+  reportingPeriodId: string; // e.g., "2026-RPT-01" — Reporting Period (rolling 3-month window)
 }
 
 export interface ListingAggregation {
@@ -56,7 +56,7 @@ export interface MetricCardData {
   /** null = no prior period available */
   change: string | null;
   direction: TrendDirection | null;
-  /** Replaces the 'vs prior CBU' footer label when set */
+  /** Replaces the 'vs prior rpt. period' footer label when set */
   changeLabel?: string;
 }
 
@@ -137,7 +137,7 @@ export interface Domain {
   associatedBusinessName: string | null;
   keyword: (string | null)[];
   products: Record<string, unknown>;
-  cbuId: string;               // e.g. "2026-CBU-01"
+  reportingPeriodId: string;               // e.g. "2026-RPT-01"
 }
 
 export interface DomainApiPayload {
@@ -211,9 +211,9 @@ export interface SocialSamplesPayload {
 
 export interface SocialKeywordCountPayload {
   platform: string;
-  /** ISO date range of the CBU window, e.g. "2026-04-01 ~ 2026-06-30" */
-  cbuWindow: string;
-  /** rawCount = search-result count for each keyword in the CBU window */
+  /** ISO date range of the reporting period, e.g. "2026-04-01 ~ 2026-06-30" */
+  reportingPeriod: string;
+  /** rawCount = search-result count for each keyword in the reporting period */
   results: { keyword: string; rawCount: number }[];
 }
 

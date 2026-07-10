@@ -4,8 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { mockKwRawCounts } from "@/app/dashboard/components/mock-data";
 import type { SocialKeywordCountPayload } from "@/app/dashboard/components/types";
 
-// Current CBU window
-const CBU_WINDOW = "2026-04-01 ~ 2026-06-30";
+// Current reporting period
+const REPORTING_PERIOD_WINDOW = "2026-04-01 ~ 2026-06-30";
 
 export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
   const payload: SocialKeywordCountPayload = {
     platform,
-    cbuWindow: CBU_WINDOW,
+    reportingPeriod: REPORTING_PERIOD_WINDOW,
     results,
   };
 
