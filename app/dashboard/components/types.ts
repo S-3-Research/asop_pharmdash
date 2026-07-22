@@ -94,6 +94,13 @@ export type DomainPlatform =
   | "Social"
   | "Manual Insert";
 
+export interface SeoClickHistoryPoint {
+  /** Month label as reported upstream, e.g. "Aug '24" */
+  date: string;
+  organicClicks: number;
+  paidClicks: number;
+}
+
 export interface DomainWhois {
   registrar: string;         // e.g. "GoDaddy", "Namecheap"
   createdDate: string;       // yyyy-mm-dd
@@ -116,8 +123,26 @@ export interface DomainGeoLocation {
 }
 
 export interface DomainPaymentInfo {
-  type: "Credit Card" | "Crypto" | "Bank Transfer";
-  provider: string;          // e.g. "Visa", "BTC", "Wire"
+  /** Raw payment type as reported upstream, e.g. "Credit Card", "Crypto Token",
+   *  "Digital Wallets" — kept as-is (not collapsed into a fixed 3-value set)
+   *  so the payment treemap can render the real two-level type -> option
+   *  hierarchy straight from the schema. */
+  type: string;
+  /** Specific payment option/brand, e.g. "Visa", "Bitcoin" — null when the
+   *  release data didn't report one (never falls back to a raw account
+   *  string, to avoid leaking PII like wallet addresses into charts). */
+  provider: string | null;
+}
+
+export interface DomainSocialProfile {
+  /** Social media platform, e.g. "facebook", "instagram", "reddit" */
+  platform: string;
+  url: string;
+}
+
+export interface DomainCategoryPair {
+  primary: string;
+  secondary: string;
 }
 
 export interface Domain {
@@ -129,10 +154,18 @@ export interface Domain {
   createTimestamp: number;     // 10-digit unix timestamp
   whois: DomainWhois;
   sem: DomainSem;
-  primaryCategory: string;     // e.g. "GLP-1"
-  secondaryCategory: string;   // e.g. "Ozempic"
+  /** Monthly click history (organic/paid) reported upstream via seo_info.history_click_us */
+  seoClickHistory: SeoClickHistoryPoint[];
+  primaryCategory: string;     // representative value (first product) — e.g. "GLP-1"
+  secondaryCategory: string;   // representative value (first product) — e.g. "Ozempic"
+  /** Full set of primary/secondary category pairs across all of this domain's products/listings */
+  categories: DomainCategoryPair[];
   domainType: DomainType;
-  paymentInfo: DomainPaymentInfo;
+  paymentInfo: DomainPaymentInfo[];
+  /** Social media presence for this domain, per whatever the release
+   *  reports in social_media_profile_info — distinct from `platforms`,
+   *  which is the search-engine platform the domain was discovered on. */
+  socialProfiles: DomainSocialProfile[];
   geoLocation: DomainGeoLocation;
   associatedBusinessName: string | null;
   keyword: (string | null)[];
@@ -140,8 +173,15 @@ export interface Domain {
   reportingPeriodId: string;               // e.g. "2026-RPT-01"
 }
 
+/** Domain enriched with a per-filter category-intersection count, used to
+ *  drive consistent "has any selected category" counting/weighting across
+ *  all Domain Insights cards (see domain-insights-subpage.tsx). */
+export type DomainWithMatch = Domain & { matchCount: number };
+
 export interface DomainApiPayload {
   domains: Domain[];
+  /** Dynamically derived from the underlying release data's product categories */
+  categoryOptions?: CategoryOption[];
 }
 
 // ── Social Media types ────────────────────────────────────────────────────────

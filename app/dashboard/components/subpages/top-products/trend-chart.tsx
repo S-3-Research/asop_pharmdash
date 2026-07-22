@@ -3,15 +3,11 @@
 import { useMemo } from "react";
 import type Highcharts from "highcharts";
 
-import type { ApiListing } from "../../types";
+import type { ApiListing, CategoryOption } from "../../types";
 import { HighchartsCard } from "../../charts/highcharts-card";
-import {
-  ALL_PRIMARY,
-  CATEGORY_COLORS,
-  CURRENT_PERIOD,
-  formatRptPeriodLabel,
-  prevRptPeriodKey,
-} from "./config";
+import { formatRptPeriodLabel, prevRptPeriodKey } from "./config";
+
+const FALLBACK_COLOR = "#94a3b8";
 
 const CHART_STYLE = { fontFamily: "var(--font-geist-sans)" };
 
@@ -25,12 +21,19 @@ interface ListingTrendChartProps {
   /** All distinct rpt. period keys from the full dataset, sorted chronologically */
   allRptPeriodKeys: string[];
   selectedPrimaryName: string | null;
+  /** Real, dynamically-derived category list (excludes the "all" pseudo-option) */
+  categories: CategoryOption[];
+  /** Label for the most recent rpt. period present in the dataset — derived
+   *  from the release's own name/reportPeriod, not hardcoded. */
+  currentPeriodLabel: string;
 }
 
 export function ListingTrendChart({
   filteredListings,
   allRptPeriodKeys,
   selectedPrimaryName,
+  categories,
+  currentPeriodLabel,
 }: ListingTrendChartProps) {
   // Needed outside memo to conditionally render the prior-data note in JSX
   const isSingleRptPeriod = allRptPeriodKeys.length === 1;
@@ -89,10 +92,12 @@ export function ListingTrendChart({
       return { type: "line", name, color, data: counts };
     }
 
+    const colorByName = new Map(categories.map((c) => [c.name, c.color ?? FALLBACK_COLOR]));
+
     const series: Highcharts.SeriesLineOptions[] = selectedPrimaryName
       ? // Specific category → one line per secondary product
         [...new Set(filteredListings.map((l) => l.secondaryCategory))].map((prod) => {
-          const color = CATEGORY_COLORS[selectedPrimaryName];
+          const color = colorByName.get(selectedPrimaryName) ?? FALLBACK_COLOR;
           const counts = validKeys.map(
             (q) =>
               filteredListings.filter(
@@ -101,16 +106,16 @@ export function ListingTrendChart({
           );
           return makeSeries(prod, color, counts);
         })
-      : // All categories → one line per primary
-        ALL_PRIMARY.map((cat) => {
-          const color = CATEGORY_COLORS[cat];
+      : // All categories → one line per primary (dynamically derived from data)
+        categories.map((cat) => {
+          const color = cat.color ?? FALLBACK_COLOR;
           const counts = validKeys.map(
             (q) =>
               filteredListings.filter(
-                (l) => l.reportingPeriodId === q && l.primaryCategory === cat,
+                (l) => l.reportingPeriodId === q && l.primaryCategory === cat.name,
               ).length,
           );
-          return makeSeries(cat, color, counts);
+          return makeSeries(cat.name, color, counts);
         });
 
     return {
@@ -146,7 +151,7 @@ export function ListingTrendChart({
       tooltip: { shared: true },
       series,
     };
-  }, [filteredListings, allRptPeriodKeys, selectedPrimaryName]);
+  }, [filteredListings, allRptPeriodKeys, selectedPrimaryName, categories]);
 
   return (
     <HighchartsCard
@@ -155,7 +160,7 @@ export function ListingTrendChart({
         title: selectedPrimaryName
           ? `${selectedPrimaryName} — Rpt. Period Trend`
           : "Listing Trend by Category",
-        subtitle: `rpt. period listing count · ${CURRENT_PERIOD}`,
+        subtitle: `rpt. period listing count · ${currentPeriodLabel}`,
         options,
       }}
       note={

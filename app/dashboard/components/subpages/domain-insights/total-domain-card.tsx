@@ -6,7 +6,7 @@ import Highcharts from "highcharts";
 
 import type { Domain } from "../../types";
 import { DashboardCard } from "../../ui/dashboard-card";
-import { buildTotalDomainChart, CURRENT_RPT_PERIOD } from "./config";
+import { buildTotalDomainChart } from "./config";
 
 const HighchartsReact = dynamic(() => import("highcharts-react-official"), {
   ssr: false,
@@ -18,9 +18,18 @@ interface TotalDomainCardProps {
 }
 
 export function TotalDomainCard({ domains }: TotalDomainCardProps) {
+  // Current rpt. period = the latest one actually present in the data —
+  // derived from the release's own reportingPeriodId rather than a
+  // hardcoded constant, so this automatically tracks whatever release is
+  // published to the active channel.
+  const currentRptPeriod = useMemo(() => {
+    const keys = [...new Set(domains.map((d) => d.reportingPeriodId))].sort();
+    return keys[keys.length - 1] ?? "";
+  }, [domains]);
+
   const { count, pctChange, noPriorData, options } = useMemo(
-    () => buildTotalDomainChart(domains, CURRENT_RPT_PERIOD),
-    [domains],
+    () => buildTotalDomainChart(domains, currentRptPeriod),
+    [domains, currentRptPeriod],
   );
 
   const isUp = pctChange !== null && pctChange >= 0;

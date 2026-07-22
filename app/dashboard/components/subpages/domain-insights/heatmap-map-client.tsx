@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import mapboxgl from "mapbox-gl";
-import type { Domain } from "../../types";
+import type { Domain, DomainWithMatch } from "../../types";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
@@ -13,19 +13,31 @@ const CAT_COLORS: Record<string, string> = {
   "Pain Med":   "#f59e0b",
 };
 
+const FALLBACK_PALETTE = ["#ef4444", "#0ea5e9", "#84cc16", "#ec4899", "#14b8a6", "#8b5cf6"];
+
+function categoryColor(label: string): string {
+  if (CAT_COLORS[label]) return CAT_COLORS[label];
+  let hash = 0;
+  for (let i = 0; i < label.length; i++) hash = (hash * 31 + label.charCodeAt(i)) >>> 0;
+  return FALLBACK_PALETTE[hash % FALLBACK_PALETTE.length];
+}
+
 interface TooltipState {
   domain: string;
   isLive: boolean;
   primaryCategory: string;
   secondaryCategory: string;
   registrar: string;
-  paymentType: string;
+  /** Formatted "type · provider" string, or a "no data" placeholder — never
+   *  a fabricated default like "Credit Card" when the release reported no
+   *  payment_info at all. */
+  paymentLabel: string;
   city: string;
   x: number;
   y: number;
 }
 
-export function HeatmapMapClient({ domains }: { domains: Domain[] }) {
+export function HeatmapMapClient({ domains }: { domains: (Domain | DomainWithMatch)[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef       = useRef<mapboxgl.Map | null>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
@@ -35,23 +47,39 @@ export function HeatmapMapClient({ domains }: { domains: Domain[] }) {
   const geojson = useMemo(
     () => ({
       type: "FeatureCollection" as const,
-      features: domains.map((d) => ({
-        type: "Feature" as const,
-        geometry: {
-          type: "Point" as const,
-          coordinates: [d.geoLocation.lng, d.geoLocation.lat] as [number, number],
-        },
-        properties: {
-          domain:            d.domain,
-          isLive:            d.isLive,
-          primaryCategory:   d.primaryCategory,
-          secondaryCategory: d.secondaryCategory,
-          registrar:         d.whois.registrar,
-          paymentType:       d.paymentInfo.type,
-          city:              d.geoLocation.city,
-          color:             CAT_COLORS[d.primaryCategory] ?? "#94a3b8",
-        },
-      })),
+      // Skip domains with no resolvable geo coordinates — avoids plotting a
+      // cluster of unrelated domains at (0,0) in the Gulf of Guinea.
+      features: domains
+        .filter((d) => d.geoLocation.lat !== 0 || d.geoLocation.lng !== 0)
+        .map((d) => {
+          const payment = d.paymentInfo[0];
+          const paymentLabel = !payment
+            ? "No payment data"
+            : payment.provider
+              ? `${payment.type} \u00b7 ${payment.provider}`
+              : payment.type;
+          return {
+            type: "Feature" as const,
+            geometry: {
+              type: "Point" as const,
+              coordinates: [d.geoLocation.lng, d.geoLocation.lat] as [number, number],
+            },
+            properties: {
+              domain:            d.domain,
+              isLive:            d.isLive,
+              primaryCategory:   d.primaryCategory,
+              secondaryCategory: d.secondaryCategory,
+              registrar:         d.whois.registrar,
+              paymentLabel,
+              city:              d.geoLocation.city,
+              color:             categoryColor(d.primaryCategory),
+              // Number of currently-selected categories this domain matches —
+              // drives heatmap density weight / circle size. Defaults to 1 when
+              // the caller hasn't computed a matchCount (e.g. unfiltered Domain[]).
+              weight:            "matchCount" in d ? Math.max(1, d.matchCount) : 1,
+            },
+          };
+        }),
     }),
     [domains],
   );
@@ -75,6 +103,13 @@ export function HeatmapMapClient({ domains }: { domains: Domain[] }) {
     });
     mapRef.current = map;
 
+    // ── Map controls: zoom in/out + fullscreen ────────────────────────────
+    map.addControl(
+      new mapboxgl.NavigationControl({ showCompass: false }),
+      "top-right",
+    );
+    map.addControl(new mapboxgl.FullscreenControl(), "top-right");
+
     // Observe container size changes — fires when the flex layout resolves
     // a non-zero height, even if the container was 0×0 at map creation time.
     const ro = new ResizeObserver(() => map.resize());
@@ -93,7 +128,7 @@ export function HeatmapMapClient({ domains }: { domains: Domain[] }) {
         source:  "domains",
         maxzoom: 8,
         paint: {
-          "heatmap-weight":    1,
+          "heatmap-weight":    ["get", "weight"],
           "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 0, 1, 8, 3],
           "heatmap-color": [
             "interpolate", ["linear"], ["heatmap-density"],
@@ -115,7 +150,16 @@ export function HeatmapMapClient({ domains }: { domains: Domain[] }) {
         type:   "circle",
         source: "domains",
         paint: {
-          "circle-radius":         ["interpolate", ["linear"], ["zoom"], 2, 5, 9, 14],
+          // Mapbox GL requires "zoom" to only appear as the input of a
+          // top-level step/interpolate expression — it cannot be nested
+          // inside another expression's output. So the outer interpolate
+          // must key on zoom, with the weight-based radius nested as each
+          // zoom stop's *output* value (that nesting direction is fine).
+          "circle-radius": [
+            "interpolate", ["linear"], ["zoom"],
+            2, ["interpolate", ["linear"], ["get", "weight"], 1, 5, 10, 10],
+            9, ["interpolate", ["linear"], ["get", "weight"], 1, 14, 10, 22],
+          ],
           "circle-color":          ["get", "color"],
           "circle-opacity":        0.88,
           "circle-stroke-width":   1.5,
@@ -137,7 +181,7 @@ export function HeatmapMapClient({ domains }: { domains: Domain[] }) {
           primaryCategory:   String(props.primaryCategory ?? ""),
           secondaryCategory: String(props.secondaryCategory ?? ""),
           registrar:         String(props.registrar ?? ""),
-          paymentType:       String(props.paymentType ?? ""),
+          paymentLabel:      String(props.paymentLabel ?? "No payment data"),
           city:              String(props.city ?? ""),
           x: e.point.x,
           y: e.point.y,
@@ -214,7 +258,7 @@ export function HeatmapMapClient({ domains }: { domains: Domain[] }) {
               <dt className="text-slate-400">Category</dt>
               <dd
                 className="font-medium truncate"
-                style={{ color: CAT_COLORS[tooltip.primaryCategory] ?? "#64748b" }}
+                style={{ color: categoryColor(tooltip.primaryCategory) }}
               >
                 {tooltip.primaryCategory}
               </dd>
@@ -223,7 +267,7 @@ export function HeatmapMapClient({ domains }: { domains: Domain[] }) {
               <dt className="text-slate-400">Registrar</dt>
               <dd className="text-slate-700 truncate">{tooltip.registrar}</dd>
               <dt className="text-slate-400">Payment</dt>
-              <dd className="text-slate-700 truncate">{tooltip.paymentType}</dd>
+              <dd className="text-slate-700 truncate">{tooltip.paymentLabel}</dd>
             </dl>
           </div>
         </div>

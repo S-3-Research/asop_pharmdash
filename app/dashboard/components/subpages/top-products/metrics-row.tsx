@@ -5,14 +5,15 @@ import { useMemo } from "react";
 import type { ApiListing, MetricCardData } from "../../types";
 import { MetricCard } from "../../ui/metric-card";
 import { SelectableCard } from "../../ui/selectable-card";
-import { CURRENT_PERIOD } from "./config";
 
 interface MetricsRowProps {
   filteredListings: ApiListing[];
   selectedPrimaryName: string | null;
+  /** Label for the most recent rpt. period present in the dataset */
+  currentPeriodLabel: string;
 }
 
-export function MetricsRow({ filteredListings, selectedPrimaryName }: MetricsRowProps) {
+export function MetricsRow({ filteredListings, selectedPrimaryName, currentPeriodLabel }: MetricsRowProps) {
   const metrics = useMemo((): MetricCardData[] => {
     const total = filteredListings.length;
     const online = filteredListings.filter((l) => l.source === "online").length;
@@ -23,7 +24,7 @@ export function MetricsRow({ filteredListings, selectedPrimaryName }: MetricsRow
         id: "total-listings",
         label: selectedPrimaryName
           ? `${selectedPrimaryName} Listings`
-          : `${CURRENT_PERIOD} Total Listings`,
+          : `${currentPeriodLabel} Total Listings`,
         value: total.toLocaleString(),
         change: null,
         direction: null,
@@ -36,7 +37,7 @@ export function MetricsRow({ filteredListings, selectedPrimaryName }: MetricsRow
         direction: null,
       },
     ];
-  }, [filteredListings, selectedPrimaryName]);
+  }, [filteredListings, selectedPrimaryName, currentPeriodLabel]);
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

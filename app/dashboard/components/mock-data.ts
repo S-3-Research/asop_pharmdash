@@ -523,6 +523,25 @@ const DOMAIN_TYPES: DomainType[] = [
   "rogue-pharmacy", "social-media", "counterfeit", "unregistered",
 ];
 
+const SOCIAL_PROFILE_PLATFORMS = ["facebook", "instagram", "reddit", "telegram", "whatsapp"] as const;
+
+/** Generates a trailing 6-month click history ending at the current real
+ *  month, mirroring the "Mon 'YY" label format used by seo_info.history_click_us. */
+function buildMockClickHistory(): { date: string; organicClicks: number; paidClicks: number }[] {
+  const now = new Date();
+  const points: { date: string; organicClicks: number; paidClicks: number }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const label = `${d.toLocaleString("en-US", { month: "short" })} '${String(d.getFullYear()).slice(-2)}`;
+    points.push({
+      date: label,
+      organicClicks: Math.round(domainSeeded() * 80),
+      paidClicks: Math.round(domainSeeded() * 20),
+    });
+  }
+  return points;
+}
+
 const PLATFORMS: DomainPlatform[] = [
   "Google", "Bing", "DuckDuckGo", "Social", "Manual Insert",
 ];
@@ -598,10 +617,15 @@ function generateDomains(): Domain[] {
           adSpend:  domainSeeded() > 0.5 ? Math.round(domainSeeded() * 5000) : undefined,
           impressions: domainSeeded() > 0.5 ? Math.round(domainSeeded() * 50000) : undefined,
         },
+        seoClickHistory: buildMockClickHistory(),
         primaryCategory,
         secondaryCategory,
+        categories: [{ primary: primaryCategory, secondary: secondaryCategory }],
         domainType: pick(DOMAIN_TYPES),
-        paymentInfo: pick(PAYMENT_COMBOS),
+        paymentInfo: [pick(PAYMENT_COMBOS)],
+        socialProfiles: domainSeeded() > 0.6
+          ? [{ platform: pick(SOCIAL_PROFILE_PLATFORMS), url: `https://example.com/${idx}` }]
+          : [],
         geoLocation: CITY_GEO[city],
         associatedBusinessName: domainSeeded() > 0.5 ? `Pharma Co. ${idx}` : null,
         keyword,

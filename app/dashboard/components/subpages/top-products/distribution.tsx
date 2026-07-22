@@ -7,6 +7,7 @@ interface ProductDistributionProps {
   categories: CategoryOption[];
   selectedCategoryId: string;
   onCategorySelect: (id: string) => void;
+  periodLabel: string;
 }
 
 export function ProductDistribution({
@@ -14,6 +15,7 @@ export function ProductDistribution({
   categories,
   selectedCategoryId,
   onCategorySelect,
+  periodLabel,
 }: ProductDistributionProps) {
   return (
     <DashboardCard
@@ -39,6 +41,7 @@ export function ProductDistribution({
         categories={categories}
         selectedCategoryId={selectedCategoryId}
         onCategorySelect={onCategorySelect}
+        rootLabel={periodLabel}
       />
     </DashboardCard>
   );

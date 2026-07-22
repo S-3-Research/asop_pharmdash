@@ -12,7 +12,7 @@ import { MetricsRow } from "./top-products/metrics-row";
 import { TopProductsRanked } from "./top-products/ranked";
 import { ListingTrendChart } from "./top-products/trend-chart";
 import { ProductDistribution } from "./top-products/distribution";
-import { parseRptPeriodKey } from "./top-products/config";
+import { formatRptPeriodLabel, parseRptPeriodKey } from "./top-products/config";
 
 // ── API response shape ────────────────────────────────────────────────────────
 interface TopProductsPayload {
@@ -58,6 +58,21 @@ export function TopProductsSubpage() {
     const keys = [...new Set((data?.listings ?? []).map((l) => l.reportingPeriodId))];
     return keys.sort((a, b) => parseRptPeriodKey(a).getTime() - parseRptPeriodKey(b).getTime());
   }, [data?.listings]);
+
+  // The most recent rpt. period actually present in the data — derived from
+  // the release name itself rather than a hardcoded constant, so card labels
+  // automatically track whatever release is published.
+  const currentPeriodLabel = useMemo(() => {
+    const latest = allRptPeriodKeys[allRptPeriodKeys.length - 1];
+    return latest ? formatRptPeriodLabel(latest) : "";
+  }, [allRptPeriodKeys]);
+
+  // Real, dynamically-derived category list (excludes the "all" pseudo-option
+  // used only by the dropdown filter).
+  const realCategories = useMemo(
+    () => (data?.categories ?? []).filter((c) => c.id !== "all"),
+    [data?.categories],
+  );
 
   // ── Register filter handler for Copilot ──────────────────────────────────
   const applyFilter = useCallback(
@@ -143,6 +158,7 @@ export function TopProductsSubpage() {
           <MetricsRow
             filteredListings={filteredListings}
             selectedPrimaryName={selectedPrimaryName}
+            currentPeriodLabel={currentPeriodLabel}
           />
           <div className="flex-1 grid">
             <SelectableCard
@@ -172,6 +188,7 @@ export function TopProductsSubpage() {
               <TopProductsRanked
                 filteredListings={filteredListings}
                 selectedPrimaryName={selectedPrimaryName}
+                currentPeriodLabel={currentPeriodLabel}
               />
             </SelectableCard>
           </div>
@@ -191,6 +208,8 @@ export function TopProductsSubpage() {
               filteredListings={filteredListings}
               allRptPeriodKeys={allRptPeriodKeys}
               selectedPrimaryName={selectedPrimaryName}
+              categories={realCategories}
+              currentPeriodLabel={currentPeriodLabel}
             />
           </SelectableCard>
           <SelectableCard
@@ -206,6 +225,7 @@ export function TopProductsSubpage() {
               categories={data.categories}
               selectedCategoryId={selectedCategoryId}
               onCategorySelect={setSelectedCategoryId}
+              periodLabel={currentPeriodLabel}
             />
           </SelectableCard>
         </div>

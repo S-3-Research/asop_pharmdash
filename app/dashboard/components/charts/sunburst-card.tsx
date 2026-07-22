@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import dynamic from "next/dynamic";
 import Highcharts from "highcharts";
 import type { PieChartNodeData, CategoryOption } from "../types";
-import { CURRENT_PERIOD } from "../subpages/top-products/config";
 
 const HighchartsReact = dynamic(() => import("highcharts-react-official"), {
   ssr: false,
@@ -51,6 +50,9 @@ export interface SunburstCardProps {
   selectedCategoryId: string;
   /** Called when user clicks a segment; receives CategoryOption.id or "all" */
   onCategorySelect: (id: string) => void;
+  /** Label shown at the sunburst's root/center node — typically the current
+   *  reporting period, derived from the release name rather than hardcoded. */
+  rootLabel?: string;
 }
 
 export function SunburstCard({
@@ -58,6 +60,7 @@ export function SunburstCard({
   categories,
   selectedCategoryId,
   onCategorySelect,
+  rootLabel = "All Products",
 }: SunburstCardProps) {
   // primaryName → CategoryOption.id  (e.g. "CNS Med" → "cns-med")
   const nameToOptionId = useMemo(() => {
@@ -91,7 +94,7 @@ export function SunburstCard({
     // Always build the complete 3-layer tree.
     // Only rootId changes on category selection — Highcharts animates the zoom.
     const points: FlatPoint[] = [
-      { id: "root", parent: "", name: CURRENT_PERIOD, color: "#f1f5f9" },
+      { id: "root", parent: "", name: rootLabel, color: "#f1f5f9" },
     ];
     for (const primary of _data) {
       const base = primary.color ?? "#94a3b8";
@@ -213,6 +216,7 @@ export function SunburstCard({
     selectedCategoryId,
     nameToOptionId,
     onCategorySelect,
+    rootLabel,
   ]);
 
   // No key needed: chart.update() handles rootId changes in-place with animation.

@@ -20,15 +20,7 @@ interface DomainStatusCardProps {
 export function DomainStatusCard({ domains }: DomainStatusCardProps) {
   const options = useMemo(() => buildDomainStatusOptions(domains), [domains]);
   return (
-    <DashboardCard
-      title="Status"
-      className="h-full overflow-hidden"
-      rightSlot={
-        <span className="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 rounded font-semibold">
-          Status
-        </span>
-      }
-    >
+    <DashboardCard title="Status" className="h-full overflow-hidden">
       <HighchartsReact highcharts={Highcharts} options={options} />
     </DashboardCard>
   );

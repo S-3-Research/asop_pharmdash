@@ -4,16 +4,18 @@ import { useMemo } from "react";
 
 import type { ApiListing, RankedItem } from "../../types";
 import { RankedListCard } from "../../ranked-list-card";
-import { CURRENT_PERIOD } from "./config";
 
 interface TopProductsRankedProps {
   filteredListings: ApiListing[];
   selectedPrimaryName: string | null;
+  /** Label for the most recent rpt. period present in the dataset */
+  currentPeriodLabel: string;
 }
 
 export function TopProductsRanked({
   filteredListings,
   selectedPrimaryName,
+  currentPeriodLabel,
 }: TopProductsRankedProps) {
   const rankedItems = useMemo((): RankedItem[] => {
     const counts: Record<string, number> = {};
@@ -39,7 +41,7 @@ export function TopProductsRanked({
           ? `${selectedPrimaryName} — Top Products`
           : "Top Ranked Products"
       }
-      subtitle={`Listings by product · ${CURRENT_PERIOD}`}
+      subtitle={`Listings by product · ${currentPeriodLabel}`}
       items={rankedItems}
     />
   );

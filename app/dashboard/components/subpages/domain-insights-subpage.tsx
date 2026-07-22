@@ -3,11 +3,11 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 
 import useSWR from "swr";
-import type { DomainApiPayload } from "../types";
+import type { DomainApiPayload, DomainWithMatch } from "../types";
 import { MultiCategoryDropdown } from "../ui/multi-category-dropdown";
 import { useCopilot } from "../copilot/copilot-context";
 import type { FilterAction } from "../copilot/types";
-import { DOMAIN_PRIMARY_CATEGORIES } from "./domain-insights/config";
+import { buildDomainCategoryOptions } from "./domain-insights/config";
 import { TotalDomainCard }    from "./domain-insights/total-domain-card";
 import { DomainStatusCard }   from "./domain-insights/domain-status-card";
 import { SocialMediaCard }    from "./domain-insights/social-media-card";
@@ -32,14 +32,32 @@ export function DomainInsightsSubpage() {
     { revalidateOnFocus: false },
   );
 
-  const filteredDomains = useMemo(
-    () =>
-      selectedCategories.length === 0
-        ? (data?.domains ?? [])
-        : (data?.domains ?? []).filter((d) =>
-            selectedCategories.includes(d.primaryCategory),
-          ),
-    [data?.domains, selectedCategories],
+  const filteredDomains = useMemo((): DomainWithMatch[] => {
+    const domains = data?.domains ?? [];
+    // Every card on this subpage shares the same rule: a domain counts if
+    // ANY of its categories intersects the selected filter set (or always,
+    // when no filter is selected). `matchCount` is exposed so cards that
+    // want a weight (e.g. the geo heatmap) can use it instead of a plain
+    // boolean include/exclude.
+    if (selectedCategories.length === 0) {
+      return domains.map((d) => ({ ...d, matchCount: d.categories.length || 1 }));
+    }
+    return domains
+      .map((d) => ({
+        ...d,
+        matchCount: d.categories.filter((c) =>
+          selectedCategories.includes(c.primary),
+        ).length,
+      }))
+      .filter((d) => d.matchCount > 0);
+  }, [data?.domains, selectedCategories]);
+
+  // Dynamically derived from the full (unfiltered) dataset so the dropdown
+  // always offers every category present in the current release, not a
+  // hardcoded 4-value list.
+  const categoryOptions = useMemo(
+    () => data?.categoryOptions ?? buildDomainCategoryOptions(data?.domains ?? []),
+    [data?.categoryOptions, data?.domains],
   );
 
   function handleToggle(id: string) {
@@ -88,7 +106,7 @@ export function DomainInsightsSubpage() {
         </div>
         <div className="w-full sm:w-auto min-w-[200px]">
           <MultiCategoryDropdown
-            categories={DOMAIN_PRIMARY_CATEGORIES}
+            categories={categoryOptions}
             selectedIds={selectedCategories}
             onToggle={handleToggle}
             onClear={() => setSelectedCategories([])}

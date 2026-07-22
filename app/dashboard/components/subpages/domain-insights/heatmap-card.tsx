@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { DashboardCard } from "../../ui/dashboard-card";
-import type { Domain } from "../../types";
+import type { Domain, DomainWithMatch } from "../../types";
 
 // Load the mapbox component client-side only — avoids SSR issues and
 // eliminates the async-import-in-useEffect race condition in Strict Mode.
@@ -17,7 +17,7 @@ const HeatmapMapClient = dynamic(
 );
 
 interface HeatmapCardProps {
-  domains: Domain[];
+  domains: (Domain | DomainWithMatch)[];
 }
 
 export function HeatmapCard({ domains }: HeatmapCardProps) {
