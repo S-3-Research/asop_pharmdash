@@ -2,9 +2,6 @@
 // Single source of truth — imported by trend-chart.tsx, mock-data.ts,
 // and the parent subpage component.
 
-/** Current reporting period — update here to reflect across all cards */
-export const CURRENT_PERIOD = "2026-RPT-02";
-
 export const ALL_PRIMARY = ["GLP-1", "Cancer Med", "CNS Med", "Pain Med"] as const;
 
 export const CATEGORY_COLORS: Record<string, string> = {

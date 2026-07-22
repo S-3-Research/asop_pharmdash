@@ -5,6 +5,7 @@ import Highcharts from "highcharts";
 
 import { useMemo } from "react";
 import { DashboardCard } from "../../ui/dashboard-card";
+import { useWidgetData } from "../../copilot/copilot-context";
 import { buildRegistrarSunburstPoints } from "./config";
 import type { Domain } from "../../types";
 
@@ -31,6 +32,25 @@ interface RegistrarSunburstProps {
 }
 
 export function RegistrarSunburst({ domains }: RegistrarSunburstProps) {
+  const registrarCounts = useMemo(() => {
+    const byRegistrar = new Map<string, Set<string>>();
+    for (const d of domains) {
+      const r = d.whois.registrar.trim() || "Unknown";
+      if (!byRegistrar.has(r)) byRegistrar.set(r, new Set());
+      byRegistrar.get(r)!.add(d.domain);
+    }
+    return [...byRegistrar.entries()]
+      .map(([label, set]) => ({ label, value: set.size }))
+      .sort((a, b) => (b.value as number) - (a.value as number));
+  }, [domains]);
+  useWidgetData(
+    "domain-registrar",
+    registrarCounts,
+    "Sunburst chart of the registrars used by the rogue domains; each value is the number of unique domains registered with that registrar. " +
+      "Data source: WHOIS registrar field of each domain record in the published data release (deduplicated by domain name). " +
+      "Counts reflect the page's current category filter.",
+  );
+
   const options = useMemo<Highcharts.Options>(
     () => ({
       chart: {

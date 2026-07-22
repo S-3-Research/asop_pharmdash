@@ -6,6 +6,7 @@ import Highcharts from "highcharts";
 
 import type { Domain } from "../../types";
 import { DashboardCard } from "../../ui/dashboard-card";
+import { useWidgetData } from "../../copilot/copilot-context";
 import { buildTotalDomainChart } from "./config";
 
 const HighchartsReact = dynamic(() => import("highcharts-react-official"), {
@@ -30,6 +31,21 @@ export function TotalDomainCard({ domains }: TotalDomainCardProps) {
   const { count, pctChange, noPriorData, options } = useMemo(
     () => buildTotalDomainChart(domains, currentRptPeriod),
     [domains, currentRptPeriod],
+  );
+
+  useWidgetData(
+    "domain-total",
+    [
+      { label: "Total Domains (current period)", value: count },
+      { label: "Live", value: domains.filter((d) => d.isLive).length },
+      {
+        label: "Change vs prior period",
+        value: pctChange !== null ? `${pctChange}%` : "n/a",
+      },
+    ],
+    "Shows the total number of rogue pharmacy domains detected in the current reporting period, with a mini trend chart across periods. " +
+      "Data source: the published data release's domain records, counted by reportingPeriodId after applying the page's category filter. " +
+      "The % change compares the current period count against the immediately prior period; 'n/a' means no prior-period data exists in this release.",
   );
 
   const isUp = pctChange !== null && pctChange >= 0;

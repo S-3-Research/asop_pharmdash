@@ -10,7 +10,11 @@ import {
 import { createOpenAI } from "@ai-sdk/openai";
 import { z } from "zod";
 
-import type { PageContext, SelectedWidget } from "@/app/dashboard/components/copilot/types";
+import type {
+  PageContext,
+  SelectedWidget,
+  WidgetSnapshot,
+} from "@/app/dashboard/components/copilot/types";
 
 // ── Proxy support ─────────────────────────────────────────────────────────────
 // Node.js does NOT automatically use the system HTTP proxy set by a VPN in
@@ -43,6 +47,7 @@ const openaiClient = createOpenAI({
 function buildSystemPrompt(
   ctx: PageContext,
   widget: SelectedWidget | null,
+  widgetsSnapshot?: WidgetSnapshot[],
 ): string {
   const lines: string[] = [
     "You are a dashboard copilot for a pharmaceutical surveillance platform.",
@@ -68,7 +73,13 @@ function buildSystemPrompt(
     "",
     "=== CURRENT PAGE CONTEXT ===",
     `Page: ${ctx.pageTitle} (${ctx.page})`,
-    `Reporting Period: ${ctx.reportingPeriod}`,
+    `Reporting Period: ${
+      ctx.reportingPeriod === "mock-data"
+        ? "mock-data (no data release published — the dashboard is showing built-in mock data)"
+        : ctx.reportingPeriod
+          ? `${ctx.reportingPeriod} (format: <year>-RPT-<n>, the n-th reporting period of that year; a rolling 3-month window. Refer to periods by this identifier only — never by concrete calendar dates.)`
+          : "unknown (data not loaded)"
+    }`,
     `Active Filters: ${
       ctx.filters.categories.length > 0
         ? ctx.filters.categories.join(", ")
@@ -94,9 +105,30 @@ function buildSystemPrompt(
     if (widget.description) {
       lines.push(`Description: ${widget.description}`);
     }
+    if (widget.dataNote) {
+      lines.push(
+        "Card Data Notes (what this card shows and where its data comes from):",
+        widget.dataNote,
+      );
+    }
     if (widget.dataPoints && widget.dataPoints.length > 0) {
       lines.push("Data Points:");
       for (const dp of widget.dataPoints) {
+        lines.push(`  - ${dp.label}: ${dp.value}`);
+      }
+    }
+  }
+
+  if (widgetsSnapshot && widgetsSnapshot.length > 0) {
+    lines.push(
+      "",
+      "=== ALL VISIBLE CARDS (live data snapshot) ===",
+      "The user asked a page-level question; below is the live data of every card currently on screen.",
+    );
+    for (const w of widgetsSnapshot) {
+      lines.push("", `--- Card: ${w.widgetId} ---`);
+      if (w.prompt) lines.push(w.prompt);
+      for (const dp of w.dataPoints) {
         lines.push(`  - ${dp.label}: ${dp.value}`);
       }
     }
@@ -120,12 +152,21 @@ export async function POST(req: Request) {
     id?: string;
     pageContext?: PageContext;
     selectedWidget?: SelectedWidget | null;
+    widgetsSnapshot?: WidgetSnapshot[];
   };
 
-  const { messages, id: sessionId, pageContext, selectedWidget } = body;
+  const { messages, id: sessionId, pageContext, selectedWidget, widgetsSnapshot } = body;
 
   console.log(
     `[copilot] session=${sessionId} page=${pageContext?.page} msgs=${messages.length}`,
+  );
+  console.log(
+    "[copilot:server] received pageContext:",
+    JSON.stringify(pageContext, null, 2),
+  );
+  console.log(
+    "[copilot:server] received selectedWidget:",
+    JSON.stringify(selectedWidget, null, 2),
   );
 
   // ── Tool definitions ──────────────────────────────────────────────────────
@@ -178,18 +219,23 @@ export async function POST(req: Request) {
 
   // ── Stream ────────────────────────────────────────────────────────────────
 
+  const systemPrompt = buildSystemPrompt(
+    pageContext ?? {
+      page: "top-products",
+      pageTitle: "Top Products",
+      reportingPeriod: "",
+      filters: { categories: [] },
+      stats: [],
+    },
+    selectedWidget ?? null,
+    widgetsSnapshot,
+  );
+
+  console.log("[copilot:server] system prompt:\n" + systemPrompt);
+
   const result = streamText({
     model: openaiClient("gpt-4o-mini"),
-    system: buildSystemPrompt(
-      pageContext ?? {
-        page: "top-products",
-        pageTitle: "Top Products",
-        reportingPeriod: "2026-04-01 ~ 2026-06-30",
-        filters: { categories: [] },
-        stats: [],
-      },
-      selectedWidget ?? null,
-    ),
+    system: systemPrompt,
     messages: await convertToModelMessages(messages),
     stopWhen: isStepCount(3),
     tools,

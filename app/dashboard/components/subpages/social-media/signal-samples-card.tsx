@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { CheckCircle2, MoreHorizontal } from "lucide-react";
 
 import type { SocialSamplesPayload } from "../../types";
+import { useWidgetData } from "../../copilot/copilot-context";
 import { PLATFORM_COLORS } from "./config";
 
 const PAGE_SIZE = 8;
@@ -45,6 +46,21 @@ export function SignalSamplesCard({ categories, platform }: SignalSamplesCardPro
   const samples = data?.samples ?? [];
   const total   = data?.total ?? 0;
   const hasMore = samples.length < total;
+
+  useWidgetData(
+    "social-signal-samples",
+    [
+      { label: "Total Matching Samples", value: total },
+      { label: "Loaded on Screen", value: samples.length },
+      ...samples.map((s, i) => ({
+        label: `Sample ${i + 1} [${s.platform}]`,
+        value: s.text,
+      })),
+    ],
+    "Feed of sample social media posts/comments flagged as pharmaceutical signals, with platform badges; paginated via a 'load more' button. " +
+      "Data points include the total matching count and the full text of every currently loaded sample. " +
+      "Data source: live samples API backed by the published data release, filtered by the page's category and platform selection.",
+  );
 
   return (
     <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col h-[380px]">

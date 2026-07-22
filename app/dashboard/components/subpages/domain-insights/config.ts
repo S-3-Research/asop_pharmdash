@@ -6,8 +6,6 @@ import type { CategoryOption, Domain } from "../../types";
 
 const CHART_STYLE = { fontFamily: "var(--font-geist-sans)" };
 
-export const CURRENT_RPT_PERIOD = "2026-RPT-02";
-
 // ── Domain primary-category filter options ────────────────────────────────────
 // Static fallback used only when no domains have loaded yet (e.g. mock data
 // with no release published). Real usage should prefer

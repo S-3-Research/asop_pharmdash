@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Sparkles } from "lucide-react";
 
 import { useCopilot } from "../copilot/copilot-context";
@@ -28,6 +28,9 @@ export function SelectableCard({
 }: SelectableCardProps) {
   const { selectedWidget, setSelectedWidget, openPanel } = useCopilot();
   const isSelected = selectedWidget?.widgetId === widget.widgetId;
+
+  // NOTE: no snapshot syncing needed — the Copilot panel pulls live
+  // dataPoints from the widget-data registry (useWidgetData) at send time.
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();

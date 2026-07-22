@@ -5,6 +5,7 @@ import type Highcharts from "highcharts";
 
 import type { ApiListing, CategoryOption } from "../../types";
 import { HighchartsCard } from "../../charts/highcharts-card";
+import { useWidgetData } from "../../copilot/copilot-context";
 import { formatRptPeriodLabel, prevRptPeriodKey } from "./config";
 
 const FALLBACK_COLOR = "#94a3b8";
@@ -37,6 +38,23 @@ export function ListingTrendChart({
 }: ListingTrendChartProps) {
   // Needed outside memo to conditionally render the prior-data note in JSX
   const isSingleRptPeriod = allRptPeriodKeys.length === 1;
+
+  const periodCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const l of filteredListings)
+      counts[l.reportingPeriodId] = (counts[l.reportingPeriodId] ?? 0) + 1;
+    return allRptPeriodKeys
+      .filter(Boolean)
+      .map((k) => ({ label: formatRptPeriodLabel(k), value: counts[k] ?? 0 }));
+  }, [filteredListings, allRptPeriodKeys]);
+  useWidgetData(
+    "top-products-trend",
+    periodCounts,
+    "Line chart of illegal listing volume per reporting period, one line per drug category. " +
+      "The data points here are the total listing counts per reporting period (all categories combined) after the page's category filter. " +
+      "Data source: listing records in the published data release, grouped by reporting period. " +
+      "When only one reporting period exists, the chart pads a dashed 'ghost' prior period for visual context — that ghost point is not real data.",
+  );
 
   const options = useMemo((): Highcharts.Options => {
     // Filter out any undefined/empty keys that may arrive before data is ready

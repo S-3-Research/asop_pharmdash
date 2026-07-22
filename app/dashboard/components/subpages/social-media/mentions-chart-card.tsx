@@ -4,6 +4,7 @@ import { useState } from "react";
 import { BarChart2, LayoutList, MoreHorizontal } from "lucide-react";
 
 import type { SocialMentionByApp } from "../../types";
+import { useWidgetData } from "../../copilot/copilot-context";
 import { APP_COLORS } from "./config";
 
 interface MentionsChartCardProps {
@@ -18,6 +19,15 @@ function appColor(app: string): string {
 
 export function MentionsChartCard({ mentionsByApp }: MentionsChartCardProps) {
   const [view, setView] = useState<"chart" | "table">("chart");
+
+  useWidgetData(
+    "social-mentions-by-app",
+    mentionsByApp.map((m) => ({ label: m.app, value: m.count })),
+    "Bar chart / table of external app names mentioned inside flagged social media posts (e.g. messaging or payment apps used to move the transaction off-platform). " +
+      "The data points here contain ALL mentioned apps; the on-screen chart shows only the top 7. " +
+      "Data source: text analysis of flagged post content in the published data release, after the page's category and platform filters.",
+  );
+
   const top      = mentionsByApp.slice(0, MAX_ITEMS);
   const maxCount = Math.max(...top.map((d) => d.count), 1);
   const total    = top.reduce((s, d) => s + d.count, 0);

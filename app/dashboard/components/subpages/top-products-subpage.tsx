@@ -20,6 +20,8 @@ interface TopProductsPayload {
   summary: string;
   categories: CategoryOption[];
   drillablePieData: PieChartNodeData[];
+  /** From the published release's name (channel pointer); empty for mock data */
+  reportingPeriodId?: string;
   listings: ApiListing[];
 }
 
@@ -96,6 +98,11 @@ export function TopProductsSubpage() {
   // ── Sync page context ────────────────────────────────────────────────────
   useEffect(() => {
     updatePageContext({
+      page: "top-products",
+      pageTitle: "Top Products",
+      // Reporting period straight from the release name (channel pointer).
+      // Mock data carries no release — label it as such, no derivation.
+      reportingPeriod: data?.reportingPeriodId || "mock-data",
       filters: {
         categories: selectedPrimaryName ? [selectedPrimaryName] : [],
       },
@@ -114,7 +121,7 @@ export function TopProductsSubpage() {
         },
       ],
     });
-  }, [updatePageContext, selectedPrimaryName, filteredListings]);
+  }, [updatePageContext, selectedPrimaryName, filteredListings, data?.reportingPeriodId]);
 
   if (isLoading) {
     return (
@@ -168,21 +175,6 @@ export function TopProductsSubpage() {
                 title: selectedPrimaryName ? `${selectedPrimaryName} — Top Products` : "Top Ranked Products",
                 type: "ranked-list",
                 description: "Products ranked by listing count in the current rpt. period",
-                dataPoints: filteredListings
-                  .reduce<Record<string, number>>((acc, l) => {
-                    acc[l.secondaryCategory] = (acc[l.secondaryCategory] ?? 0) + 1;
-                    return acc;
-                  }, {})
-                  ? Object.entries(
-                      filteredListings.reduce<Record<string, number>>((acc, l) => {
-                        acc[l.secondaryCategory] = (acc[l.secondaryCategory] ?? 0) + 1;
-                        return acc;
-                      }, {})
-                    )
-                    .sort(([,a],[,b]) => b - a)
-                    .slice(0, 5)
-                    .map(([name, count]) => ({ label: name, value: count }))
-                  : [],
               }}
             >
               <TopProductsRanked

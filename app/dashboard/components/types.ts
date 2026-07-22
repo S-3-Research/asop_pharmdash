@@ -182,6 +182,9 @@ export interface DomainApiPayload {
   domains: Domain[];
   /** Dynamically derived from the underlying release data's product categories */
   categoryOptions?: CategoryOption[];
+  /** Reporting-period id taken from the published release's name (channel pointer),
+   *  e.g. "2026-RPT-02". Empty when serving mock data. */
+  reportingPeriodId?: string;
 }
 
 // ── Social Media types ────────────────────────────────────────────────────────
@@ -251,7 +254,7 @@ export interface SocialSamplesPayload {
 
 export interface SocialKeywordCountPayload {
   platform: string;
-  /** ISO date range of the reporting period, e.g. "2026-04-01 ~ 2026-06-30" */
+  /** Reporting-period id (e.g. "2026-RPT-02"); empty when the source has no release metadata */
   reportingPeriod: string;
   /** rawCount = search-result count for each keyword in the reporting period */
   results: { keyword: string; rawCount: number }[];

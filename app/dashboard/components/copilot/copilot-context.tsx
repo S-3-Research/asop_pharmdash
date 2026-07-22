@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useRef,
   useState,
   type ReactNode,
@@ -15,15 +16,18 @@ import type {
   PageContext,
   PendingAction,
   SelectedWidget,
+  WidgetDataEntry,
+  WidgetDataPoint,
+  WidgetSnapshot,
 } from "./types";
-import { REPORTING_PERIOD_WINDOW } from "./types";
 
-// ── Defaults ──────────────────────────────────────────────────────────────────
+// ── Defaults ──────────────────────────────────────────────────────────────────────
 
 const defaultPageContext: PageContext = {
   page: "top-products",
   pageTitle: "Top Products",
-  reportingPeriod: REPORTING_PERIOD_WINDOW,
+  // Filled in by each subpage once its release data loads — never hardcoded.
+  reportingPeriod: "",
   filters: { categories: [] },
   stats: [],
 };
@@ -42,6 +46,32 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
 
   // The active page's filter handler — updated each time a subpage mounts.
   const filterHandlerRef = useRef<((a: FilterAction) => void) | null>(null);
+
+  // Live widget data — cards report what they currently render; stored in a
+  // ref (no re-renders) and read on demand when a message is sent.
+  const widgetDataRef = useRef(new Map<string, WidgetDataEntry>());
+
+  const reportWidgetData = useCallback(
+    (widgetId: string, entry: WidgetDataEntry | null) => {
+      if (entry) widgetDataRef.current.set(widgetId, entry);
+      else widgetDataRef.current.delete(widgetId);
+    },
+    [],
+  );
+
+  const getWidgetData = useCallback(
+    (widgetId: string) => widgetDataRef.current.get(widgetId),
+    [],
+  );
+
+  const getAllWidgetData = useCallback(
+    () =>
+      [...widgetDataRef.current.entries()].map(([widgetId, entry]) => ({
+        widgetId,
+        ...entry,
+      })),
+    [],
+  );
 
   const updatePageContext = useCallback((patch: Partial<PageContext>) => {
     setPageContext((prev) => ({ ...prev, ...patch }));
@@ -86,6 +116,9 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
         updatePageContext,
         selectedWidget,
         setSelectedWidget,
+        reportWidgetData,
+        getWidgetData,
+        getAllWidgetData,
         pendingAction,
         proposePendingAction,
         confirmPendingAction,
@@ -107,4 +140,26 @@ export function useCopilot(): CopilotContextValue {
   const ctx = useContext(CopilotCtx);
   if (!ctx) throw new Error("useCopilot must be used inside <CopilotProvider>");
   return ctx;
+}
+
+/**
+ * Cards call this to publish the data they are currently rendering plus an
+ * optional card-specific prompt fragment (what the card shows, where the
+ * data comes from). The snapshot is looked up by widgetId when the user
+ * sends a Copilot message, so the AI always receives the live values.
+ */
+export function useWidgetData(
+  widgetId: string,
+  dataPoints: WidgetDataPoint[],
+  prompt?: string,
+) {
+  const { reportWidgetData } = useCopilot();
+  const json = JSON.stringify(dataPoints);
+  useEffect(() => {
+    reportWidgetData(widgetId, {
+      dataPoints: JSON.parse(json) as WidgetDataPoint[],
+      prompt,
+    });
+    return () => reportWidgetData(widgetId, null);
+  }, [widgetId, json, prompt, reportWidgetData]);
 }

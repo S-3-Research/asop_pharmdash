@@ -3,9 +3,46 @@
 import type { MetricCardData, SocialMetrics } from "../../types";
 import { MetricCard } from "../../ui/metric-card";
 import { SelectableCard } from "../../ui/selectable-card";
+import { useWidgetData } from "../../copilot/copilot-context";
 
 interface StatsRowProps {
   metrics: SocialMetrics;
+}
+
+const METRIC_PROMPTS: Record<string, string> = {
+  "total-posts":
+    "Single metric: total number of social media posts and comments flagged as pharmaceutical signals in the current reporting period. " +
+    "Data source: social media signal records in the published data release, after the page's category and platform filters.",
+  "unique-accounts":
+    "Single metric: number of distinct social media accounts that produced flagged signals. " +
+    "Data source: deduplicated account IDs from the signal records in the published data release, after the page's category and platform filters.",
+  "active-signals":
+    "Single metric: number of signals currently classified as active (still live/visible on the platform). " +
+    "Data source: the active flag on signal records in the published data release, after the page's category and platform filters.",
+  "active-keywords":
+    "Single metric: number of distinct monitored keywords that have at least one active signal. " +
+    "Data source: keyword field of active signal records in the published data release, after the page's category and platform filters.",
+};
+
+function SelectableStat({ item }: { item: MetricCardData }) {
+  useWidgetData(
+    `social-${item.id}`,
+    [{ label: item.label, value: item.value }],
+    METRIC_PROMPTS[item.id],
+  );
+  return (
+    <SelectableCard
+      className="h-full"
+      widget={{
+        widgetId: `social-${item.id}`,
+        title: item.label,
+        type: "metric-card",
+        description: `Social media signal metric for the current rpt. period`,
+      }}
+    >
+      <MetricCard item={item} />
+    </SelectableCard>
+  );
 }
 
 export function StatsRow({ metrics }: StatsRowProps) {
@@ -43,19 +80,7 @@ export function StatsRow({ metrics }: StatsRowProps) {
   return (
     <div className="grid grid-cols-2 gap-4 h-full">
       {cards.map((item) => (
-        <SelectableCard
-          key={item.id}
-          className="h-full"
-          widget={{
-            widgetId: `social-${item.id}`,
-            title: item.label,
-            type: "metric-card",
-            description: `Social media signal metric for the current rpt. period`,
-            dataPoints: [{ label: item.label, value: item.value }],
-          }}
-        >
-          <MetricCard item={item} />
-        </SelectableCard>
+        <SelectableStat key={item.id} item={item} />
       ))}
     </div>
   );

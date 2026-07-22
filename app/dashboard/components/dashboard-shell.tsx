@@ -58,18 +58,15 @@ function CopilotToggleButton() {
 
 function DashboardShellInner() {
   const [activeSubPage, setActiveSubPage] = useState<SubPageKey>(defaultSubPage);
-  const { setSelectedWidget, updatePageContext } = useCopilot();
+  const { setSelectedWidget } = useCopilot();
 
-  // Clear selection when navigating between pages
+  // Clear selection when navigating between pages.
+  // NOTE: page context (page/pageTitle/filters/stats) is owned and synced by
+  // each subpage's own effect — resetting it here would race with (and wipe)
+  // the subpage's sync effect, which runs before this parent effect.
   useEffect(() => {
     setSelectedWidget(null);
-    updatePageContext({
-      page: activeSubPage,
-      pageTitle: subpageTitleMap[activeSubPage],
-      filters: { categories: [] },
-      stats: [],
-    });
-  }, [activeSubPage, setSelectedWidget, updatePageContext]);
+  }, [activeSubPage, setSelectedWidget]);
 
   const subPageContent = useMemo(() => {
     if (activeSubPage === "domain-insights") return <DomainInsightsSubpage />;

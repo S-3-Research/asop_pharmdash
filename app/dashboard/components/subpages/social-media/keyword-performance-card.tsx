@@ -6,6 +6,7 @@ import { MoreHorizontal } from "lucide-react";
 import useSWR from "swr";
 
 import type { SocialKeywordBubble, SocialKeywordCountPayload } from "../../types";
+import { useWidgetData } from "../../copilot/copilot-context";
 
 // Load highcharts/more for bubble series (guards against double-init)
 if (typeof window !== "undefined") {
@@ -36,6 +37,14 @@ const countFetcher = (url: string) =>
 export function KeywordPerformanceCard({ bubbles, platform }: KeywordPerformanceCardProps) {
   const top12    = bubbles.slice(0, 12);
   const keywords = top12.map((b) => b.keyword).join(",");
+
+  useWidgetData(
+    "social-keyword-performance",
+    bubbles.map((b) => ({ label: b.keyword, value: b.signalCount })),
+    "Bubble chart of keyword performance: bubble size = signal count per monitored keyword, plus a live raw-mention count per keyword. " +
+      "The data points here contain ALL keywords with their signal counts; the on-screen chart shows only the top 12. " +
+      "Data source: keyword signal aggregates from the published data release, filtered by the page's category and platform selection; raw counts come from the live keyword-count API.",
+  );
 
   const kwParams = new URLSearchParams({ keywords });
   if (platform !== "all") kwParams.set("platform", platform);

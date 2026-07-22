@@ -805,7 +805,7 @@ export const mockSocialPosts: SocialMediaPost[] = generateSocialPosts();
 
 // ── Keyword raw-count mock (reporting period, per platform) ──────────────────
 // Simulates search-result counts for each keyword on each platform during
-// the current reporting period (2026-04-01 ~ 2026-06-30).
+// the current reporting period (2026-RPT-02).
 // Intentionally larger than signalCount — represents broader search universe.
 const kwRawCountSeeded = (() => {
   let s = 5571;

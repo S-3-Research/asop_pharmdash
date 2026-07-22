@@ -7,6 +7,7 @@ import { readChannel, fetchReleaseData, isMockRelease } from "@/lib/releases";
 import {
   buildCategoryRegistry,
   buildDrillablePieData,
+  convertReportPeriod,
   mapReleaseDomainsToListings,
 } from "@/lib/release-mapping";
 
@@ -32,6 +33,7 @@ export async function GET() {
       summary,
       categories,
       drillablePieData,
+      reportingPeriodId: "",
       listings: (listings ?? []).map(
         ({ id, source, primaryCategory, secondaryCategory, reportingPeriodId }) => ({
           id,
@@ -55,6 +57,8 @@ export async function GET() {
     summary: "Track category volume, product trend and top-ranked products.",
     categories,
     drillablePieData,
+    // Straight from the channel pointer's release name — not derived from rows
+    reportingPeriodId: convertReportPeriod(pointer.current.reportPeriod),
     listings: listings.map(
       ({ id, source, primaryCategory, secondaryCategory, reportingPeriodId }) => ({
         id,

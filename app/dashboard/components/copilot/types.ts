@@ -1,7 +1,5 @@
 import type { SubPageKey, TrendDirection } from "../types";
 
-export const REPORTING_PERIOD_WINDOW = "2026-04-01 ~ 2026-06-30";
-
 // ── Page Context ──────────────────────────────────────────────────────────────
 
 export interface PageFilters {
@@ -21,6 +19,9 @@ export interface PageStat {
 export interface PageContext {
   page: SubPageKey;
   pageTitle: string;
+  /** Reporting period identifier derived from the published data release,
+   *  e.g. "2026-RPT-02" (2nd reporting period of 2026). Empty until data loads.
+   *  No concrete dates are exposed. */
   reportingPeriod: string;
   filters: PageFilters;
   /** Snapshot of visible metrics on the current page */
@@ -42,12 +43,30 @@ export interface WidgetDataPoint {
   value: string | number;
 }
 
+/** Live data + prompt metadata a card publishes to the Copilot registry */
+export interface WidgetDataEntry {
+  dataPoints: WidgetDataPoint[];
+  /**
+   * Card-specific prompt fragment: explains WHAT the card displays and WHERE
+   * the data comes from (source, computation, caveats). Appended verbatim to
+   * the system prompt when this widget is selected.
+   */
+  prompt?: string;
+}
+
+/** One card's registry entry paired with its id — used for page-level dumps */
+export interface WidgetSnapshot extends WidgetDataEntry {
+  widgetId: string;
+}
+
 export interface SelectedWidget {
   widgetId: string;
   title: string;
   type: WidgetType;
   description?: string;
   dataPoints?: WidgetDataPoint[];
+  /** Card-provided prompt fragment describing content & data provenance */
+  dataNote?: string;
 }
 
 // ── Filter Actions ────────────────────────────────────────────────────────────
@@ -74,6 +93,17 @@ export interface CopilotContextValue {
   // ── Widget selection ──
   selectedWidget: SelectedWidget | null;
   setSelectedWidget: (w: SelectedWidget | null) => void;
+
+  // ── Live widget data registry ──
+  /**
+   * Cards report the data they are currently rendering. The Copilot panel
+   * pulls the latest snapshot by widgetId at send time, so no eager
+   * aggregation or stale-selection syncing is needed.
+   */
+  reportWidgetData: (widgetId: string, entry: WidgetDataEntry | null) => void;
+  getWidgetData: (widgetId: string) => WidgetDataEntry | undefined;
+  /** Snapshot of every currently mounted card's live data (for page-level prompts) */
+  getAllWidgetData: () => WidgetSnapshot[];
 
   // ── Filter actions ──
   pendingAction: PendingAction | null;

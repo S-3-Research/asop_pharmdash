@@ -6,6 +6,7 @@ import Highcharts from "highcharts";
 import { Plus, Minus, Search, Hand, Home, Menu } from "lucide-react";
 
 import { DashboardCard } from "../../ui/dashboard-card";
+import { useWidgetData } from "../../copilot/copilot-context";
 import { buildTrafficDatasets, type TrafficRange } from "./config";
 import type { Domain } from "../../types";
 
@@ -23,6 +24,29 @@ const RANGES: TrafficRange[] = ["1M", "6M", "YTD"];
 export function TrafficChart({ domains }: TrafficChartProps) {
   const [range, setRange] = useState<TrafficRange>("YTD");
   const datasets = useMemo(() => buildTrafficDatasets(domains), [domains]);
+
+  const totals = useMemo(() => {
+    let organic = 0;
+    let paid = 0;
+    for (const d of domains)
+      for (const pt of d.seoClickHistory) {
+        organic += pt.organicClicks ?? 0;
+        paid += pt.paidClicks ?? 0;
+      }
+    return { organic, paid };
+  }, [domains]);
+  useWidgetData(
+    "domain-traffic",
+    [
+      { label: "Selected Range", value: range },
+      { label: "Total Organic Clicks (all periods)", value: totals.organic },
+      { label: "Total Paid Clicks (all periods)", value: totals.paid },
+      { label: "Domains Tracked", value: domains.length },
+    ],
+    "Line chart of monthly SEO traffic (organic + paid search clicks) aggregated across all rogue domains, with a 1M / 6M / YTD range toggle. " +
+      "Data source: each domain record's seoClickHistory (monthly organicClicks and paidClicks from upstream SEO analytics) in the published data release. " +
+      "Totals here cover all available months regardless of the selected range; counts reflect the page's current category filter.",
+  );
 
   return (
     <DashboardCard title="Traffic" className="h-full overflow-hidden">

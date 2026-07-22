@@ -26,6 +26,8 @@ export function CopilotPanel() {
     pageContext,
     selectedWidget,
     setSelectedWidget,
+    getWidgetData,
+    getAllWidgetData,
     pendingAction,
     proposePendingAction,
     confirmPendingAction,
@@ -100,13 +102,34 @@ export function CopilotPanel() {
 
   // ── Sending helpers ────────────────────────────────────────────────────────
   const sendWithContext = useCallback(
-    (text: string) => {
+    (text: string, opts?: { includeAllWidgets?: boolean }) => {
+      // Pull the freshest data snapshot for the selected widget at send time.
+      const entry = selectedWidget
+        ? getWidgetData(selectedWidget.widgetId)
+        : undefined;
+      const liveWidget = selectedWidget
+        ? {
+            ...selectedWidget,
+            dataPoints: entry?.dataPoints ?? selectedWidget.dataPoints,
+            dataNote: entry?.prompt ?? selectedWidget.dataNote,
+          }
+        : null;
+      // Page-level suggested prompts (no widget selected) attach ALL mounted
+      // cards' live data so the AI can actually summarize / spot anomalies.
+      const widgetsSnapshot =
+        opts?.includeAllWidgets && !selectedWidget ? getAllWidgetData() : undefined;
+      console.log("[copilot:client] sending", {
+        text,
+        pageContext,
+        selectedWidget: liveWidget,
+        widgetsSnapshot,
+      });
       void sendMessage(
         { text },
-        { body: { pageContext, selectedWidget } },
+        { body: { pageContext, selectedWidget: liveWidget, widgetsSnapshot } },
       );
     },
-    [sendMessage, pageContext, selectedWidget],
+    [sendMessage, pageContext, selectedWidget, getWidgetData, getAllWidgetData],
   );
 
   const handleClearSession = useCallback(() => {
@@ -257,7 +280,7 @@ export function CopilotPanel() {
         <PromptButtons
           pageContext={pageContext}
           selectedWidget={selectedWidget}
-          onSelect={sendWithContext}
+          onSelect={(prompt) => sendWithContext(prompt, { includeAllWidgets: true })}
           disabled={isStreaming}
         />
       </div>

@@ -1,6 +1,7 @@
 import type { CategoryOption, PieChartNodeData } from "../../types";
 import { DashboardCard } from "../../ui/dashboard-card";
 import { SunburstCard } from "../../charts/sunburst-card";
+import { useWidgetData } from "../../copilot/copilot-context";
 
 interface ProductDistributionProps {
   drillablePieData: PieChartNodeData[];
@@ -17,6 +18,20 @@ export function ProductDistribution({
   onCategorySelect,
   periodLabel,
 }: ProductDistributionProps) {
+  useWidgetData(
+    "top-products-distribution",
+    drillablePieData.flatMap((cat) => [
+      { label: cat.name, value: `${cat.value} (${cat.percentage}%)` },
+      ...(cat.children ?? []).map((child) => ({
+        label: `${cat.name} → ${child.name}`,
+        value: child.value,
+      })),
+    ]),
+    "Two-level sunburst: inner ring = primary drug category, outer ring = individual products; values are listing counts and category share (%). " +
+      "Data points are given as 'Category' rows (with % share) followed by 'Category → Product' rows. " +
+      "Data source: pre-aggregated drillable pie data from the published data release for the current reporting period (unaffected by the page filter — clicking a slice sets the filter instead).",
+  );
+
   return (
     <DashboardCard
       title="Product Distribution"

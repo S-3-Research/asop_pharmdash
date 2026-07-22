@@ -84,6 +84,11 @@ export function DomainInsightsSubpage() {
   useEffect(() => {
     const live = filteredDomains.filter((d) => d.isLive).length;
     updatePageContext({
+      page: "domain-insights",
+      pageTitle: "Domain Insights",
+      // Reporting period straight from the release name (channel pointer).
+      // Mock data carries no release — label it as such, no derivation.
+      reportingPeriod: data?.reportingPeriodId || "mock-data",
       filters: { categories: selectedCategories },
       stats: [
         { label: "Total Domains", value: filteredDomains.length },
@@ -91,7 +96,7 @@ export function DomainInsightsSubpage() {
         { label: "Inactive", value: filteredDomains.length - live },
       ],
     });
-  }, [updatePageContext, selectedCategories, filteredDomains]);
+  }, [updatePageContext, selectedCategories, filteredDomains, data?.reportingPeriodId]);
 
   return (
     <section>
@@ -137,10 +142,6 @@ export function DomainInsightsSubpage() {
               title: "Total Domain",
               type: "chart",
               description: "Total rogue domains detected in current CBU with trend",
-              dataPoints: [
-                { label: "Total", value: filteredDomains.length },
-                { label: "Live", value: filteredDomains.filter((d) => d.isLive).length },
-              ],
             }}
           >
             <TotalDomainCard domains={filteredDomains} />
@@ -152,10 +153,6 @@ export function DomainInsightsSubpage() {
               title: "Domain Status",
               type: "chart",
               description: "Live vs inactive domain breakdown",
-              dataPoints: [
-                { label: "Live", value: filteredDomains.filter((d) => d.isLive).length },
-                { label: "Inactive", value: filteredDomains.filter((d) => !d.isLive).length },
-              ],
             }}
           >
             <DomainStatusCard domains={filteredDomains} />

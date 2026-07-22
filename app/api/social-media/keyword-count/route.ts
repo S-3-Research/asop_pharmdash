@@ -4,9 +4,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { mockKwRawCounts } from "@/app/dashboard/components/mock-data";
 import type { SocialKeywordCountPayload } from "@/app/dashboard/components/types";
 
-// Current reporting period
-const REPORTING_PERIOD_WINDOW = "2026-04-01 ~ 2026-06-30";
-
 export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
   if (cookieStore.get("pharmdash_auth")?.value !== "1") {
@@ -28,7 +25,9 @@ export async function GET(request: NextRequest) {
 
   const payload: SocialKeywordCountPayload = {
     platform,
-    reportingPeriod: REPORTING_PERIOD_WINDOW,
+    // Mock counts carry no release metadata; a real backend should return the
+    // release's reporting-period id here (e.g. "2026-RPT-02").
+    reportingPeriod: "",
     results,
   };
 

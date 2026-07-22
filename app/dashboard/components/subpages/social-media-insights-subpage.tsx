@@ -72,6 +72,10 @@ export function SocialMediaInsightsSubpage() {
   useEffect(() => {
     const m = data?.metrics;
     updatePageContext({
+      page: "social-media-insights",
+      pageTitle: "Social Media Insights",
+      // Mock social posts carry no release metadata — label as mock data.
+      reportingPeriod: "mock-data",
       filters: {
         categories: selectedIds,
         platform: selectedPlatform !== "all" ? selectedPlatform : undefined,
@@ -148,10 +152,6 @@ export function SocialMediaInsightsSubpage() {
                       title: "Keyword Rankings",
                       type: "ranked-list",
                       description: "Top keywords ranked by signal count and growth rate",
-                      dataPoints: data.keywordRankings.slice(0, 5).map((r) => ({
-                        label: r.keyword,
-                        value: r.signalCount,
-                      })),
                     }}
                   >
                     <KeywordRankingsCard rankings={data.keywordRankings} platform={selectedPlatform} />
@@ -168,10 +168,6 @@ export function SocialMediaInsightsSubpage() {
                       title: "Mentions by App",
                       type: "chart",
                       description: "External app mention counts derived from post text analysis",
-                      dataPoints: data.mentionsByApp.slice(0, 5).map((m) => ({
-                        label: m.app,
-                        value: m.count,
-                      })),
                     }}
                   >
                     <MentionsChartCard mentionsByApp={data.mentionsByApp} />
@@ -196,10 +192,6 @@ export function SocialMediaInsightsSubpage() {
                       title: "Keyword Performance",
                       type: "chart",
                       description: "Bubble chart of keyword signal volume and distribution",
-                      dataPoints: data.keywordBubbles.slice(0, 5).map((b) => ({
-                        label: b.keyword,
-                        value: b.signalCount,
-                      })),
                     }}
                   >
                     <KeywordPerformanceCard bubbles={data.keywordBubbles} platform={selectedPlatform} />

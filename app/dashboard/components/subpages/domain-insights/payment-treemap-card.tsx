@@ -5,6 +5,7 @@ import Highcharts from "highcharts";
 
 import { useMemo } from "react";
 import { DashboardCard } from "../../ui/dashboard-card";
+import { useWidgetData } from "../../copilot/copilot-context";
 import { buildPaymentTreemapOptions } from "./config";
 import type { Domain } from "../../types";
 
@@ -42,6 +43,21 @@ const HighchartsReact = dynamic(() => import("highcharts-react-official"), {
 
 export function PaymentTreemapCard({ domains }: PaymentTreemapCardProps) {
   const options = useMemo(() => buildPaymentTreemapOptions(domains), [domains]);
+
+  const counts: Record<string, number> = {};
+  for (const d of domains)
+    for (const { type } of d.paymentInfo)
+      counts[type] = (counts[type] ?? 0) + 1;
+  useWidgetData(
+    "domain-payment",
+    Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, value]) => ({ label, value })),
+    "Treemap of payment methods accepted by the rogue pharmacy domains, grouped by payment type (e.g. Credit Card, Crypto, Bank Transfer) and provider. " +
+      "Data source: each domain record's paymentInfo array from the published data release; the value is the number of domain-payment entries per type. " +
+      "Counts reflect the page's current category filter.",
+  );
+
   return (
     <DashboardCard title="Payment Info" className="h-full overflow-hidden">
       <HighchartsReact highcharts={Highcharts} options={options} immutable />

@@ -5,6 +5,7 @@ import { ArrowUp, MoreHorizontal } from "lucide-react";
 import useSWR from "swr";
 
 import type { SocialKeywordCountPayload, SocialKeywordRanking } from "../../types";
+import { useWidgetData } from "../../copilot/copilot-context";
 
 interface KeywordRankingsCardProps {
   rankings: SocialKeywordRanking[];
@@ -18,6 +19,18 @@ const countFetcher = (url: string) =>
 
 export function KeywordRankingsCard({ rankings, platform }: KeywordRankingsCardProps) {
   const [page, setPage] = useState(1);
+
+  useWidgetData(
+    "social-keyword-rankings",
+    rankings.map((r) => ({
+      label: r.keyword,
+      value: `${r.signalCount} signals${r.growthRate != null ? ` (growth ${r.growthRate}%)` : ""}`,
+    })),
+    "Paginated table ranking monitored keywords by signal count, with growth rate vs the prior period and a raw-mention count fetched per keyword. " +
+      "The data points here contain the COMPLETE keyword ranking (all pages), not just the visible page. " +
+      "Data source: keyword signal aggregates from the published data release, filtered by the page's category and platform selection; raw counts come from the live keyword-count API.",
+  );
+
   const totalPages = Math.max(1, Math.ceil(rankings.length / PAGE_SIZE));
   const start   = (page - 1) * PAGE_SIZE;
   const visible = rankings.slice(start, start + PAGE_SIZE);
