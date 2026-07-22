@@ -30,6 +30,14 @@ export async function POST(request: Request) {
     path: "/",
     maxAge: 60 * 60 * 24,
   });
+  // Non-sensitive username, kept for audit-log "actor" attribution only.
+  cookieStore.set("pharmdash_user", expectedUsername, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 24,
+  });
 
   return NextResponse.json({ ok: true });
 }
