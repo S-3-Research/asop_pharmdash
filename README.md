@@ -171,3 +171,103 @@ mock-data.ts  (server module)
 - Guard: `app/dashboard/page.tsx` (Server Component) reads cookie and `redirect()`s if absent
 - API guard: `GET /api/listings/top-products` independently checks the same cookie
 
+---
+
+## Release Data Pipeline
+
+Real (non-mock) dashboard data comes from **releases** — immutable JSON payloads uploaded
+via the admin UI, validated against the upstream Pydantic schema, and published to a
+**channel** (`preview` | `production`). This is the production data path; the mock data
+described above is only the fallback used when no real release is published yet.
+
+### Schema
+
+`schema-reference/pharmdash_schema_2026*.py` is the upstream Pydantic source of truth.
+`lib/schemas/pharmdash.ts` is its hand-maintained Zod port — keep the two in sync whenever
+the upstream schema changes. A release payload is:
+
+```json
+{
+  "domains": [ /* DomainData[] */ ],
+  "social_media": [ /* SocialMediaData[] */ ],
+  "keyword_stats": [ /* KeywordStat[] — flattened keyword/platform signal+raw counts */ ]
+}
+```
+
+### Storage layout (Supabase Storage, bucket = `DATA_BUCKET`)
+
+```
+releases/{reportPeriod}-v{n}/data.json.gz          # gzip-compressed full payload
+releases/{reportPeriod}-v{n}/manifest.json         # schemaVersion, generatedAt, recordCounts
+releases/{reportPeriod}-v{n}/social-aggregates.json  # precomputed social-media aggregate table
+channels/preview.json                              # { current, previous } ChannelRef
+channels/production.json
+audit/log.jsonl                                    # append-only upload/publish/rollback log
+```
+
+### 1. Upload — `POST /api/admin/releases` → `lib/releases.ts` `createRelease()`
+
+1. **Layer 1 — Zod validation** (`PharmDashReleaseDataSchema`): types, required fields, enums,
+   nesting.
+2. **Layer 2 — business-rule validation** (`lib/release-validation.ts`): duplicate domains,
+   duplicate `product_url` within a domain, `social_media[].product_name` referential
+   integrity against `domains[].product_info[].product_name`, date sanity, rating range.
+3. On success, `createRelease()`:
+   - Assigns the next version suffix for the report period (e.g. `2026-RPT-03-v2`).
+   - Gzips the full payload and uploads `data.json.gz`.
+   - **Precomputes** the social-media aggregate table (`lib/release-mapping.ts`
+     `buildSocialAggregateTable`) — every `(single category | "__all__") × (single platform |
+     "all")` combination of platform tabs, headline metrics, mentions-by-app, keyword
+     rankings, and keyword bubbles — and uploads it as `social-aggregates.json`. This is the
+     one deliberately "expensive" step, paid once at upload time so no dashboard request ever
+     has to scan the raw `social_media[]`/`keyword_stats[]` rows.
+   - Uploads `manifest.json` and appends an audit-log entry.
+4. Releases are **immutable** — re-uploading the same `releaseId` throws; use a new version.
+
+### 2. Publish — `POST /api/admin/releases/publish` → `setChannelRelease()`
+
+Points `channels/{preview|production}.json` at a `releaseId`, shifting the old `current` into
+`previous`. Promote and Rollback are the same operation, just choosing a different target
+release. Channel pointers are tiny (KB-scale) and always read directly from Storage — no
+caching — so a Promote/Rollback takes effect immediately for every subsequent request.
+
+### 3. Read — dashboard API routes
+
+`lib/channel.ts` `getActiveChannel()` decides which channel (`preview`/`production`) the
+running instance reads from (`PHARMDASH_CHANNEL` env override → `VERCEL_ENV` → `"preview"`
+default). Each data route (`/api/domains`, `/api/social-media`, `/api/social-media/samples`,
+`/api/social-media/keyword-count`, `/api/listings/top-products`) then:
+
+1. Reads the channel pointer to get the current `releaseId`.
+2. If no release is published, or the built-in mock release (`MOCK_RELEASE_ID = "mock-data"`)
+   is published, serves the static mock data from `app/dashboard/components/mock-data.ts`.
+3. Otherwise fetches the real release data and maps it via `lib/release-mapping.ts` into the
+   dashboard's view-model types (`Domain`, `Listing`, `SocialMediaPost`, etc.).
+
+### In-process memoization (not Next's `unstable_cache`)
+
+`lib/releases.ts` memoizes release-derived data in a **plain module-scoped `Map`**
+(`memoizeByKey`), not Next's `unstable_cache`. Next's Data Cache rejects any entry over 2MB,
+and real release payloads (gzip-decompressed) as well as the per-post social index routinely
+exceed that at production scale — using `unstable_cache` caused every request to silently
+fail to cache and re-download/re-parse the full ~70MB payload (10–20s+ per request, sometimes
+surfacing as a 500 "failed to pipe response" error). A plain `Map` has no size limit and gives
+exactly the semantics needed: memoize immutable-per-`releaseId` data for the lifetime of the
+server process.
+
+Three memoized layers, from cheapest to most expensive to (re)compute:
+
+| Function | Source | Contains |
+|---|---|---|
+| `fetchSocialAggregateTable(releaseId)` | `social-aggregates.json` (KB-scale) | Precomputed platform×category aggregates + keyword rankings — O(1) lookup, used by `/api/social-media` for 0–1 selected categories |
+| `fetchSocialIndex(releaseId)` | Derived from `fetchReleaseData` | Lightweight per-post index (`SocialPostLite[]`) — every field needed for filter/sort/count **except** `text`/`link`/`userlink`. Used for 2+ category (multi-select OR) filtering and to paginate `/api/social-media/samples` before hydrating only the shown page with full post objects |
+| `fetchReleaseData(releaseId)` | `data.json.gz` (tens of MB) | Full validated `PharmDashReleaseData` — downloaded, gzip-decompressed, and Zod-parsed once per process per release |
+
+**Cold-start caveat:** this `Map` lives only in the memory of one running server process. On
+Vercel, a new serverless instance — from scaling out, a new region, an idle instance being
+recycled, or a fresh deployment — starts with an empty cache, so its *first* request for a
+given release pays the full download/decompress/parse cost again. Subsequent requests served
+by that same warm instance are fast. There is currently no cross-instance/cross-region shared
+cache (e.g. Redis) — this is a known limitation to revisit if cold-start latency becomes a
+problem in practice.
+
