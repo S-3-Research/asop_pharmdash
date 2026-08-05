@@ -38,4 +38,7 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+# local scratch/test data (test release payloads, ad-hoc scripts, etc.)
+/tmp
 next-env.d.ts
