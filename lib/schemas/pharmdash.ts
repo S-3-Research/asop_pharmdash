@@ -1,5 +1,5 @@
 /**
- * Zod schemas — converted from schema-reference/pharmdash_schema_20260705.py
+ * Zod schemas — converted from schema-reference/pharmdash_schema_20260804.py
  *
  * Source of truth for validating uploaded PharmDash release data.
  * Keep this file in sync with the Pydantic schema whenever the upstream
@@ -25,11 +25,33 @@ export const ContactType = z.enum([
   "phone",
   "address",
   "fax",
+  "kik",
+  "wickr",
+  "whatsapp",
+  "wechat",
   "support_email",
   "sales_email",
   "billing_email",
   "mailing_address",
   "office_address",
+  "facebook",
+  "instagram",
+  "reddit",
+  "twitter",
+  "threads",
+  "linkedin",
+  "tiktok",
+  "youtube",
+  "tumblr",
+  "pinterest",
+  "quora",
+  "telegram",
+  "snapchat",
+  "about.me",
+  "myspace",
+  "venmo",
+  "signal",
+  "discord",
 ]);
 
 export const ContactSource = z.enum([
@@ -60,6 +82,8 @@ export const SocialMediaPlatform = z.enum([
   "kik",
   "myspace",
   "venmo",
+  "signal",
+  "discord",
 ]);
 
 export const PaymentType = z.enum([
@@ -105,7 +129,9 @@ export const PaymentOption = z.enum([
 
 export const CurrencyCode = z.enum(["EUR", "USD", "CNY", "INR", "BDT", "Pound"]);
 
-export const FormType = z.enum(["Post", "Comment"]);
+// NOTE: as of the 2026-07-30 schema these values are lowercase ("post" /
+// "comment"), changed from the previous "Post" / "Comment".
+export const FormType = z.enum(["post", "comment"]);
 
 // ---------------------------------------------------------------------------
 // Shared primitives
@@ -249,26 +275,19 @@ export const SocialMediaDataSchema = z.object({
   is_live: z.boolean().nullish().default(true),
   product_name: z.array(z.string()).nullish(),
   contact_info: z.array(ContactInfoItemSchema),
+  // Required by the Pydantic model (no default), but nullable.
+  is_trade: z.boolean().nullish(),
 });
 
-export const DataStatSchema = z.object({
-  timestamp: z.number().int(),
-  signal_num: z.number().int(),
-  raw_num: z.number().int(),
-});
-
+// NOTE: as of the 2026-07-30 schema, the previous `DataStat` +
+// `SocialMediaSummary` pair was collapsed into this single flattened model
+// (dropped fields: `timestamp`, `user_num`, nested `keyword_summary`).
 export const KeywordStatSchema = z.object({
   keyword: z.string(),
-  statistic: DataStatSchema,
-});
-
-export const SocialMediaSummarySchema = z.object({
-  product_name: z.string(),
+  product_name: z.string().nullish(),
   socialmedia_platform: SocialMediaPlatform,
   raw_num: z.number().int().nullish(),
   signal_num: z.number().int().nullish(),
-  user_num: z.number().int().nullish(),
-  keyword_summary: KeywordStatSchema.nullish(),
 });
 
 // ---------------------------------------------------------------------------
@@ -282,7 +301,7 @@ export const SocialMediaSummarySchema = z.object({
 export const PharmDashReleaseDataSchema = z.object({
   domains: z.array(DomainDataSchema).default([]),
   social_media: z.array(SocialMediaDataSchema).default([]),
-  social_media_summary: z.array(SocialMediaSummarySchema).default([]),
+  keyword_stats: z.array(KeywordStatSchema).default([]),
 });
 
 // ---------------------------------------------------------------------------
@@ -299,7 +318,5 @@ export type HistoryClickUsItem = z.infer<typeof HistoryClickUsItemSchema>;
 export type SeoInfo = z.infer<typeof SeoInfoSchema>;
 export type DomainData = z.infer<typeof DomainDataSchema>;
 export type SocialMediaData = z.infer<typeof SocialMediaDataSchema>;
-export type DataStat = z.infer<typeof DataStatSchema>;
 export type KeywordStat = z.infer<typeof KeywordStatSchema>;
-export type SocialMediaSummary = z.infer<typeof SocialMediaSummarySchema>;
 export type PharmDashReleaseData = z.infer<typeof PharmDashReleaseDataSchema>;
