@@ -243,6 +243,12 @@ export interface SocialMediaPayload {
   keywordRankings: SocialKeywordRanking[];
   mentionsByApp: SocialMentionByApp[];
   keywordBubbles: SocialKeywordBubble[];
+  /** Dynamically derived from the underlying release data's product categories
+   *  (same taxonomy as Domain Insights / Top Products — built via
+   *  buildCategoryRegistry(domains), since social posts carry no category
+   *  field of their own). Falls back to a fixed list for the built-in mock
+   *  release, which has no product_info-derived category registry. */
+  categoryOptions?: CategoryOption[];
 }
 
 export interface SocialSamplesPayload {

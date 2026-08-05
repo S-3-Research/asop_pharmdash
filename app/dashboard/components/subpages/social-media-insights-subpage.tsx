@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import useSWR from "swr";
 
 import type { SocialMediaPayload } from "../types";
@@ -37,6 +37,14 @@ export function SocialMediaInsightsSubpage() {
     `/api/social-media?${params}`,
     fetcher,
     { revalidateOnFocus: false, keepPreviousData: true },
+  );
+
+  // Dynamically derived from the real release's product categories (same
+  // taxonomy as Domain Insights / Top Products); falls back to the fixed
+  // list only if the API hasn't provided one yet.
+  const categoryOptions = useMemo(
+    () => data?.categoryOptions ?? SOCIAL_PRIMARY_CATEGORIES,
+    [data?.categoryOptions],
   );
 
   function handleToggle(id: string) {
@@ -103,7 +111,7 @@ export function SocialMediaInsightsSubpage() {
         </div>
         <div className="w-full sm:w-auto min-w-[200px]">
           <MultiCategoryDropdown
-            categories={SOCIAL_PRIMARY_CATEGORIES}
+            categories={categoryOptions}
             selectedIds={selectedIds}
             onToggle={handleToggle}
             onClear={handleClear}

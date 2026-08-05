@@ -170,7 +170,7 @@ export default function DataReleasesAdminPage() {
   };
 
   return (
-    <main className="mx-auto max-w-5xl space-y-8 p-6">
+    <main className="mx-auto min-h-screen max-w-5xl space-y-8 bg-white p-6 text-slate-900">
       <h1 className="text-2xl font-semibold text-slate-900">Data Releases</h1>
 
       {actionMessage ? (
@@ -253,7 +253,7 @@ export default function DataReleasesAdminPage() {
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
               Data JSON — either a bare array of domain records, or the full shape{" "}
-              {"{ domains: [], social_media: [], social_media_summary: [] }"}
+              {"{ domains: [], social_media: [], keyword_stats: [] }"}
             </label>
             <div className="mb-2 flex items-center gap-3">
               <label className="cursor-pointer rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100">
@@ -280,7 +280,7 @@ export default function DataReleasesAdminPage() {
                 setJsonText(e.target.value);
                 setFileName(null);
               }}
-              placeholder='[{"domain": "https://example.com", ...}] or {"domains": [], "social_media": [], "social_media_summary": []}'
+              placeholder='[{"domain": "https://example.com", ...}] or {"domains": [], "social_media": [], "keyword_stats": []}'
               required
             />
           </div>
