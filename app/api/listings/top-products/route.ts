@@ -3,12 +3,11 @@ import { NextResponse } from "next/server";
 
 import { subPageDataMap } from "@/app/dashboard/components/mock-data";
 import { getActiveChannel } from "@/lib/channel";
-import { readChannel, fetchReleaseData, isMockRelease } from "@/lib/releases";
+import { readChannel, fetchReleaseData, fetchTopProductsListings, isMockRelease } from "@/lib/releases";
 import {
   buildCategoryRegistry,
   buildDrillablePieData,
   convertReportPeriod,
-  mapReleaseDomainsToListings,
 } from "@/lib/release-mapping";
 
 export async function GET() {
@@ -47,7 +46,7 @@ export async function GET() {
   }
 
   const release = await fetchReleaseData(pointer.current.releaseId);
-  const listings = mapReleaseDomainsToListings(release.domains, pointer.current.reportPeriod);
+  const listings = await fetchTopProductsListings(pointer.current.releaseId);
   const categoryOptions = buildCategoryRegistry(release.domains);
   const categories = [{ id: "all", name: "All Categories" }, ...categoryOptions];
   const drillablePieData = buildDrillablePieData(listings);

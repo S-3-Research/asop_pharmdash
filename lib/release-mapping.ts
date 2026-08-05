@@ -29,7 +29,14 @@
 
 import "server-only";
 
-import type { DomainData, PharmDashReleaseData, ProductInfoItem } from "@/lib/schemas/pharmdash";
+import type {
+  ContactInfoItem,
+  DomainData,
+  KeywordStat,
+  PharmDashReleaseData,
+  ProductInfoItem,
+  SocialMediaData,
+} from "@/lib/schemas/pharmdash";
 import type {
   CategoryOption,
   Domain,
@@ -39,6 +46,11 @@ import type {
   DomainSocialProfile,
   Listing,
   SeoClickHistoryPoint,
+  SocialKeywordBubble,
+  SocialKeywordRanking,
+  SocialMediaPost,
+  SocialMentionByApp,
+  SocialPlatformTab,
 } from "@/app/dashboard/components/types";
 
 // ---------------------------------------------------------------------------
@@ -303,11 +315,48 @@ export function mapReleaseDomainsToListings(
         listings.push({
           id: `${d.domain}-${domainIdx}-${productIdx}-${pairIdx}`,
           detectedAt: new Date((d.captured_time ?? d.last_seen ?? Math.floor(Date.now() / 1000)) * 1000),
-          source: d.social_media_profile_info.length > 0 ? "social" : "online",
+          source: "online",
           primaryCategory: pair.primary,
           secondaryCategory: pair.secondary,
           reportingPeriodId,
         });
+      });
+    });
+  });
+
+  return listings;
+}
+
+/**
+ * Maps release social_media[] rows into Listings (one Listing per post per
+ * resolved category pair, source: "social") so the Top Products subpage's
+ * "Social" stat reflects actual social signal volume rather than merely
+ * whether a domain happens to have linked social profiles. Categories are
+ * resolved via the same product_name -> category lookup used for the
+ * Social Media Insights page, so counts stay consistent across subpages.
+ */
+export function mapReleaseSocialToListings(
+  socialMedia: SocialMediaData[],
+  domains: DomainData[],
+  reportPeriod: string,
+): Listing[] {
+  const reportingPeriodId = convertReportPeriod(reportPeriod);
+  const categoryLookup = buildProductNameCategoryLookup(domains);
+  const listings: Listing[] = [];
+
+  socialMedia.forEach((post, postIdx) => {
+    const categories = resolveSocialCategories(post, categoryLookup);
+    const detectedAt = new Date(
+      safeIsoTimestamp(post.create_date, post.create_timestamp),
+    );
+    categories.forEach((pair, pairIdx) => {
+      listings.push({
+        id: `social-${postIdx}-${pairIdx}`,
+        detectedAt,
+        source: "social",
+        primaryCategory: pair.primaryCategory,
+        secondaryCategory: pair.secondaryCategory,
+        reportingPeriodId,
       });
     });
   });
@@ -331,10 +380,14 @@ export function mapReleaseData(
 ): MappedDashboardData {
   return {
     domains: mapReleaseDomains(release.domains, reportPeriod),
-    listings: mapReleaseDomainsToListings(release.domains, reportPeriod),
+    listings: [
+      ...mapReleaseDomainsToListings(release.domains, reportPeriod),
+      ...mapReleaseSocialToListings(release.social_media, release.domains, reportPeriod),
+    ],
     categoryOptions: buildCategoryRegistry(release.domains),
   };
 }
+
 
 // ---------------------------------------------------------------------------
 // Drillable pie-chart data (Top Products subpage) — built dynamically from
@@ -385,3 +438,518 @@ export function buildDrillablePieData(listings: Listing[]): PieChartNodeData[] {
     });
 }
 
+// ---------------------------------------------------------------------------
+// Social Media mapping — SocialMediaData[] / KeywordStat[] (release payload)
+// -> SocialMediaPost[] / keyword rankings & bubbles (dashboard view models).
+//
+// The release schema has no explicit "category" field on social posts —
+// only `product_name: string[]` (drug/product names matched in the post
+// text). Categories are recovered by looking those names up against the
+// product_name -> product_category mapping built from domains[].product_info
+// (the same source Domain Insights / Top Products use), so a single
+// category taxonomy stays consistent across all three subpages.
+// ---------------------------------------------------------------------------
+
+/** contact_type -> nice display label for the mentions-by-app chart. Anything
+ *  not listed here falls back to a title-cased version of the raw value. */
+const CONTACT_TYPE_APP_LABELS: Record<string, string> = {
+  whatsapp: "WhatsApp",
+  telegram: "Telegram",
+  venmo: "Venmo",
+  wechat: "WeChat",
+  signal: "Signal",
+  kik: "Kik",
+  wickr: "Wickr",
+  snapchat: "Snapchat",
+  instagram: "Instagram",
+  discord: "Discord",
+  facebook: "Facebook",
+  twitter: "Twitter",
+  threads: "Threads",
+  linkedin: "LinkedIn",
+  tiktok: "TikTok",
+  youtube: "YouTube",
+  tumblr: "Tumblr",
+  pinterest: "Pinterest",
+  quora: "Quora",
+  "about.me": "about.me",
+  myspace: "Myspace",
+};
+
+function contactTypeAppLabel(contactType: string): string {
+  return (
+    CONTACT_TYPE_APP_LABELS[contactType] ??
+    contactType
+      .split(/[_.\s]+/)
+      .filter(Boolean)
+      .map((w) => w[0].toUpperCase() + w.slice(1))
+      .join(" ")
+  );
+}
+
+/** Third-party app/service "mentions" for a social post are now derived from
+ *  its structured `contact_info[]` (one entry per contact_type actually
+ *  present on the row), rather than scanning free-text for known app names
+ *  — more accurate and no longer dependent on the post's `text` field. */
+function extractMentions(contactInfo: ContactInfoItem[] | null | undefined): string[] {
+  if (!contactInfo || contactInfo.length === 0) return [];
+  const found = new Set<string>();
+  for (const c of contactInfo) {
+    found.add(contactTypeAppLabel(c.contact_type));
+  }
+  return Array.from(found);
+}
+
+/** Builds a product_name (lowercased) -> category-pairs lookup from every
+ *  domain's product_info, so social posts/keywords referencing those same
+ *  product names can be assigned a consistent primary/secondary category. */
+function buildProductNameCategoryLookup(domains: DomainData[]): Map<string, DomainCategoryPair[]> {
+  const lookup = new Map<string, DomainCategoryPair[]>();
+  for (const d of domains) {
+    for (const p of d.product_info) {
+      const name = p.product_name?.trim().toLowerCase();
+      if (!name) continue;
+      if (!lookup.has(name)) {
+        lookup.set(name, productCategoryPairs(p));
+      }
+    }
+  }
+  return lookup;
+}
+
+function safeIsoTimestamp(
+  createDate: string | null | undefined,
+  createTimestamp: number | null | undefined,
+): string {
+  if (createDate) {
+    const parsed = new Date(createDate);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
+  }
+  if (createTimestamp) {
+    return new Date(createTimestamp * 1000).toISOString();
+  }
+  return new Date(0).toISOString();
+}
+
+function usernameToHandle(userUrl: string, userName: string): string {
+  return userName.trim() || userUrl;
+}
+
+/** Resolves a single release social_media[] row's category pairs via the
+ *  product_name -> category lookup (shared by both the lite index and the
+ *  full post mapper, so the two stay consistent). */
+function resolveSocialCategories(
+  post: SocialMediaData,
+  categoryLookup: Map<string, DomainCategoryPair[]>,
+): { primaryCategory: string; secondaryCategory: string }[] {
+  const productNames = post.product_name ?? [];
+  const rawCategories = productNames
+    .flatMap((name) => categoryLookup.get(name.trim().toLowerCase()) ?? [])
+    .filter((pair, i, arr) => arr.findIndex((p) => p.primary === pair.primary && p.secondary === pair.secondary) === i);
+  const categories = rawCategories.map((pair) => ({
+    primaryCategory: pair.primary,
+    secondaryCategory: pair.secondary,
+  }));
+  return categories.length > 0 ? categories : [{ primaryCategory: "Uncategorized", secondaryCategory: "Unknown" }];
+}
+
+/**
+ * Maps a single release social_media[] row (plus its original array index)
+ * into a full SocialMediaPost, including the (potentially large) `text`
+ * field. Used only for the small, already-paginated slice of rows that
+ * actually need to be displayed — see mapReleaseSocialPosts/samples route.
+ */
+function mapSocialRow(
+  post: SocialMediaData,
+  originalIndex: number,
+  categoryLookup: Map<string, DomainCategoryPair[]>,
+): SocialMediaPost {
+  const productNames = post.product_name ?? [];
+  return {
+    id: `social-${originalIndex}`,
+    link: post.link,
+    platform: post.socialmedia_platform,
+    text: post.text ?? "",
+    mentions: extractMentions(post.contact_info),
+    username: usernameToHandle(post.user_url, post.user_name),
+    userlink: post.user_url,
+    timestamp: safeIsoTimestamp(post.create_date, post.create_timestamp),
+    status: (post.is_live ?? true) ? "active" : "inactive",
+    keywords: productNames.length > 0 ? productNames : null,
+    categories: resolveSocialCategories(post, categoryLookup),
+  };
+}
+
+/**
+ * Maps release social_media[] rows into the dashboard's SocialMediaPost[]
+ * view model. `domains` supplies the product_name -> category lookup used
+ * to derive `categories` (release data itself carries no category field).
+ *
+ * NOTE: this maps every row (including the full `text` field) and is
+ * therefore relatively expensive at real-world release sizes (100k+ rows).
+ * Prefer `buildSocialIndex` + `mapSocialRow` for a specific slice when you
+ * don't need every row's text up front (see the samples/aggregation API
+ * routes).
+ */
+export function mapReleaseSocialPosts(
+  socialMedia: SocialMediaData[],
+  domains: DomainData[],
+): SocialMediaPost[] {
+  const categoryLookup = buildProductNameCategoryLookup(domains);
+  return socialMedia.map((post, index) => mapSocialRow(post, index, categoryLookup));
+}
+
+// ---------------------------------------------------------------------------
+// Lightweight social index — everything needed for filtering, sorting,
+// platform tabs, metrics, and mention counts, WITHOUT carrying each post's
+// (often large) `text` field around. This is what the aggregation endpoint
+// (/api/social-media) and the samples endpoint's filter/sort/paginate step
+// (/api/social-media/samples) should use instead of the full mapped array.
+// ---------------------------------------------------------------------------
+
+export interface SocialPostLite {
+  /** Index into the release's original social_media[] array — used to look
+   *  up the full row (with text) only for whatever page is actually shown. */
+  originalIndex: number;
+  platform: string;
+  username: string;
+  timestampMs: number;
+  status: "active" | "inactive";
+  mentions: string[];
+  categories: { primaryCategory: string; secondaryCategory: string }[];
+  keywordCount: number;
+}
+
+/**
+ * Builds the lightweight per-post index described above. This is the
+ * expensive-ish pass (category lookup + mention text-scan per row), so it's
+ * wrapped in `unstable_cache` at the call site (see lib/releases.ts
+ * `fetchSocialIndex`) keyed by releaseId — computed once per release, not
+ * once per request.
+ */
+export function buildSocialIndex(
+  socialMedia: SocialMediaData[],
+  domains: DomainData[],
+): SocialPostLite[] {
+  const categoryLookup = buildProductNameCategoryLookup(domains);
+
+  return socialMedia.map((post, originalIndex) => {
+    const productNames = post.product_name ?? [];
+    return {
+      originalIndex,
+      platform: post.socialmedia_platform,
+      username: usernameToHandle(post.user_url, post.user_name),
+      timestampMs: new Date(safeIsoTimestamp(post.create_date, post.create_timestamp)).getTime(),
+      status: (post.is_live ?? true ? "active" : "inactive") as "active" | "inactive",
+      mentions: extractMentions(post.contact_info),
+      categories: resolveSocialCategories(post, categoryLookup),
+      keywordCount: productNames.length,
+    };
+  });
+}
+
+
+/**
+ * Aggregates keyword_stats[] (release's flattened KeywordStat rows — one
+ * per keyword/platform pair) into the dashboard's keyword-ranking view
+ * model. Sums `signal_num` across matching rows; optionally restricted to
+ * a single platform (pass "all" or omit for every platform combined).
+ */
+export function buildKeywordRankingsFromStats(
+  stats: KeywordStat[],
+  platform: string | null | undefined,
+  limit: number,
+  colors: string[],
+): SocialKeywordRanking[] {
+  const filtered =
+    platform && platform !== "all"
+      ? stats.filter((s) => s.socialmedia_platform === platform)
+      : stats;
+
+  const totals = new Map<string, number>();
+  for (const s of filtered) {
+    totals.set(s.keyword, (totals.get(s.keyword) ?? 0) + (s.signal_num ?? 0));
+  }
+
+  return Array.from(totals.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([keyword, signalCount], i) => ({
+      keyword,
+      signalCount,
+      growthRate: null,
+      color: colors[i % colors.length],
+    }));
+}
+
+export function buildKeywordBubblesFromStats(
+  stats: KeywordStat[],
+  platform: string | null | undefined,
+  limit: number,
+  colors: string[],
+): SocialKeywordBubble[] {
+  return buildKeywordRankingsFromStats(stats, platform, limit, colors).map(
+    ({ keyword, signalCount, color }) => ({ keyword, signalCount, color }),
+  );
+}
+
+/**
+ * Looks up raw_num (search-result counts) for a specific set of keywords,
+ * summing across platforms when `platform` is "all"/omitted, matching a
+ * single platform's rows otherwise.
+ */
+export function lookupKeywordRawCounts(
+  stats: KeywordStat[],
+  keywords: string[],
+  platform: string | null | undefined,
+): { keyword: string; rawCount: number }[] {
+  const filtered =
+    platform && platform !== "all"
+      ? stats.filter((s) => s.socialmedia_platform === platform)
+      : stats;
+
+  const totals = new Map<string, number>();
+  for (const s of filtered) {
+    totals.set(s.keyword, (totals.get(s.keyword) ?? 0) + (s.raw_num ?? 0));
+  }
+
+  return keywords.map((keyword) => ({ keyword, rawCount: totals.get(keyword) ?? 0 }));
+}
+
+// ---------------------------------------------------------------------------
+// Fast paths built on top of SocialPostLite (no text field) — used by the
+// /api/social-media (aggregation) and /api/social-media/samples routes so
+// neither one maps/carries the full 100k+ row array (with text) per request.
+// ---------------------------------------------------------------------------
+
+function filterSocialIndex(
+  index: SocialPostLite[],
+  selectedCategories: string[],
+  platform: string | null | undefined,
+): SocialPostLite[] {
+  let result = index;
+  if (selectedCategories.length > 0) {
+    result = result.filter((p) =>
+      p.categories.some((c) => selectedCategories.includes(c.primaryCategory)),
+    );
+  }
+  if (platform && platform !== "all") {
+    result = result.filter((p) => p.platform === platform);
+  }
+  return result;
+}
+
+export interface SocialAggregates {
+  platformTabs: SocialPlatformTab[];
+  metrics: { totalPosts: number; uniqueAccounts: number; activeCount: number };
+  mentionsByApp: SocialMentionByApp[];
+}
+
+/**
+ * Computes platform tabs, headline metrics, and mentions-by-app directly
+ * from the lightweight index — no `text`/`link`/`userlink` fields are ever
+ * materialized. Platform tabs reflect category-filtering only (matches the
+ * previous /api/social-media behavior); metrics/mentions reflect category
+ * AND platform filtering.
+ */
+export function buildSocialAggregates(
+  index: SocialPostLite[],
+  selectedCategories: string[],
+  platform: string | null | undefined,
+): SocialAggregates {
+  const catFiltered = filterSocialIndex(index, selectedCategories, null);
+
+  const platformCountMap = new Map<string, number>();
+  for (const post of catFiltered) {
+    platformCountMap.set(post.platform, (platformCountMap.get(post.platform) ?? 0) + 1);
+  }
+  const platformTabs: SocialPlatformTab[] = [...platformCountMap.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([p, count]) => ({ platform: p, count }));
+
+  const filtered =
+    platform && platform !== "all" ? catFiltered.filter((p) => p.platform === platform) : catFiltered;
+
+  const uniqueAccounts = new Set(filtered.map((p) => p.username)).size;
+  const activeCount = filtered.filter((p) => p.status === "active").length;
+
+  const mentionMap = new Map<string, number>();
+  for (const post of filtered) {
+    for (const app of post.mentions) {
+      mentionMap.set(app, (mentionMap.get(app) ?? 0) + 1);
+    }
+  }
+  const mentionsByApp: SocialMentionByApp[] = [...mentionMap.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([app, count]) => ({ app, count }));
+
+  return {
+    platformTabs,
+    metrics: { totalPosts: filtered.length, uniqueAccounts, activeCount },
+    mentionsByApp,
+  };
+}
+
+/**
+ * Filters + sorts (newest first) + paginates the lightweight index, then
+ * hydrates ONLY the resulting page's rows into full SocialMediaPost objects
+ * (with `text`) by looking them back up in the release's raw social_media[]
+ * array via `originalIndex`. The full-text mapping cost is paid for
+ * `pageSize` rows instead of the entire release.
+ */
+export function paginateSocialPosts(
+  index: SocialPostLite[],
+  rawSocialMedia: SocialMediaData[],
+  domains: DomainData[],
+  selectedCategories: string[],
+  platform: string | null | undefined,
+  page: number,
+  pageSize: number,
+): { samples: SocialMediaPost[]; total: number } {
+  const filtered = filterSocialIndex(index, selectedCategories, platform);
+  filtered.sort((a, b) => b.timestampMs - a.timestampMs);
+
+  const total = filtered.length;
+  const start = (page - 1) * pageSize;
+  const pageSlice = filtered.slice(start, start + pageSize);
+
+  const categoryLookup = buildProductNameCategoryLookup(domains);
+  const samples = pageSlice.map((lite) =>
+    mapSocialRow(rawSocialMedia[lite.originalIndex], lite.originalIndex, categoryLookup),
+  );
+
+  return { samples, total };
+}
+
+// ---------------------------------------------------------------------------
+// Precomputed aggregate table — built ONCE at release-creation time (see
+// lib/releases.ts `createRelease`) and stored to Storage, so the aggregation
+// endpoint (/api/social-media) can serve every "no category filter" or
+// "single category" + "any platform" combination via an O(1) lookup instead
+// of scanning the release's social-media rows on every request.
+//
+// Only single-category (and no-category = "__all__") combinations are
+// precomputed — categories are a multi-select filter (arbitrary subset, OR
+// match), and the number of subsets is 2^N, which isn't practical to
+// precompute for anything but a handful of categories. Multi-category
+// selections (rare in practice) fall back to filtering the cached
+// SocialPostLite[] index on demand — see the route's `else` branch.
+//
+// Keyword rankings/bubbles have no category dimension at all (KeywordStat
+// carries no product/category field), so they're keyed by platform only —
+// a single ~10-entry table covers every possible filter combination.
+// ---------------------------------------------------------------------------
+
+const CATEGORY_ALL_KEY = "__all__";
+const PLATFORM_ALL_KEY = "all";
+
+export interface SocialAggregateEntry {
+  platformTabs: SocialPlatformTab[];
+  metrics: { totalPosts: number; uniqueAccounts: number; activeCount: number };
+  mentionsByApp: SocialMentionByApp[];
+}
+
+export interface SocialKeywordAggregateEntry {
+  uniqueKeywordCount: number;
+  keywordRankings: SocialKeywordRanking[];
+  keywordBubbles: SocialKeywordBubble[];
+}
+
+export interface SocialAggregateTable {
+  /** category label (or "__all__") -> platform label (or "all") -> precomputed entry */
+  byCategory: Record<string, Record<string, SocialAggregateEntry>>;
+  /** platform label (or "all") -> precomputed keyword rankings/bubbles (category-independent) */
+  byPlatformKeywords: Record<string, SocialKeywordAggregateEntry>;
+  /** Dynamically derived category filter options — same taxonomy/colors as
+   *  Domain Insights / Top Products (buildCategoryRegistry(domains)), since
+   *  social posts have no category field of their own; categories are
+   *  recovered via the product_name -> category lookup at index-build time. */
+  categoryOptions: CategoryOption[];
+}
+
+function aggregateSubset(subset: SocialPostLite[], platform: string): SocialAggregateEntry {
+  const platformCountMap = new Map<string, number>();
+  for (const post of subset) {
+    platformCountMap.set(post.platform, (platformCountMap.get(post.platform) ?? 0) + 1);
+  }
+  const platformTabs: SocialPlatformTab[] = [...platformCountMap.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([p, count]) => ({ platform: p, count }));
+
+  const filtered = platform === PLATFORM_ALL_KEY ? subset : subset.filter((p) => p.platform === platform);
+
+  const uniqueAccounts = new Set(filtered.map((p) => p.username)).size;
+  const activeCount = filtered.filter((p) => p.status === "active").length;
+
+  const mentionMap = new Map<string, number>();
+  for (const post of filtered) {
+    for (const app of post.mentions) {
+      mentionMap.set(app, (mentionMap.get(app) ?? 0) + 1);
+    }
+  }
+  const mentionsByApp: SocialMentionByApp[] = [...mentionMap.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([app, count]) => ({ app, count }));
+
+  return {
+    platformTabs,
+    metrics: { totalPosts: filtered.length, uniqueAccounts, activeCount },
+    mentionsByApp,
+  };
+}
+
+const AGGREGATE_KEYWORD_COLORS = [
+  "#ef4444", "#3b82f6", "#8b5cf6", "#f59e0b", "#10b981",
+  "#ec4899", "#f97316", "#06b6d4", "#84cc16", "#6366f1",
+];
+
+/**
+ * Builds the full precomputed table: every (single-category-or-"__all__") x
+ * (single-platform-or-"all") combination that actually occurs in the
+ * release's data, plus the platform-only keyword rankings/bubbles table and
+ * the category filter options. Meant to be called once per release (at
+ * upload time), not per request.
+ */
+export function buildSocialAggregateTable(
+  index: SocialPostLite[],
+  keywordStats: KeywordStat[],
+  domains: DomainData[],
+): SocialAggregateTable {
+  const platformLabels = new Set<string>([PLATFORM_ALL_KEY]);
+  const categoryLabels = new Set<string>([CATEGORY_ALL_KEY]);
+  for (const post of index) {
+    platformLabels.add(post.platform);
+    for (const c of post.categories) categoryLabels.add(c.primaryCategory);
+  }
+
+  const byCategory: Record<string, Record<string, SocialAggregateEntry>> = {};
+  for (const category of categoryLabels) {
+    const subset =
+      category === CATEGORY_ALL_KEY
+        ? index
+        : index.filter((p) => p.categories.some((c) => c.primaryCategory === category));
+
+    const perPlatform: Record<string, SocialAggregateEntry> = {};
+    for (const platform of platformLabels) {
+      perPlatform[platform] = aggregateSubset(subset, platform);
+    }
+    byCategory[category] = perPlatform;
+  }
+
+  const byPlatformKeywords: Record<string, SocialKeywordAggregateEntry> = {};
+  for (const platform of platformLabels) {
+    const relevantStats =
+      platform === PLATFORM_ALL_KEY
+        ? keywordStats
+        : keywordStats.filter((s) => s.socialmedia_platform === platform);
+    byPlatformKeywords[platform] = {
+      uniqueKeywordCount: new Set(relevantStats.map((s) => s.keyword)).size,
+      keywordRankings: buildKeywordRankingsFromStats(keywordStats, platform, 25, AGGREGATE_KEYWORD_COLORS),
+      keywordBubbles: buildKeywordBubblesFromStats(keywordStats, platform, 15, AGGREGATE_KEYWORD_COLORS),
+    };
+  }
+
+  const categoryOptions = buildCategoryRegistry(domains);
+
+  return { byCategory, byPlatformKeywords, categoryOptions };
+}

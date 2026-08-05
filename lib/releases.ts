@@ -11,7 +11,15 @@
  *
  * Design notes:
  * - Release payloads are immutable once written, so they are safe to cache
- *   indefinitely (keyed by releaseId) via `unstable_cache`.
+ *   indefinitely (keyed by releaseId) — via a plain in-process Map, NOT
+ *   `unstable_cache`. Next's Data Cache rejects any entry over 2MB, and
+ *   real release payloads (gzip decompressed) and even the per-post social
+ *   index can easily exceed that at production scale, which made every
+ *   request silently fail to cache and re-download/re-parse the full
+ *   payload (10-20s+ per request, sometimes surfacing as a 500). A simple
+ *   module-scoped Map has no such size limit and is exactly the semantics
+ *   we want here: memoize immutable-per-releaseId data for the lifetime of
+ *   the server process.
  * - Channel pointers (`channels/*.json`) are tiny (KB-scale) and change
  *   infrequently but must reflect Promote/Rollback immediately, so they are
  *   read directly from Storage on every call — no caching layer needed.
@@ -20,7 +28,6 @@
  */
 
 import "server-only";
-import { unstable_cache } from "next/cache";
 import { gzip, ungzip } from "pako";
 
 import { getSupabaseAdmin, DATA_BUCKET } from "@/lib/supabase-admin";
@@ -28,6 +35,40 @@ import {
   PharmDashReleaseDataSchema,
   type PharmDashReleaseData,
 } from "@/lib/schemas/pharmdash";
+import {
+  buildSocialIndex,
+  buildSocialAggregateTable,
+  mapReleaseDomainsToListings,
+  mapReleaseSocialToListings,
+  type SocialPostLite,
+  type SocialAggregateTable,
+} from "@/lib/release-mapping";
+import type { Listing } from "@/app/dashboard/components/types";
+
+// ---------------------------------------------------------------------------
+// In-memory memoization (NOT Next's `unstable_cache` — see header comment:
+// its Data Cache rejects entries over 2MB, which real release payloads and
+// social indexes routinely exceed). Keyed by an arbitrary cache-name +
+// releaseId; lives for the lifetime of the server process/instance, which
+// is fine since every entry here is immutable per releaseId.
+// ---------------------------------------------------------------------------
+
+function memoizeByKey<T>(fn: (key: string) => Promise<T>): (key: string) => Promise<T> {
+  const cache = new Map<string, Promise<T>>();
+  return (key: string) => {
+    let entry = cache.get(key);
+    if (!entry) {
+      entry = fn(key).catch((err) => {
+        // Don't poison the cache with a rejected promise — allow retry on
+        // the next call (e.g. transient Storage/network failure).
+        cache.delete(key);
+        throw err;
+      });
+      cache.set(key, entry);
+    }
+    return entry;
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -254,7 +295,7 @@ export async function createRelease(params: {
     recordCounts: {
       domains: data.domains.length,
       socialMedia: data.social_media.length,
-      socialMediaSummary: data.social_media_summary.length,
+      socialMediaSummary: data.keyword_stats.length,
     },
   };
 
@@ -272,6 +313,15 @@ export async function createRelease(params: {
     throw new Error(`Failed to upload release data: ${dataError.message}`);
   }
 
+  // Precompute the social-media aggregation table (every single-category x
+  // single-platform combination) ONCE here at upload time, so the dashboard
+  // never has to scan social_media rows on a live request — see
+  // lib/release-mapping.ts `buildSocialAggregateTable` for what's covered
+  // (and what falls back to on-demand filtering: multi-category selections).
+  const socialIndex = buildSocialIndex(data.social_media, data.domains);
+  const aggregateTable = buildSocialAggregateTable(socialIndex, data.keyword_stats, data.domains);
+  await uploadJson(`${releasePrefix(releaseId)}/social-aggregates.json`, aggregateTable);
+
   await uploadJson(`${releasePrefix(releaseId)}/manifest.json`, manifest);
 
   await appendAuditLog({
@@ -287,9 +337,9 @@ export async function createRelease(params: {
 
 /**
  * Fetches and validates a release's data payload. Immutable per releaseId,
- * so cached indefinitely with no revalidation/tags required.
+ * so memoized indefinitely (in-process) with no revalidation needed.
  */
-export const fetchReleaseData = unstable_cache(
+export const fetchReleaseData = memoizeByKey(
   async (releaseId: string): Promise<PharmDashReleaseData> => {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase.storage
@@ -307,8 +357,74 @@ export const fetchReleaseData = unstable_cache(
     const parsed = PharmDashReleaseDataSchema.parse(JSON.parse(json));
     return parsed;
   },
-  ["pharmdash-release-data"],
-  { revalidate: false },
+);
+
+/**
+ * Builds (and memoizes, per releaseId) the lightweight per-post social-media
+ * index used by the aggregation and samples-listing API routes — everything
+ * needed for filtering/sorting/counting EXCEPT each post's `text` field, so
+ * neither route has to map or transfer the full text of every row (100k+ at
+ * real-world release sizes) just to compute platform tabs, metrics, or
+ * paginate a sample list. See lib/release-mapping.ts `buildSocialIndex`.
+ */
+export const fetchSocialIndex = memoizeByKey(
+  async (releaseId: string): Promise<SocialPostLite[]> => {
+    const release = await fetchReleaseData(releaseId);
+    return buildSocialIndex(release.social_media, release.domains);
+  },
+);
+
+/**
+ * Loads the release's precomputed social-media aggregate table (every
+ * single-category x single-platform combination — see lib/release-mapping.ts
+ * `buildSocialAggregateTable`), written to Storage once at upload time by
+ * `createRelease`. Memoized indefinitely (in-process) per releaseId, same as
+ * the release data itself.
+ *
+ * Falls back to computing it on demand for releases uploaded before this
+ * precomputation existed (the file will simply be missing in Storage).
+ */
+export const fetchSocialAggregateTable = memoizeByKey(
+  async (releaseId: string): Promise<SocialAggregateTable> => {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase.storage
+      .from(DATA_BUCKET)
+      .download(`${releasePrefix(releaseId)}/social-aggregates.json`);
+
+    if (!error && data) {
+      const text = await data.text();
+      return JSON.parse(text) as SocialAggregateTable;
+    }
+
+    // Pre-existing release without a precomputed table — build it once here
+    // (still memoized per releaseId afterwards, just paid on first access
+    // instead of at upload time).
+    const [release, index] = await Promise.all([fetchReleaseData(releaseId), fetchSocialIndex(releaseId)]);
+    return buildSocialAggregateTable(index, release.keyword_stats, release.domains);
+  },
+);
+
+/**
+ * Builds (and memoizes, per releaseId) the combined Top Products listings:
+ * one Listing per domain product (source: "online") plus one Listing per
+ * social_media[] row/matched-category (source: "social") — so the Social vs
+ * Online stats reflect actual social signal volume, not merely whether a
+ * domain happens to have a linked social profile. See
+ * lib/release-mapping.ts `mapReleaseDomainsToListings` / `mapReleaseSocialToListings`.
+ */
+export const fetchTopProductsListings = memoizeByKey(
+  async (releaseId: string): Promise<Listing[]> => {
+    const release = await fetchReleaseData(releaseId);
+    const manifest = await getManifest(releaseId);
+    if (!manifest) {
+      throw new Error(`Failed to load manifest for release "${releaseId}"`);
+    }
+    const reportPeriod = manifest.reportPeriod;
+    return [
+      ...mapReleaseDomainsToListings(release.domains, reportPeriod),
+      ...mapReleaseSocialToListings(release.social_media, release.domains, reportPeriod),
+    ];
+  },
 );
 
 // ---------------------------------------------------------------------------

@@ -16,15 +16,15 @@ import { runBusinessValidation } from "@/lib/release-validation";
  *
  *   `data` accepts two shapes for convenience:
  *     1. The full wrapped shape: { domains: [...], social_media: [...],
- *        social_media_summary: [...] }
+ *        keyword_stats: [...] }
  *     2. A bare array of domain records (as exported by the upstream
  *        scraper/Pydantic pipeline), which is normalized into
- *        { domains: <array>, social_media: [], social_media_summary: [] }.
+ *        { domains: <array>, social_media: [], keyword_stats: [] }.
  */
 
 function normalizeReleasePayload(input: unknown): unknown {
   if (Array.isArray(input)) {
-    return { domains: input, social_media: [], social_media_summary: [] };
+    return { domains: input, social_media: [], keyword_stats: [] };
   }
   return input;
 }
