@@ -1,16 +1,40 @@
 import type { CategoryOption } from "../../types";
 
+// Keys match the lowercase `socialmedia_platform` enum values coming from the
+// release schema (see SocialMediaPlatform in lib/schemas/pharmdash.ts), NOT
+// the platforms' display/brand names. Always look these up via
+// platformColor() below, which lowercases the input, rather than indexing
+// this map directly with a raw display-cased string.
 export const PLATFORM_COLORS: Record<string, string> = {
-  Reddit:    "#ff4500",
-  X:         "#1a1a1a",
-  YouTube:   "#ef4444",
-  Instagram: "#e1306c",
-  TikTok:    "#2d2d2d",
-  Telegram:  "#0088cc",
-  Discord:   "#5865f2",
-  Quora:     "#b92b27",
+  facebook:  "#1877f2",
+  instagram: "#e1306c",
+  reddit:    "#ff4500",
+  twitter:   "#1a1a1a",
+  threads:   "#000000",
+  linkedin:  "#0a66c2",
+  tiktok:    "#2d2d2d",
+  youtube:   "#ef4444",
+  tumblr:    "#35465c",
+  pinterest: "#bd081c",
+  quora:     "#b92b27",
+  whatsapp:  "#25d366",
+  telegram:  "#0088cc",
+  snapchat:  "#f5c518",
+  "about.me": "#00a98f",
+  kik:       "#82bc23",
+  myspace:   "#000000",
+  venmo:     "#3d95ce",
+  signal:    "#3a76f0",
+  discord:   "#5865f2",
   default:   "#64748b",
 };
+
+/** Case-insensitive lookup so a display-cased or mis-cased platform value
+ *  (e.g. "Facebook", "TikTok") still resolves to the right brand color
+ *  instead of silently falling back to gray. */
+export function platformColor(platform: string): string {
+  return PLATFORM_COLORS[platform.toLowerCase()] ?? PLATFORM_COLORS.default;
+}
 
 /** Brand colors for external apps mentioned in post text (mentions[] field) */
 export const APP_COLORS: Record<string, string> = {

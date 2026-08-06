@@ -6,7 +6,7 @@ import { CheckCircle2, MoreHorizontal } from "lucide-react";
 
 import type { SocialSamplesPayload } from "../../types";
 import { useWidgetData } from "../../copilot/copilot-context";
-import { PLATFORM_COLORS } from "./config";
+import { platformColor } from "./config";
 
 const PAGE_SIZE = 8;
 
@@ -80,8 +80,9 @@ export function SignalSamplesCard({ categories, platform }: SignalSamplesCardPro
         )}
 
         {samples.map((post) => {
-          const color = PLATFORM_COLORS[post.platform] ?? PLATFORM_COLORS.default;
-          const ts    = new Date(post.timestamp);
+          const color = platformColor(post.platform);
+          const ts    = post.timestamp ? new Date(post.timestamp) : null;
+          const initial = (post.username.trim().charAt(0) || "?").toUpperCase();
           return (
             <div
               key={post.id}
@@ -93,12 +94,12 @@ export function SignalSamplesCard({ categories, platform }: SignalSamplesCardPro
                     className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0"
                     style={{ backgroundColor: color }}
                   >
-                    {post.platform.charAt(0)}
+                    {initial}
                   </div>
                   <div>
                     <p className="text-xs font-bold text-gray-800 leading-tight">{post.username}</p>
                     <p className="text-[10px] text-gray-400">
-                      {post.platform} · {ts.toLocaleDateString()}
+                      {post.platform} · {ts ? ts.toLocaleDateString() : "Unknown date"}
                     </p>
                   </div>
                 </div>
@@ -115,19 +116,6 @@ export function SignalSamplesCard({ categories, platform }: SignalSamplesCardPro
               </div>
 
               <p className="text-xs text-gray-700 leading-relaxed mb-2 line-clamp-2">{post.text}</p>
-
-              {post.categories.length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-1">
-                  {post.categories.map((cat) => (
-                    <span
-                      key={`${cat.primaryCategory}-${cat.secondaryCategory}`}
-                      className="bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded text-[10px] font-medium"
-                    >
-                      {cat.secondaryCategory}
-                    </span>
-                  ))}
-                </div>
-              )}
 
               {post.keywords && post.keywords.length > 0 && (
                 <div className="flex flex-wrap gap-1">

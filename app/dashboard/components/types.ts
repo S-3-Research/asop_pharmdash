@@ -198,7 +198,7 @@ export interface SocialMediaPost {
   mentions: string[];
   username: string;
   userlink: string;
-  timestamp: string;          // ISO-8601
+  timestamp: string | null;      // ISO-8601, null when the release row has no date info
   status: "active" | "inactive";
   keywords: string[] | null;
   /** One or more drug-category associations. A post can match multiple drug classes. */

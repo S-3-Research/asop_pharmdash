@@ -18,7 +18,7 @@ function appColor(app: string): string {
 }
 
 export function MentionsChartCard({ mentionsByApp }: MentionsChartCardProps) {
-  const [view, setView] = useState<"chart" | "table">("chart");
+  const [view, setView] = useState<"chart" | "table">("table");
 
   useWidgetData(
     "social-mentions-by-app",

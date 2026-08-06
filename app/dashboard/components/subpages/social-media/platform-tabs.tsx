@@ -1,7 +1,7 @@
 "use client";
 
 import type { SocialPlatformTab } from "../../types";
-import { PLATFORM_COLORS } from "./config";
+import { platformColor } from "./config";
 
 interface PlatformTabsProps {
   tabs: SocialPlatformTab[];
@@ -27,7 +27,7 @@ export function PlatformTabs({ tabs, selected, onSelect }: PlatformTabsProps) {
           label={platform}
           count={count}
           isActive={selected === platform}
-          color={PLATFORM_COLORS[platform] ?? PLATFORM_COLORS.default}
+          color={platformColor(platform)}
           onClick={() => onSelect(platform)}
         />
       ))}

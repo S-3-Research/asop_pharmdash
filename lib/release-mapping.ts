@@ -347,7 +347,7 @@ export function mapReleaseSocialToListings(
   socialMedia.forEach((post, postIdx) => {
     const categories = resolveSocialCategories(post);
     const detectedAt = new Date(
-      safeIsoTimestamp(post.create_date, post.create_timestamp),
+      safeIsoTimestamp(post.create_date, post.create_timestamp) ?? 0,
     );
     categories.forEach((pair, pairIdx) => {
       listings.push({
@@ -503,7 +503,7 @@ function extractMentions(contactInfo: ContactInfoItem[] | null | undefined): str
 function safeIsoTimestamp(
   createDate: string | null | undefined,
   createTimestamp: number | null | undefined,
-): string {
+): string | null {
   if (createDate) {
     const parsed = new Date(createDate);
     if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
@@ -511,7 +511,7 @@ function safeIsoTimestamp(
   if (createTimestamp) {
     return new Date(createTimestamp * 1000).toISOString();
   }
-  return new Date(0).toISOString();
+  return null;
 }
 
 function usernameToHandle(userUrl: string, userName: string): string {
@@ -620,7 +620,7 @@ export function buildSocialIndex(
       originalIndex,
       platform: post.socialmedia_platform,
       username: usernameToHandle(post.user_url, post.user_name),
-      timestampMs: new Date(safeIsoTimestamp(post.create_date, post.create_timestamp)).getTime(),
+      timestampMs: new Date(safeIsoTimestamp(post.create_date, post.create_timestamp) ?? 0).getTime(),
       status: (post.is_live ?? true ? "active" : "inactive") as "active" | "inactive",
       mentions: extractMentions(post.contact_info),
       categories: resolveSocialCategories(post),
