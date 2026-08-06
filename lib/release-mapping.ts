@@ -66,6 +66,7 @@ const KNOWN_CATEGORY_LABELS: Record<string, string> = {
   cancer: "Cancer Med",
   "cancer med": "Cancer Med",
   "cancer medication": "Cancer Med",
+  "cancer drug": "Cancer Med",
   cns: "CNS Med",
   "cns med": "CNS Med",
   pain: "Pain Med",
@@ -331,21 +332,20 @@ export function mapReleaseDomainsToListings(
  * Maps release social_media[] rows into Listings (one Listing per post per
  * resolved category pair, source: "social") so the Top Products subpage's
  * "Social" stat reflects actual social signal volume rather than merely
- * whether a domain happens to have linked social profiles. Categories are
- * resolved via the same product_name -> category lookup used for the
- * Social Media Insights page, so counts stay consistent across subpages.
+ * whether a domain happens to have linked social profiles. Categories come
+ * directly from each row's product_list[].product_category (see
+ * resolveSocialCategories), so counts stay consistent with the Social Media
+ * Insights page.
  */
 export function mapReleaseSocialToListings(
   socialMedia: SocialMediaData[],
-  domains: DomainData[],
   reportPeriod: string,
 ): Listing[] {
   const reportingPeriodId = convertReportPeriod(reportPeriod);
-  const categoryLookup = buildProductNameCategoryLookup(domains);
   const listings: Listing[] = [];
 
   socialMedia.forEach((post, postIdx) => {
-    const categories = resolveSocialCategories(post, categoryLookup);
+    const categories = resolveSocialCategories(post);
     const detectedAt = new Date(
       safeIsoTimestamp(post.create_date, post.create_timestamp),
     );
@@ -382,7 +382,7 @@ export function mapReleaseData(
     domains: mapReleaseDomains(release.domains, reportPeriod),
     listings: [
       ...mapReleaseDomainsToListings(release.domains, reportPeriod),
-      ...mapReleaseSocialToListings(release.social_media, release.domains, reportPeriod),
+      ...mapReleaseSocialToListings(release.social_media, reportPeriod),
     ],
     categoryOptions: buildCategoryRegistry(release.domains),
   };
@@ -500,23 +500,6 @@ function extractMentions(contactInfo: ContactInfoItem[] | null | undefined): str
   return Array.from(found);
 }
 
-/** Builds a product_name (lowercased) -> category-pairs lookup from every
- *  domain's product_info, so social posts/keywords referencing those same
- *  product names can be assigned a consistent primary/secondary category. */
-function buildProductNameCategoryLookup(domains: DomainData[]): Map<string, DomainCategoryPair[]> {
-  const lookup = new Map<string, DomainCategoryPair[]>();
-  for (const d of domains) {
-    for (const p of d.product_info) {
-      const name = p.product_name?.trim().toLowerCase();
-      if (!name) continue;
-      if (!lookup.has(name)) {
-        lookup.set(name, productCategoryPairs(p));
-      }
-    }
-  }
-  return lookup;
-}
-
 function safeIsoTimestamp(
   createDate: string | null | undefined,
   createTimestamp: number | null | undefined,
@@ -535,21 +518,25 @@ function usernameToHandle(userUrl: string, userName: string): string {
   return userName.trim() || userUrl;
 }
 
-/** Resolves a single release social_media[] row's category pairs via the
- *  product_name -> category lookup (shared by both the lite index and the
- *  full post mapper, so the two stay consistent). */
+/**
+ * Resolves a single release social_media[] row's category pairs. As of the
+ * 2026-08-05 schema, social_media rows carry their own product_category
+ * directly (via `product_list[].product_category`) — no longer inferred by
+ * looking the row's product names up against domains[].product_info.
+ */
 function resolveSocialCategories(
   post: SocialMediaData,
-  categoryLookup: Map<string, DomainCategoryPair[]>,
 ): { primaryCategory: string; secondaryCategory: string }[] {
-  const productNames = post.product_name ?? [];
-  const rawCategories = productNames
-    .flatMap((name) => categoryLookup.get(name.trim().toLowerCase()) ?? [])
-    .filter((pair, i, arr) => arr.findIndex((p) => p.primary === pair.primary && p.secondary === pair.secondary) === i);
-  const categories = rawCategories.map((pair) => ({
-    primaryCategory: pair.primary,
-    secondaryCategory: pair.secondary,
-  }));
+  const productList = post.product_list ?? [];
+  const categories = productList
+    .map((item) => ({
+      primaryCategory: item.product_category ? normalizeCategoryLabel(item.product_category) : "Uncategorized",
+      secondaryCategory: item.product_name,
+    }))
+    .filter(
+      (pair, i, arr) =>
+        arr.findIndex((p) => p.primaryCategory === pair.primaryCategory && p.secondaryCategory === pair.secondaryCategory) === i,
+    );
   return categories.length > 0 ? categories : [{ primaryCategory: "Uncategorized", secondaryCategory: "Unknown" }];
 }
 
@@ -562,9 +549,8 @@ function resolveSocialCategories(
 function mapSocialRow(
   post: SocialMediaData,
   originalIndex: number,
-  categoryLookup: Map<string, DomainCategoryPair[]>,
 ): SocialMediaPost {
-  const productNames = post.product_name ?? [];
+  const productNames = (post.product_list ?? []).map((p) => p.product_name);
   return {
     id: `social-${originalIndex}`,
     link: post.link,
@@ -576,7 +562,7 @@ function mapSocialRow(
     timestamp: safeIsoTimestamp(post.create_date, post.create_timestamp),
     status: (post.is_live ?? true) ? "active" : "inactive",
     keywords: productNames.length > 0 ? productNames : null,
-    categories: resolveSocialCategories(post, categoryLookup),
+    categories: resolveSocialCategories(post),
   };
 }
 
@@ -593,10 +579,8 @@ function mapSocialRow(
  */
 export function mapReleaseSocialPosts(
   socialMedia: SocialMediaData[],
-  domains: DomainData[],
 ): SocialMediaPost[] {
-  const categoryLookup = buildProductNameCategoryLookup(domains);
-  return socialMedia.map((post, index) => mapSocialRow(post, index, categoryLookup));
+  return socialMedia.map((post, index) => mapSocialRow(post, index));
 }
 
 // ---------------------------------------------------------------------------
@@ -629,12 +613,9 @@ export interface SocialPostLite {
  */
 export function buildSocialIndex(
   socialMedia: SocialMediaData[],
-  domains: DomainData[],
 ): SocialPostLite[] {
-  const categoryLookup = buildProductNameCategoryLookup(domains);
-
   return socialMedia.map((post, originalIndex) => {
-    const productNames = post.product_name ?? [];
+    const productList = post.product_list ?? [];
     return {
       originalIndex,
       platform: post.socialmedia_platform,
@@ -642,8 +623,8 @@ export function buildSocialIndex(
       timestampMs: new Date(safeIsoTimestamp(post.create_date, post.create_timestamp)).getTime(),
       status: (post.is_live ?? true ? "active" : "inactive") as "active" | "inactive",
       mentions: extractMentions(post.contact_info),
-      categories: resolveSocialCategories(post, categoryLookup),
-      keywordCount: productNames.length,
+      categories: resolveSocialCategories(post),
+      keywordCount: productList.length,
     };
   });
 }
@@ -800,7 +781,6 @@ export function buildSocialAggregates(
 export function paginateSocialPosts(
   index: SocialPostLite[],
   rawSocialMedia: SocialMediaData[],
-  domains: DomainData[],
   selectedCategories: string[],
   platform: string | null | undefined,
   page: number,
@@ -813,10 +793,7 @@ export function paginateSocialPosts(
   const start = (page - 1) * pageSize;
   const pageSlice = filtered.slice(start, start + pageSize);
 
-  const categoryLookup = buildProductNameCategoryLookup(domains);
-  const samples = pageSlice.map((lite) =>
-    mapSocialRow(rawSocialMedia[lite.originalIndex], lite.originalIndex, categoryLookup),
-  );
+  const samples = pageSlice.map((lite) => mapSocialRow(rawSocialMedia[lite.originalIndex], lite.originalIndex));
 
   return { samples, total };
 }
@@ -860,10 +837,16 @@ export interface SocialAggregateTable {
   byCategory: Record<string, Record<string, SocialAggregateEntry>>;
   /** platform label (or "all") -> precomputed keyword rankings/bubbles (category-independent) */
   byPlatformKeywords: Record<string, SocialKeywordAggregateEntry>;
-  /** Dynamically derived category filter options — same taxonomy/colors as
-   *  Domain Insights / Top Products (buildCategoryRegistry(domains)), since
-   *  social posts have no category field of their own; categories are
-   *  recovered via the product_name -> category lookup at index-build time. */
+  /** Dynamically derived category filter options. As of the 2026-08-05
+   *  schema, social_media rows carry their own product_category directly,
+   *  so this is built from whatever categories actually occur across the
+   *  release's social posts (see `buildSocialIndex`/`resolveSocialCategories`)
+   *  — NOT from domains[].product_info, which can have a different/larger
+   *  category set and would otherwise offer filter options that match zero
+   *  social posts. Colors/known-label normalization are shared with the
+   *  Domain Insights / Top Products registry (`getCategoryColor`,
+   *  `normalizeCategoryLabel`) so the same category shows up with the same
+   *  name/color everywhere, even though the *set* of options can differ. */
   categoryOptions: CategoryOption[];
 }
 
@@ -903,6 +886,27 @@ const AGGREGATE_KEYWORD_COLORS = [
   "#ec4899", "#f97316", "#06b6d4", "#84cc16", "#6366f1",
 ];
 
+/** Builds category filter options from whatever categories actually occur
+ *  across the release's social posts (already-normalized labels from
+ *  `resolveSocialCategories`), rather than from domains[].product_info —
+ *  see the SocialAggregateTable.categoryOptions doc comment for why. */
+function buildSocialCategoryOptions(index: SocialPostLite[]): CategoryOption[] {
+  const labels = new Set<string>();
+  for (const post of index) {
+    for (const c of post.categories) {
+      if (c.primaryCategory !== "Uncategorized") labels.add(c.primaryCategory);
+    }
+  }
+  return Array.from(labels)
+    .sort()
+    .map((name) => ({
+      id: name,
+      name,
+      color: getCategoryColor(name),
+      isTop: name in FIXED_CATEGORY_COLORS,
+    }));
+}
+
 /**
  * Builds the full precomputed table: every (single-category-or-"__all__") x
  * (single-platform-or-"all") combination that actually occurs in the
@@ -913,7 +917,6 @@ const AGGREGATE_KEYWORD_COLORS = [
 export function buildSocialAggregateTable(
   index: SocialPostLite[],
   keywordStats: KeywordStat[],
-  domains: DomainData[],
 ): SocialAggregateTable {
   const platformLabels = new Set<string>([PLATFORM_ALL_KEY]);
   const categoryLabels = new Set<string>([CATEGORY_ALL_KEY]);
@@ -949,7 +952,7 @@ export function buildSocialAggregateTable(
     };
   }
 
-  const categoryOptions = buildCategoryRegistry(domains);
+  const categoryOptions = buildSocialCategoryOptions(index);
 
   return { byCategory, byPlatformKeywords, categoryOptions };
 }

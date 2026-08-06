@@ -318,8 +318,8 @@ export async function createRelease(params: {
   // never has to scan social_media rows on a live request — see
   // lib/release-mapping.ts `buildSocialAggregateTable` for what's covered
   // (and what falls back to on-demand filtering: multi-category selections).
-  const socialIndex = buildSocialIndex(data.social_media, data.domains);
-  const aggregateTable = buildSocialAggregateTable(socialIndex, data.keyword_stats, data.domains);
+  const socialIndex = buildSocialIndex(data.social_media);
+  const aggregateTable = buildSocialAggregateTable(socialIndex, data.keyword_stats);
   await uploadJson(`${releasePrefix(releaseId)}/social-aggregates.json`, aggregateTable);
 
   await uploadJson(`${releasePrefix(releaseId)}/manifest.json`, manifest);
@@ -370,7 +370,7 @@ export const fetchReleaseData = memoizeByKey(
 export const fetchSocialIndex = memoizeByKey(
   async (releaseId: string): Promise<SocialPostLite[]> => {
     const release = await fetchReleaseData(releaseId);
-    return buildSocialIndex(release.social_media, release.domains);
+    return buildSocialIndex(release.social_media);
   },
 );
 
@@ -400,7 +400,7 @@ export const fetchSocialAggregateTable = memoizeByKey(
     // (still memoized per releaseId afterwards, just paid on first access
     // instead of at upload time).
     const [release, index] = await Promise.all([fetchReleaseData(releaseId), fetchSocialIndex(releaseId)]);
-    return buildSocialAggregateTable(index, release.keyword_stats, release.domains);
+    return buildSocialAggregateTable(index, release.keyword_stats);
   },
 );
 
@@ -422,7 +422,7 @@ export const fetchTopProductsListings = memoizeByKey(
     const reportPeriod = manifest.reportPeriod;
     return [
       ...mapReleaseDomainsToListings(release.domains, reportPeriod),
-      ...mapReleaseSocialToListings(release.social_media, release.domains, reportPeriod),
+      ...mapReleaseSocialToListings(release.social_media, reportPeriod),
     ];
   },
 );

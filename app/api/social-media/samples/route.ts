@@ -61,7 +61,6 @@ export async function GET(request: NextRequest) {
   const { samples, total } = paginateSocialPosts(
     index,
     release.social_media,
-    release.domains,
     selectedCategories,
     platformParam,
     page,

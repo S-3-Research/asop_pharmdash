@@ -1,5 +1,5 @@
 /**
- * Zod schemas — converted from schema-reference/pharmdash_schema_20260804.py
+ * Zod schemas — converted from schema-reference/pharmdash_schema_20260805.py
  *
  * Source of truth for validating uploaded PharmDash release data.
  * Keep this file in sync with the Pydantic schema whenever the upstream
@@ -218,6 +218,19 @@ export const ProductInfoItemSchema = z.object({
   currency: CurrencyCode.nullish(),
 });
 
+// New in the 2026-08-05 schema: social_media[] rows now carry their own
+// product_category directly (per matched product), rather than relying on
+// a product_name -> category lookup derived from domains[].product_info.
+export const ProductCategory = z.enum([
+  "cancer drug",
+  "glp-1",
+]);
+
+export const ProductTypeSchema = z.object({
+  product_category: ProductCategory.nullish(),
+  product_name: z.string(),
+});
+
 export const HistoryClickUsItemSchema = z.object({
   date: z.string(),
   organic_clicks: z.number(),
@@ -273,7 +286,7 @@ export const SocialMediaDataSchema = z.object({
   create_date: z.string().nullish(),
   create_timestamp: z.number().int().nullish(),
   is_live: z.boolean().nullish().default(true),
-  product_name: z.array(z.string()).nullish(),
+  product_list: z.array(ProductTypeSchema).nullish(),
   contact_info: z.array(ContactInfoItemSchema),
   // Required by the Pydantic model (no default), but nullable.
   is_trade: z.boolean().nullish(),
@@ -314,6 +327,7 @@ export type ContactInfoItem = z.infer<typeof ContactInfoItemSchema>;
 export type SocialMediaProfileInfo = z.infer<typeof SocialMediaProfileInfoSchema>;
 export type PaymentInfoItem = z.infer<typeof PaymentInfoItemSchema>;
 export type ProductInfoItem = z.infer<typeof ProductInfoItemSchema>;
+export type ProductType = z.infer<typeof ProductTypeSchema>;
 export type HistoryClickUsItem = z.infer<typeof HistoryClickUsItemSchema>;
 export type SeoInfo = z.infer<typeof SeoInfoSchema>;
 export type DomainData = z.infer<typeof DomainDataSchema>;

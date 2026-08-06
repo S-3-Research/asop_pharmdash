@@ -58,8 +58,8 @@ export function runBusinessValidation(data: PharmDashReleaseData): ValidationRep
     });
   });
 
-  // --- Referential integrity: social_media product_name should reference ------
-  // --- product names seen somewhere in domains[].product_info ----------------
+  // --- Referential integrity: social_media product_list[].product_name --------
+  // --- should reference product names seen somewhere in domains[].product_info
   const knownProductNames = new Set(
     data.domains.flatMap((record) =>
       record.product_info.map((p) => p.product_name).filter((name): name is string => Boolean(name)),
@@ -67,13 +67,13 @@ export function runBusinessValidation(data: PharmDashReleaseData): ValidationRep
   );
 
   data.social_media.forEach((record, index) => {
-    (record.product_name ?? []).forEach((name) => {
-      if (!knownProductNames.has(name)) {
+    (record.product_list ?? []).forEach((item, itemIndex) => {
+      if (!knownProductNames.has(item.product_name)) {
         issues.push({
           level: "warning",
           code: "unknown_product_reference",
-          message: `social_media[${index}] references product_name "${name}" not found in any domain's product_info`,
-          path: `social_media[${index}].product_name`,
+          message: `social_media[${index}] references product_name "${item.product_name}" not found in any domain's product_info`,
+          path: `social_media[${index}].product_list[${itemIndex}].product_name`,
         });
       }
     });
