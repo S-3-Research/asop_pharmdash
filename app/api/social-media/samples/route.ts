@@ -39,7 +39,8 @@ export async function GET(request: NextRequest) {
     }
 
     filtered.sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+      (a, b) => (b.timestamp ? new Date(b.timestamp).getTime() : 0) -
+                (a.timestamp ? new Date(a.timestamp).getTime() : 0),
     );
 
     const total  = filtered.length;
