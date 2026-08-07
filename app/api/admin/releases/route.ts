@@ -1,3 +1,5 @@
+import { gunzipSync } from "node:zlib";
+
 import { NextResponse } from "next/server";
 
 import { requireAuthenticatedActor } from "@/app/api/admin/_auth";
@@ -52,7 +54,17 @@ export async function POST(request: Request) {
 
   let body: unknown;
   try {
-    body = await request.json();
+    // Large release uploads are gzip-compressed client-side (see
+    // app/admin/data-releases/page.tsx `gzipJson`) to stay under Vercel's
+    // hard 4.5MB serverless-function request body limit. Fall back to plain
+    // JSON parsing for any caller that doesn't compress (e.g. curl/scripts).
+    if (request.headers.get("content-encoding") === "gzip") {
+      const compressed = Buffer.from(await request.arrayBuffer());
+      const decompressed = gunzipSync(compressed);
+      body = JSON.parse(decompressed.toString("utf-8"));
+    } else {
+      body = await request.json();
+    }
   } catch {
     return NextResponse.json({ message: "Invalid JSON body" }, { status: 400 });
   }

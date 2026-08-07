@@ -2,6 +2,21 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+/**
+ * Gzip-compresses a JSON-serializable value in the browser before upload.
+ * Real release payloads (100k+ social_media rows) can exceed Vercel's
+ * hard 4.5MB serverless-function request body limit when sent as raw JSON
+ * (FUNCTION_PAYLOAD_TOO_LARGE). Gzip typically shrinks these payloads by
+ * ~75-80%, so compressing client-side keeps uploads under that ceiling
+ * without needing multi-part/chunked upload plumbing. Uses the standard
+ * CompressionStream API (supported in all evergreen browsers).
+ */
+async function gzipJson(value: unknown): Promise<Blob> {
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
+  const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream("gzip"));
+  return new Response(stream).blob();
+}
+
 type ChannelRef = { releaseId: string; reportPeriod: string; promotedAt: string };
 type ChannelPointer = { current: ChannelRef | null; previous: ChannelRef | null };
 
@@ -123,8 +138,8 @@ export default function DataReleasesAdminPage() {
 
     const res = await fetch("/api/admin/releases", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reportPeriod, schemaVersion, data: parsedData }),
+      headers: { "Content-Type": "application/octet-stream", "Content-Encoding": "gzip" },
+      body: await gzipJson({ reportPeriod, schemaVersion, data: parsedData }),
     });
 
     const body = await res.json();
