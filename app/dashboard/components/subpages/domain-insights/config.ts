@@ -284,7 +284,7 @@ const REGISTRAR_COLORS: Record<string, string> = {
 
 export function buildRegistrarSunburstPoints(
   domains: Domain[],
-): { id: string; parent: string; name: string; value?: number; color?: string }[] {
+): { id: string; parent: string; name: string; fullName?: string; value?: number; color?: string }[] {
   // Use Map<registrar, Set<domain>> so both levels are deduplicated by
   // data-structure construction:
   //  - Map keys are unique → each registrar parent node pushed exactly once
@@ -302,7 +302,7 @@ export function buildRegistrarSunburstPoints(
     byRegistrar.get(r)!.add(d.domain); // Set.add is idempotent — no duplicates
   }
 
-  const pts: { id: string; parent: string; name: string; value?: number; color?: string }[] = [
+  const pts: { id: string; parent: string; name: string; fullName?: string; value?: number; color?: string }[] = [
     { id: "root", parent: "", name: "" },
   ];
   for (const [registrar, domainSet] of byRegistrar) {
@@ -310,8 +310,10 @@ export function buildRegistrarSunburstPoints(
     pts.push({ id: registrar, name: registrar, parent: "root", value: domainSet.size, color });
     for (const dom of domainSet) {
       const shortDom = dom.length > 18 ? dom.slice(0, 17) + "…" : dom;
+      // `name` stays truncated for the in-chart data label (limited arc space);
+      // `fullName` carries the untruncated domain for the tooltip.
       // Composite ID avoids collision between registrar names and domain names.
-      pts.push({ id: `${registrar}:${dom}`, name: shortDom, parent: registrar, value: 1, color });
+      pts.push({ id: `${registrar}:${dom}`, name: shortDom, fullName: dom, parent: registrar, value: 1, color });
     }
   }
   return pts;

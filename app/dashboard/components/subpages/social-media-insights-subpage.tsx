@@ -147,27 +147,27 @@ export function SocialMediaInsightsSubpage() {
             <div className="text-sm text-slate-400 text-center py-12">Loading social media data…</div>
           ) : (
             <>
-              {/* Row 1: Stats (5) + Keyword Rankings (7) */}
+              {/* Row 1: Stats (5) + Signal Samples (7) */}
               <div className="grid grid-cols-12 gap-4 mb-4">
-                <div className="col-span-12 lg:col-span-5 h-[300px]">
+                <div className="col-span-12 lg:col-span-5 h-[380px]">
                   <StatsRow metrics={data.metrics} />
                 </div>
-                <div className="col-span-12 lg:col-span-7 h-[300px]">
+                <div className="col-span-12 lg:col-span-7 h-[380px]">
                   <SelectableCard
                     className="h-full"
                     widget={{
-                      widgetId: "social-keyword-rankings",
-                      title: "Keyword Rankings",
-                      type: "ranked-list",
-                      description: "Top keywords ranked by signal count and growth rate",
+                      widgetId: "social-signal-samples",
+                      title: "Signal Samples",
+                      type: "table",
+                      description: "Sample posts flagged as pharmaceutical signals",
                     }}
                   >
-                    <KeywordRankingsCard rankings={data.keywordRankings} platform={selectedPlatform} />
+                    <SignalSamplesCard categories={selectedIds} platform={selectedPlatform} />
                   </SelectableCard>
                 </div>
               </div>
 
-              {/* Row 2: Mentions (4) + Samples (4) + Performance (4) */}
+              {/* Row 2: Mentions (4) + Keyword Rankings (4) + Performance (4) */}
               <div className="grid grid-cols-12 gap-4">
                 <div className="col-span-12 lg:col-span-4">
                   <SelectableCard
@@ -181,16 +181,17 @@ export function SocialMediaInsightsSubpage() {
                     <MentionsChartCard mentionsByApp={data.mentionsByApp} />
                   </SelectableCard>
                 </div>
-                <div className="col-span-12 lg:col-span-4">
+                <div className="col-span-12 lg:col-span-4 h-[380px]">
                   <SelectableCard
+                    className="h-full"
                     widget={{
-                      widgetId: "social-signal-samples",
-                      title: "Signal Samples",
-                      type: "table",
-                      description: "Sample posts flagged as pharmaceutical signals",
+                      widgetId: "social-keyword-rankings",
+                      title: "Keyword Rankings",
+                      type: "ranked-list",
+                      description: "Top keywords ranked by signal count and growth rate",
                     }}
                   >
-                    <SignalSamplesCard categories={selectedIds} platform={selectedPlatform} />
+                    <KeywordRankingsCard rankings={data.keywordRankings} platform={selectedPlatform} />
                   </SelectableCard>
                 </div>
                 <div className="col-span-12 lg:col-span-4">

@@ -63,7 +63,21 @@ export function RegistrarSunburst({ domains }: RegistrarSunburstProps) {
       title: { text: undefined },
       credits: { enabled: false },
       accessibility: { enabled: false },
-      tooltip: { pointFormat: "<b>{point.name}</b>: {point.value} domains" },
+      tooltip: {
+        // Render the tooltip in a container appended to <body> instead of
+        // being clipped by this card's `overflow-hidden` ancestor, so long
+        // domain/registrar names are never cut off.
+        outside: true,
+        // Use the untruncated `fullName` (set on domain leaf nodes) when
+        // present; registrar nodes have no fullName and fall back to `name`.
+        formatter: function () {
+          const pt = this as unknown as {
+            point: { name: string; options: { fullName?: string; value?: number } };
+          };
+          const label = pt.point.options.fullName ?? pt.point.name;
+          return `<b>${label}</b>: ${pt.point.options.value} domains`;
+        },
+      },
       plotOptions: {
         sunburst: {
           allowTraversingTree: true,

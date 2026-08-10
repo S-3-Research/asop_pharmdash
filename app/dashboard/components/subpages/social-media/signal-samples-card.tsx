@@ -6,6 +6,7 @@ import { CheckCircle2, MoreHorizontal } from "lucide-react";
 
 import type { SocialSamplesPayload } from "../../types";
 import { useWidgetData } from "../../copilot/copilot-context";
+import { HoverTextTooltip } from "../../ui/hover-text-tooltip";
 import { platformColor } from "./config";
 
 const PAGE_SIZE = 8;
@@ -74,7 +75,7 @@ export function SignalSamplesCard({ categories, platform }: SignalSamplesCardPro
         <MoreHorizontal size={16} className="text-gray-400 cursor-pointer" />
       </div>
 
-      <div className="flex-1 overflow-y-auto flex flex-col gap-3 pr-1">
+      <div className="flex-1 overflow-y-auto flex flex-col gap-3 pr-1 [scrollbar-width:thin] [scrollbar-color:#e2e8f0_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-300">
         {isLoading && samples.length === 0 && (
           <div className="text-xs text-gray-400 text-center py-8">Loading…</div>
         )}
@@ -115,13 +116,51 @@ export function SignalSamplesCard({ categories, platform }: SignalSamplesCardPro
                 </span>
               </div>
 
-              <p className="text-xs text-gray-700 leading-relaxed mb-2 line-clamp-2">{post.text}</p>
+              <HoverTextTooltip
+                content={
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
+                        style={{ backgroundColor: color }}
+                      >
+                        {initial}
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-800 leading-tight">{post.username}</p>
+                        <p className="text-[10px] text-gray-400">
+                          {post.platform} · {ts ? ts.toLocaleDateString() : "Unknown date"}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">
+                      {post.text}
+                    </p>
+                    {post.keywords && post.keywords.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2.5">
+                        {post.keywords.map((kw, i) => (
+                          <span
+                            key={`${kw}-${i}`}
+                            className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                          >
+                            {kw}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                }
+              >
+                <p className="text-xs text-gray-700 leading-relaxed mb-2 line-clamp-2 cursor-help">
+                  {post.text}
+                </p>
+              </HoverTextTooltip>
 
               {post.keywords && post.keywords.length > 0 && (
                 <div className="flex flex-wrap gap-1">
-                  {post.keywords.map((kw) => (
+                  {post.keywords.map((kw, i) => (
                     <span
-                      key={kw}
+                      key={`${kw}-${i}`}
                       className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded text-[10px] font-medium"
                     >
                       {kw}
