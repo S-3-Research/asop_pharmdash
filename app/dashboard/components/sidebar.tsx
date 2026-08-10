@@ -3,6 +3,7 @@
 import Image from "next/image";
 
 import type { SubPageKey, SubPageNavItem } from "./types";
+import { UserMenu } from "./user-menu";
 
 type SidebarProps = {
   items: SubPageNavItem[];
@@ -50,15 +51,7 @@ export function Sidebar({ items, activeKey, onChange }: SidebarProps) {
         </nav>
       </div>
 
-      <div className="mb-2 flex items-center gap-3 p-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-600 text-sm font-bold">
-          A
-        </div>
-        <div>
-          <div className="text-sm font-medium">Admin</div>
-          <div className="text-xs text-gray-400">admin@s-3.io</div>
-        </div>
-      </div>
+      <UserMenu />
     </aside>
   );
 }

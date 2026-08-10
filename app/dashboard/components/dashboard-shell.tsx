@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
 
-import { LogoutButton } from "../logout-button";
 import { CopilotPanel } from "./copilot/copilot-panel";
 import { CopilotProvider, useCopilot } from "./copilot/copilot-context";
 import { sidebarItems } from "./mock-data";
@@ -88,7 +87,6 @@ function DashboardShellInner() {
           rightSlot={
             <div className="flex items-center gap-3">
               <CopilotToggleButton />
-              <LogoutButton className="rounded px-1 text-slate-300 transition-colors hover:text-white" />
             </div>
           }
         />

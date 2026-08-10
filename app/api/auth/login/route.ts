@@ -1,43 +1,46 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+import { getSupabaseServerClient } from "@/lib/supabase-server";
+
 type LoginBody = {
-  username?: string;
+  email?: string;
   password?: string;
 };
 
 export async function POST(request: Request) {
   const body = (await request.json()) as LoginBody;
 
-  const expectedUsername = process.env.DASHBOARD_LOGIN_USERNAME ?? "admin";
-  const expectedPassword = process.env.DASHBOARD_LOGIN_PASSWORD ?? "123456";
-
-  if (
-    body.username !== expectedUsername ||
-    body.password !== expectedPassword
-  ) {
+  if (!body.email || !body.password) {
     return NextResponse.json(
-      { message: "用户名或密码错误" },
+      { message: "请输入邮箱和密码" },
+      { status: 400 },
+    );
+  }
+
+  const supabase = await getSupabaseServerClient();
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: body.email,
+    password: body.password,
+  });
+
+  if (error || !data.session) {
+    return NextResponse.json(
+      { message: "邮箱或密码错误" },
       { status: 401 },
     );
   }
 
-  const cookieStore = await cookies();
-  cookieStore.set("pharmdash_auth", "1", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24,
-  });
-  // Non-sensitive username, kept for audit-log "actor" attribution only.
-  cookieStore.set("pharmdash_user", expectedUsername, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24,
-  });
+  // Password was correct, but if this user has an enrolled TOTP factor the
+  // session is only "aal1" (partial) until a second factor is verified.
+  // Tell the client to prompt for a code instead of treating login as done.
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
+    const { data: factorsData } = await supabase.auth.mfa.listFactors();
+    const factorId = factorsData?.totp?.[0]?.id;
+    return NextResponse.json({ ok: true, mfaRequired: true, factorId });
+  }
 
-  return NextResponse.json({ ok: true });
+  // Supabase's SSR client already wrote the session cookies as a side
+  // effect of `signInWithPassword` above (see lib/supabase-server.ts).
+  return NextResponse.json({ ok: true, mfaRequired: false });
 }

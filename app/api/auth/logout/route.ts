@@ -1,9 +1,10 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+import { getSupabaseServerClient } from "@/lib/supabase-server";
+
 export async function POST() {
-  const cookieStore = await cookies();
-  cookieStore.delete("pharmdash_auth");
+  const supabase = await getSupabaseServerClient();
+  await supabase.auth.signOut();
 
   return NextResponse.json({ ok: true });
 }

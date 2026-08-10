@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireAuthenticatedActor } from "@/app/api/admin/_auth";
+import { requireRole } from "@/app/api/admin/_auth";
 import { setChannelRelease, type ChannelName } from "@/lib/releases";
 
 /**
@@ -16,7 +16,7 @@ import { setChannelRelease, type ChannelName } from "@/lib/releases";
  * the chance of an accidental promote from the UI.
  */
 export async function POST(request: Request) {
-  const auth = await requireAuthenticatedActor();
+  const auth = await requireRole("admin");
   if (!auth.ok) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }

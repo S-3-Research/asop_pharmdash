@@ -1,21 +1,59 @@
 import "server-only";
-import { cookies } from "next/headers";
+
+import { getSupabaseServerClient } from "@/lib/supabase-server";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
+
+export type Role = "admin" | "viewer";
+
+type AuthResult = { ok: true; actor: string; role: Role } | { ok: false };
 
 /**
- * Minimal auth guard shared by the admin data-release API routes.
- * Reuses the existing single-role dashboard auth cookie; returns the
- * logged-in username for audit-log "actor" attribution.
+ * Resolves the currently logged-in Supabase user (from the session cookie)
+ * plus their app-level role from `public.profiles`. Used to gate both API
+ * routes and pages that require authentication.
+ *
+ * `actor` is the user's email, kept for audit-log "actor" attribution.
  */
-export async function requireAuthenticatedActor(): Promise<
-  { ok: true; actor: string } | { ok: false }
-> {
-  const cookieStore = await cookies();
-  const isAuthenticated = cookieStore.get("pharmdash_auth")?.value === "1";
+export async function requireAuthenticatedActor(): Promise<AuthResult> {
+  const supabase = await getSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!isAuthenticated) {
+  if (!user) {
     return { ok: false };
   }
 
-  const actor = cookieStore.get("pharmdash_user")?.value || "unknown";
-  return { ok: true, actor };
+  // If this user has an enrolled TOTP factor, the session must have
+  // completed that second step (aal2) to be considered fully authenticated.
+  // A session stuck at aal1 for a user with MFA enrolled means the login
+  // flow was interrupted before the code step — treat as logged out.
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
+    return { ok: false };
+  }
+
+  // Query profiles with the service-role client so this doesn't depend on
+  // (or get blocked by) RLS policies.
+  const admin = getSupabaseAdmin();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const role: Role = profile?.role === "admin" ? "admin" : "viewer";
+
+  return { ok: true, actor: user.email ?? user.id, role };
+}
+
+/**
+ * Same as `requireAuthenticatedActor`, but also requires the given role.
+ * Use this to gate admin-only pages/API routes (e.g. data releases).
+ */
+export async function requireRole(role: Role): Promise<AuthResult> {
+  const auth = await requireAuthenticatedActor();
+  if (!auth.ok) return auth;
+  if (auth.role !== role) return { ok: false };
+  return auth;
 }

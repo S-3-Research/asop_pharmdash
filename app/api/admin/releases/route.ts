@@ -2,7 +2,7 @@ import { gunzipSync } from "node:zlib";
 
 import { NextResponse } from "next/server";
 
-import { requireAuthenticatedActor } from "@/app/api/admin/_auth";
+import { requireRole } from "@/app/api/admin/_auth";
 import { createRelease, listReleases, readChannel } from "@/lib/releases";
 import { PharmDashReleaseDataSchema } from "@/lib/schemas/pharmdash";
 import { runBusinessValidation } from "@/lib/release-validation";
@@ -16,23 +16,12 @@ import { runBusinessValidation } from "@/lib/release-validation";
  *   -> validates (Zod + business rules), and if valid, creates an immutable
  *      release. Does NOT publish it to any channel.
  *
- *   `data` accepts two shapes for convenience:
- *     1. The full wrapped shape: { domains: [...], social_media: [...],
- *        keyword_stats: [...] }
- *     2. A bare array of domain records (as exported by the upstream
- *        scraper/Pydantic pipeline), which is normalized into
- *        { domains: <array>, social_media: [], keyword_stats: [] }.
+ *   `data` must be the full wrapped shape:
+ *     { domains: [...], social_media: [...], keyword_stats: [...] }
  */
 
-function normalizeReleasePayload(input: unknown): unknown {
-  if (Array.isArray(input)) {
-    return { domains: input, social_media: [], keyword_stats: [] };
-  }
-  return input;
-}
-
 export async function GET() {
-  const auth = await requireAuthenticatedActor();
+  const auth = await requireRole("admin");
   if (!auth.ok) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
@@ -47,7 +36,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireAuthenticatedActor();
+  const auth = await requireRole("admin");
   if (!auth.ok) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
@@ -85,8 +74,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "schemaVersion is required" }, { status: 400 });
   }
 
+  if (Array.isArray(data) || typeof data !== "object" || data === null) {
+    return NextResponse.json(
+      {
+        message:
+          'data must be the full shape: { "domains": [], "social_media": [], "keyword_stats": [] }',
+      },
+      { status: 400 },
+    );
+  }
+
   // --- Layer 1: Zod schema validation (types, required, enums, nesting) ------
-  const parseResult = PharmDashReleaseDataSchema.safeParse(normalizeReleasePayload(data));
+  const parseResult = PharmDashReleaseDataSchema.safeParse(data);
   if (!parseResult.success) {
     return NextResponse.json(
       {

@@ -1,6 +1,6 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+import { requireAuthenticatedActor } from "@/app/api/admin/_auth";
 import { mockDomains } from "@/app/dashboard/components/mock-data";
 import { getActiveChannel } from "@/lib/channel";
 import { readChannel, fetchReleaseData, isMockRelease } from "@/lib/releases";
@@ -11,10 +11,9 @@ import {
 } from "@/lib/release-mapping";
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const isAuthenticated = cookieStore.get("pharmdash_auth")?.value === "1";
+  const auth = await requireAuthenticatedActor();
 
-  if (!isAuthenticated) {
+  if (!auth.ok) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 

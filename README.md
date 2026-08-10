@@ -5,7 +5,7 @@ A Next.js 16 pharmaceutical intelligence dashboard for monitoring product listin
 ## Getting Started
 
 ```bash
-cp .env.example .env.local   # set DASHBOARD_LOGIN_USERNAME / DASHBOARD_LOGIN_PASSWORD
+cp .env.example .env.local   # set NEXT_PUBLIC_SUPABASE_* and SUPABASE_SECRET_KEY
 npm install
 npm run dev
 ```
@@ -148,7 +148,7 @@ Change this one line to update every visible label across all cards.
 ```
 mock-data.ts  (server module)
   └─ subPageDataMap["top-products"].listings  ──►  GET /api/listings/top-products
-                                                        │  verifies pharmdash_auth cookie
+                                                        │  requireAuthenticatedActor() (Supabase session)
                                                         │  strips detectedAt
                                                         ▼
                                                TopProductsSubpage (client)
@@ -167,9 +167,25 @@ mock-data.ts  (server module)
 
 ## Auth
 
-- Login: `POST /api/auth/login` — validates env credentials, sets `httpOnly` cookie `pharmdash_auth=1`
-- Guard: `app/dashboard/page.tsx` (Server Component) reads cookie and `redirect()`s if absent
-- API guard: `GET /api/listings/top-products` independently checks the same cookie
+- Multi-user, backed by **Supabase Auth** (email + password). Users and their
+  passwords live in that Supabase project's `auth.users` table (managed via
+  the Supabase Dashboard); this app never sees or stores raw passwords.
+- App-level role (`admin` | `viewer`) lives in `public.profiles` (see
+  `schema-reference/supabase_auth_profiles.sql`). New users default to
+  `viewer`; promote to `admin` with a one-line SQL update.
+- Login: `POST /api/auth/login` — calls `supabase.auth.signInWithPassword`;
+  Supabase's SSR client (`lib/supabase-server.ts`) writes the session cookies.
+- Session refresh: `middleware.ts` calls `supabase.auth.getUser()` on every
+  request so expired access tokens get refreshed transparently.
+- Guard (any logged-in user): `app/api/admin/_auth.ts`'s
+  `requireAuthenticatedActor()` — used by `app/dashboard/page.tsx` and all
+  dashboard data API routes (`/api/domains`, `/api/social-media/*`, etc.).
+- Guard (admin only): `requireRole("admin")` — used by
+  `app/admin/data-releases/page.tsx` and its API routes
+  (`/api/admin/releases*`, `/api/admin/audit-log`).
+- 2FA: not yet wired up in the UI, but Supabase's TOTP MFA API
+  (`supabase.auth.mfa.enroll/challenge/verify`) is available for a future
+  second login step.
 
 ---
 
