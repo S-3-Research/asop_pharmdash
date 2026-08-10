@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
 
+import type { ChannelName } from "@/lib/releases";
 import { CopilotPanel } from "./copilot/copilot-panel";
 import { CopilotProvider, useCopilot } from "./copilot/copilot-context";
 import { sidebarItems } from "./mock-data";
+import { PreviewBanner } from "./preview-banner";
 import { Sidebar } from "./sidebar";
 import {
   DomainInsightsSubpage,
@@ -55,7 +57,7 @@ function CopilotToggleButton() {
 
 // ── Inner shell (uses context) ────────────────────────────────────────────────
 
-function DashboardShellInner() {
+function DashboardShellInner({ channel }: { channel: ChannelName }) {
   const [activeSubPage, setActiveSubPage] = useState<SubPageKey>(defaultSubPage);
   const { setSelectedWidget } = useCopilot();
 
@@ -74,39 +76,42 @@ function DashboardShellInner() {
   }, [activeSubPage]);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0a1116] font-sans">
-      <Sidebar
-        items={sidebarItems}
-        activeKey={activeSubPage}
-        onChange={setActiveSubPage}
-      />
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <TopNav
-          title={subpageTitleMap[activeSubPage]}
-          rightSlot={
-            <div className="flex items-center gap-3">
-              <CopilotToggleButton />
-            </div>
-          }
+    <div className="flex h-screen flex-col overflow-hidden bg-[#0a1116] font-sans">
+      <PreviewBanner channel={channel} />
+      <div className="flex min-h-0 flex-1">
+        <Sidebar
+          items={sidebarItems}
+          activeKey={activeSubPage}
+          onChange={setActiveSubPage}
         />
-        <main className="flex-1 overflow-y-auto p-6 rounded-tl-3xl bg-[#f3f7f9]">
-          {subPageContent}
-        </main>
-      </div>
 
-      {/* Right-side Copilot panel — full height, shows/hides via context */}
-      <CopilotPanel />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <TopNav
+            title={subpageTitleMap[activeSubPage]}
+            rightSlot={
+              <div className="flex items-center gap-3">
+                <CopilotToggleButton />
+              </div>
+            }
+          />
+          <main className="flex-1 overflow-y-auto p-6 rounded-tl-3xl bg-[#f3f7f9]">
+            {subPageContent}
+          </main>
+        </div>
+
+        {/* Right-side Copilot panel — full height, shows/hides via context */}
+        <CopilotPanel />
+      </div>
     </div>
   );
 }
 
 // ── Public export ─────────────────────────────────────────────────────────────
 
-export function DashboardShell() {
+export function DashboardShell({ channel }: { channel: ChannelName }) {
   return (
     <CopilotProvider>
-      <DashboardShellInner />
+      <DashboardShellInner channel={channel} />
     </CopilotProvider>
   );
 }

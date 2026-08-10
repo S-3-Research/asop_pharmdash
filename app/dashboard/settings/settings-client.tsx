@@ -36,7 +36,7 @@ function ChangePasswordSection() {
     setSubmitting(false);
 
     if (!res.ok) {
-      setError(data.message ?? "修改密码失败");
+      setError(data.message ?? "Failed to update password");
       return;
     }
 
@@ -48,7 +48,7 @@ function ChangePasswordSection() {
       return;
     }
 
-    setMessage("密码已更新。");
+    setMessage("Password updated.");
     setMfaRequired(false);
     setCurrentPassword("");
     setNewPassword("");
@@ -62,7 +62,7 @@ function ChangePasswordSection() {
     setError(null);
 
     if (newPassword !== confirmPassword) {
-      setError("两次输入的新密码不一致");
+      setError("New passwords do not match");
       return;
     }
 

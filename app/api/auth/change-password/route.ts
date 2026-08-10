@@ -25,14 +25,14 @@ export async function POST(request: Request) {
 
   if (!body.currentPassword || !body.newPassword) {
     return NextResponse.json(
-      { message: "请输入当前密码和新密码" },
+      { message: "Please enter your current password and a new password" },
       { status: 400 },
     );
   }
 
   if (body.newPassword.length < 8) {
     return NextResponse.json(
-      { message: "新密码至少需要 8 位" },
+      { message: "New password must be at least 8 characters" },
       { status: 400 },
     );
   }
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     password: body.currentPassword,
   });
   if (reauthError) {
-    return NextResponse.json({ message: "当前密码不正确" }, { status: 401 });
+    return NextResponse.json({ message: "Current password is incorrect" }, { status: 401 });
   }
 
   // Re-authenticating above resets the session to aal1. If this user has
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
       code: body.mfaCode,
     });
     if (verifyError) {
-      return NextResponse.json({ message: "验证码不正确或已过期" }, { status: 401 });
+      return NextResponse.json({ message: "Invalid or expired code" }, { status: 401 });
     }
   }
 

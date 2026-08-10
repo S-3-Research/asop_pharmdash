@@ -66,7 +66,7 @@ export default function LoginPage() {
     if (!response.ok) {
       const data = (await response.json()) as { message?: string };
       setState("error");
-      setErrorMessage(data.message ?? "验证码不正确");
+      setErrorMessage(data.message ?? "Invalid code");
       return;
     }
 

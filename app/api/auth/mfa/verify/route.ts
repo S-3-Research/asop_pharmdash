@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   });
 
   if (verifyError) {
-    return NextResponse.json({ message: "验证码不正确或已过期" }, { status: 401 });
+    return NextResponse.json({ message: "Invalid or expired code" }, { status: 401 });
   }
 
   return NextResponse.json({ ok: true });

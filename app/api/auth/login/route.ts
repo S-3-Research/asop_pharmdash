@@ -12,7 +12,7 @@ export async function POST(request: Request) {
 
   if (!body.email || !body.password) {
     return NextResponse.json(
-      { message: "请输入邮箱和密码" },
+      { message: "Please enter your email and password" },
       { status: 400 },
     );
   }
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
   if (error || !data.session) {
     return NextResponse.json(
-      { message: "邮箱或密码错误" },
+      { message: "Invalid email or password" },
       { status: 401 },
     );
   }
