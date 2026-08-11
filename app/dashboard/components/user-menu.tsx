@@ -66,6 +66,15 @@ export function UserMenu() {
               Data Releases
             </Link>
           ) : null}
+          {isAdmin ? (
+            <Link
+              href="/admin/users"
+              onClick={() => setOpen(false)}
+              className="block px-4 py-2.5 text-sm text-gray-200 transition-colors hover:bg-[#1a252c]"
+            >
+              Users
+            </Link>
+          ) : null}
           <Link
             href="/dashboard/settings"
             onClick={() => setOpen(false)}
