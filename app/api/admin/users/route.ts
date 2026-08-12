@@ -1,36 +1,50 @@
 import { NextResponse } from "next/server";
 
-import { requireRole } from "@/app/api/admin/_auth";
+import { requireAnyRole } from "@/app/api/admin/_auth";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 type InviteBody = {
   email?: string;
-  role?: "admin" | "viewer";
+  role?: "admin" | "manager" | "viewer";
 };
 
 /**
  * GET /api/admin/users
- *   -> list all app users (from public.profiles, which mirrors auth.users)
+ *   -> list app users (from public.profiles, which mirrors auth.users).
+ *      Admins see everyone. Managers only see the viewers *they*
+ *      personally invited (matched by `invited_by = <manager's email>`
+ *      and `role = 'viewer'`) — never other managers, admins, or
+ *      viewers invited by someone else.
  *
  * POST /api/admin/users
- *   body: { email: string, role?: "admin" | "viewer" }
+ *   body: { email: string, role?: "admin" | "manager" | "viewer" }
  *   -> invites a brand-new user via Supabase Auth. This sends the user an
  *      email (using the project's "Invite user" template) with a one-time
  *      link that lands on /auth/set-password to choose their password.
  *      No password is ever set by an admin — the invited user always
  *      chooses their own.
+ *      Managers may only invite `viewer`s, capped by their own
+ *      `invite_quota` (default 5, counted as viewers they've invited so
+ *      far, regardless of that viewer's current status).
  */
 export async function GET() {
-  const auth = await requireRole("admin");
+  const auth = await requireAnyRole(["admin", "manager"]);
   if (!auth.ok) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
   const admin = getSupabaseAdmin();
-  const { data, error } = await admin
+  let query = admin
     .from("profiles")
-    .select("user_id, email, role, status, invited_by, invited_at, created_at")
+    .select("user_id, email, role, status, invited_by, invited_at, created_at, invite_quota")
     .order("created_at", { ascending: false });
+
+  // Managers only get their own invited viewers, not the full roster.
+  if (auth.role === "manager") {
+    query = query.eq("invited_by", auth.actor).eq("role", "viewer");
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     return NextResponse.json({ message: error.message }, { status: 500 });
@@ -61,24 +75,68 @@ export async function GET() {
     last_sign_in_at: lastSignInByUserId.get(row.user_id) ?? null,
   }));
 
-  return NextResponse.json({ users });
+  // Managers also need to know their remaining quota to render the invite
+  // form correctly (disable it once exhausted).
+  let inviteQuota: number | null = null;
+  let inviteQuotaUsed: number | null = null;
+  if (auth.role === "manager") {
+    const { data: managerProfile } = await admin
+      .from("profiles")
+      .select("invite_quota")
+      .eq("email", auth.actor)
+      .maybeSingle();
+    inviteQuota = managerProfile?.invite_quota ?? 5;
+    inviteQuotaUsed = users.length;
+  }
+
+  return NextResponse.json({ users, inviteQuota, inviteQuotaUsed });
 }
 
 export async function POST(request: Request) {
-  const auth = await requireRole("admin");
+  const auth = await requireAnyRole(["admin", "manager"]);
   if (!auth.ok) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
   const body = (await request.json()) as InviteBody;
   const email = body.email?.trim().toLowerCase();
-  const role = body.role === "admin" ? "admin" : "viewer";
+
+  // Managers can only ever invite plain viewers, regardless of what the
+  // client sent — never trust the client for privilege escalation.
+  const role: "admin" | "manager" | "viewer" =
+    auth.role === "manager"
+      ? "viewer"
+      : body.role === "admin" || body.role === "manager"
+        ? body.role
+        : "viewer";
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ message: "A valid email is required" }, { status: 400 });
   }
 
   const admin = getSupabaseAdmin();
+
+  if (auth.role === "manager") {
+    const { data: managerProfile } = await admin
+      .from("profiles")
+      .select("invite_quota")
+      .eq("email", auth.actor)
+      .maybeSingle();
+    const quota = managerProfile?.invite_quota ?? 5;
+
+    const { count } = await admin
+      .from("profiles")
+      .select("user_id", { count: "exact", head: true })
+      .eq("invited_by", auth.actor)
+      .eq("role", "viewer");
+
+    if ((count ?? 0) >= quota) {
+      return NextResponse.json(
+        { message: `Invite quota reached (${quota} viewers max)` },
+        { status: 403 },
+      );
+    }
+  }
 
   const redirectTo = process.env.NEXT_PUBLIC_SITE_URL
     ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/set-password`

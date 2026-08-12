@@ -1,20 +1,53 @@
 import { NextResponse } from "next/server";
 
-import { requireRole } from "@/app/api/admin/_auth";
+import { requireAnyRole, requireRole } from "@/app/api/admin/_auth";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { supabase } from "@/lib/supabase";
 
 type PatchBody = {
-  role?: "admin" | "viewer";
+  role?: "admin" | "manager" | "viewer";
   status?: "active" | "disabled";
 };
 
 /**
+ * Fetches the target profile and checks whether `actor` (with `role`) is
+ * allowed to act on it. Admins can act on anyone; managers may only act on
+ * viewers they personally invited. Returns the profile row on success, or
+ * an error NextResponse to return immediately.
+ */
+async function loadManageableProfile(
+  admin: ReturnType<typeof getSupabaseAdmin>,
+  userId: string,
+  actor: string,
+  role: "admin" | "manager" | "viewer",
+) {
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("email, role, invited_by")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!profile) {
+    return { ok: false as const, response: NextResponse.json({ message: "User not found" }, { status: 404 }) };
+  }
+
+  if (role === "manager" && (profile.invited_by !== actor || profile.role !== "viewer")) {
+    return {
+      ok: false as const,
+      response: NextResponse.json({ message: "Unauthorized" }, { status: 403 }),
+    };
+  }
+
+  return { ok: true as const, profile };
+}
+
+/**
  * PATCH /api/admin/users/:userId
- *   body: { role?: "admin" | "viewer", status?: "active" | "disabled" }
+ *   body: { role?: "admin" | "manager" | "viewer", status?: "active" | "disabled" }
  *   -> updates an existing user's app role and/or bans/unbans their
  *      Supabase Auth account (status: "disabled" sets a long auth.users
- *      ban; "active" clears it).
+ *      ban; "active" clears it). Managers may only toggle `status` on
+ *      viewers they invited — never change any role.
  *
  * POST /api/admin/users/:userId  (action=resend)
  *   -> resends a set-password link for a user stuck in "invited" status.
@@ -43,12 +76,18 @@ type PatchBody = {
  *      `on delete cascade` on its `user_id` foreign key (see
  *      schema-reference/supabase_auth_profiles.sql), so the profile row is
  *      removed automatically — no separate cleanup needed.
+ *      Admins may delete anyone (except themselves). Managers may only
+ *      delete viewers they personally invited AND who are still
+ *      `status: 'invited'` (never got around to setting a password) —
+ *      this covers "I typo'd the email / invited the wrong person"
+ *      without letting a manager remove an already-active teammate's
+ *      account, which stays an admin-only, more deliberate action.
  */
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ userId: string }> },
 ) {
-  const auth = await requireRole("admin");
+  const auth = await requireAnyRole(["admin", "manager"]);
   if (!auth.ok) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
@@ -61,7 +100,7 @@ export async function DELETE(
   // compare emails via requireRole's `actor`, which is the caller's email).
   const { data: profile } = await admin
     .from("profiles")
-    .select("email")
+    .select("email, role, invited_by, status")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -70,6 +109,17 @@ export async function DELETE(
       { message: "You cannot delete your own account" },
       { status: 400 },
     );
+  }
+
+  if (auth.role === "manager") {
+    if (
+      !profile ||
+      profile.invited_by !== auth.actor ||
+      profile.role !== "viewer" ||
+      profile.status !== "invited"
+    ) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+    }
   }
 
   const { error } = await admin.auth.admin.deleteUser(userId);
@@ -84,7 +134,7 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ userId: string }> },
 ) {
-  const auth = await requireRole("admin");
+  const auth = await requireAnyRole(["admin", "manager"]);
   if (!auth.ok) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
@@ -93,8 +143,17 @@ export async function PATCH(
   const body = (await request.json()) as PatchBody;
   const admin = getSupabaseAdmin();
 
+  // Managers may only toggle status (enable/disable) on viewers they
+  // invited — never change anyone's role, including their own invitees'.
+  if (auth.role === "manager" && body.role) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 403 });
+  }
+
+  const gate = await loadManageableProfile(admin, userId, auth.actor, auth.role);
+  if (!gate.ok) return gate.response;
+
   if (body.role) {
-    if (body.role !== "admin" && body.role !== "viewer") {
+    if (body.role !== "admin" && body.role !== "manager" && body.role !== "viewer") {
       return NextResponse.json({ message: "Invalid role" }, { status: 400 });
     }
     const { error } = await admin.from("profiles").update({ role: body.role }).eq(
@@ -136,7 +195,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ userId: string }> },
 ) {
-  const auth = await requireRole("admin");
+  const auth = await requireAnyRole(["admin", "manager"]);
   if (!auth.ok) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
@@ -149,11 +208,9 @@ export async function POST(
   }
 
   const admin = getSupabaseAdmin();
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("email, role")
-    .eq("user_id", userId)
-    .maybeSingle();
+  const gate = await loadManageableProfile(admin, userId, auth.actor, auth.role);
+  if (!gate.ok) return gate.response;
+  const profile = gate.profile;
 
   if (!profile?.email) {
     return NextResponse.json({ message: "User not found" }, { status: 404 });

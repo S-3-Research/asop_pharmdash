@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 type ProfileRow = {
   user_id: string;
   email: string | null;
-  role: "admin" | "viewer";
+  role: "admin" | "manager" | "viewer";
   status: "invited" | "active" | "disabled";
   invited_by: string | null;
   invited_at: string | null;
@@ -34,22 +34,37 @@ const STATUS_STYLES: Record<ProfileRow["status"], string> = {
   disabled: "bg-slate-200 text-slate-600",
 };
 
-export default function UsersClient({ currentActor }: { currentActor: string }) {
+export default function UsersClient({
+  currentActor,
+  currentRole,
+}: {
+  currentActor: string;
+  currentRole: "admin" | "manager";
+}) {
+  const isManager = currentRole === "manager";
   const [users, setUsers] = useState<ProfileRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [inviteQuota, setInviteQuota] = useState<number | null>(null);
+  const [inviteQuotaUsed, setInviteQuotaUsed] = useState<number | null>(null);
 
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"admin" | "viewer">("viewer");
+  const [inviteRole, setInviteRole] = useState<"admin" | "manager" | "viewer">("viewer");
   const [inviting, setInviting] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     const res = await fetch("/api/admin/users");
     if (res.ok) {
-      const data = (await res.json()) as { users: ProfileRow[] };
+      const data = (await res.json()) as {
+        users: ProfileRow[];
+        inviteQuota: number | null;
+        inviteQuotaUsed: number | null;
+      };
       setUsers(data.users);
+      setInviteQuota(data.inviteQuota ?? null);
+      setInviteQuotaUsed(data.inviteQuotaUsed ?? null);
     }
     setLoading(false);
   }, []);
@@ -84,7 +99,7 @@ export default function UsersClient({ currentActor }: { currentActor: string }) 
     refresh();
   };
 
-  const updateRole = async (userId: string, role: "admin" | "viewer") => {
+  const updateRole = async (userId: string, role: "admin" | "manager" | "viewer") => {
     setError(null);
     const res = await fetch(`/api/admin/users/${userId}`, {
       method: "PATCH",
@@ -150,7 +165,9 @@ export default function UsersClient({ currentActor }: { currentActor: string }) 
   return (
     <main className="mx-auto min-h-screen max-w-4xl space-y-8 bg-white p-6 text-slate-900">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Users</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">
+          {isManager ? "My invited viewers" : "Users"}
+        </h1>
         <Link href="/dashboard" className="text-sm text-slate-500 hover:text-slate-800">
           ← Back to dashboard
         </Link>
@@ -168,6 +185,11 @@ export default function UsersClient({ currentActor }: { currentActor: string }) 
         <p className="mt-1 text-xs text-slate-500">
           Sends an email with a one-time link where they choose their own password. No password
           is set by you.
+          {isManager && inviteQuota !== null ? (
+            <span className="ml-1">
+              You have used {inviteQuotaUsed ?? 0} of {inviteQuota} invites.
+            </span>
+          ) : null}
         </p>
         <form className="mt-4 flex flex-wrap items-end gap-3" onSubmit={onInvite}>
           <div className="flex-1 min-w-[220px]">
@@ -184,23 +206,28 @@ export default function UsersClient({ currentActor }: { currentActor: string }) 
               placeholder="name@example.com"
             />
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="invite-role">
-              Role
-            </label>
-            <select
-              id="invite-role"
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value as "admin" | "viewer")}
-            >
-              <option value="viewer">Viewer</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
+          {!isManager ? (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="invite-role">
+                Role
+              </label>
+              <select
+                id="invite-role"
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value as "admin" | "manager" | "viewer")}
+              >
+                <option value="viewer">Viewer</option>
+                <option value="manager">Manager</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          ) : null}
           <button
             type="submit"
-            disabled={inviting}
+            disabled={
+              inviting || (isManager && inviteQuota !== null && (inviteQuotaUsed ?? 0) >= inviteQuota)
+            }
             className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-400"
           >
             {inviting ? "Sending…" : "Send invite"}
@@ -234,17 +261,24 @@ export default function UsersClient({ currentActor }: { currentActor: string }) 
                       {isSelf ? <span className="ml-2 text-xs text-slate-400">(you)</span> : null}
                     </td>
                     <td>
-                      <select
-                        className="rounded border border-slate-300 px-2 py-1 text-xs"
-                        value={u.role}
-                        disabled={isSelf}
-                        onChange={(e) =>
-                          updateRole(u.user_id, e.target.value as "admin" | "viewer")
-                        }
-                      >
-                        <option value="viewer">Viewer</option>
-                        <option value="admin">Admin</option>
-                      </select>
+                      {isManager ? (
+                        <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                          {u.role}
+                        </span>
+                      ) : (
+                        <select
+                          className="rounded border border-slate-300 px-2 py-1 text-xs"
+                          value={u.role}
+                          disabled={isSelf}
+                          onChange={(e) =>
+                            updateRole(u.user_id, e.target.value as "admin" | "manager" | "viewer")
+                          }
+                        >
+                          <option value="viewer">Viewer</option>
+                          <option value="manager">Manager</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                      )}
                     </td>
                     <td>
                       <span
@@ -281,7 +315,16 @@ export default function UsersClient({ currentActor }: { currentActor: string }) 
                           {u.status === "disabled" ? "Re-enable" : "Disable"}
                         </button>
                       ) : null}
-                      {!isSelf ? (
+                      {!isSelf && !isManager ? (
+                        <button
+                          type="button"
+                          className="text-xs font-medium text-red-600 hover:text-red-800"
+                          onClick={() => deleteUser(u.user_id, u.email)}
+                        >
+                          Delete
+                        </button>
+                      ) : null}
+                      {!isSelf && isManager && u.status === "invited" ? (
                         <button
                           type="button"
                           className="text-xs font-medium text-red-600 hover:text-red-800"

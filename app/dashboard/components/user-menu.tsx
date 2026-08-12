@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-type Me = { email: string; role: "admin" | "viewer" } | null;
+type Me = { email: string; role: "admin" | "manager" | "viewer" } | null;
 
 export function UserMenu() {
   const router = useRouter();
@@ -39,6 +39,7 @@ export function UserMenu() {
   const email = me?.email ?? "…";
   const initial = email.charAt(0).toUpperCase() || "?";
   const isAdmin = me?.role === "admin";
+  const isManager = me?.role === "manager";
 
   return (
     <div ref={containerRef} className="relative mb-2 p-4">
@@ -66,7 +67,7 @@ export function UserMenu() {
               Data Releases
             </Link>
           ) : null}
-          {isAdmin ? (
+          {isAdmin || isManager ? (
             <Link
               href="/admin/users"
               onClick={() => setOpen(false)}

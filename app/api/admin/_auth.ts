@@ -3,7 +3,7 @@ import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
-export type Role = "admin" | "viewer";
+export type Role = "admin" | "manager" | "viewer";
 
 type AuthResult = { ok: true; actor: string; role: Role } | { ok: false };
 
@@ -42,7 +42,8 @@ export async function requireAuthenticatedActor(): Promise<AuthResult> {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  const role: Role = profile?.role === "admin" ? "admin" : "viewer";
+  const role: Role =
+    profile?.role === "admin" || profile?.role === "manager" ? profile.role : "viewer";
 
   return { ok: true, actor: user.email ?? user.id, role };
 }
@@ -55,5 +56,17 @@ export async function requireRole(role: Role): Promise<AuthResult> {
   const auth = await requireAuthenticatedActor();
   if (!auth.ok) return auth;
   if (auth.role !== role) return { ok: false };
+  return auth;
+}
+
+/**
+ * Same as `requireRole`, but accepts any of the given roles. Use this for
+ * pages/routes shared between admin and manager (e.g. the Users page,
+ * where managers get a restricted view of their own invited viewers).
+ */
+export async function requireAnyRole(roles: Role[]): Promise<AuthResult> {
+  const auth = await requireAuthenticatedActor();
+  if (!auth.ok) return auth;
+  if (!roles.includes(auth.role)) return { ok: false };
   return auth;
 }
