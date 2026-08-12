@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireRole } from "@/app/api/admin/_auth";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { supabase } from "@/lib/supabase";
 
 type PatchBody = {
   role?: "admin" | "viewer";
@@ -16,7 +17,26 @@ type PatchBody = {
  *      ban; "active" clears it).
  *
  * POST /api/admin/users/:userId  (action=resend)
- *   -> resends the invite email for a user stuck in "invited" status.
+ *   -> resends a set-password link for a user stuck in "invited" status.
+ *      Uses `resetPasswordForEmail` (not `inviteUserByEmail`) because the
+ *      auth.users row already exists at this point — `inviteUserByEmail`
+ *      only works for emails that have never been registered before and
+ *      fails with "already registered" on any resend.
+ *
+ *      Deliberately uses the PLAIN (implicit-flow, non-cookie) client from
+ *      lib/supabase.ts here, NOT the cookie-based PKCE client from
+ *      lib/supabase-server.ts. PKCE requires the code_verifier to be
+ *      readable by whichever browser completes the exchange — fine for
+ *      the user-initiated forgot-password flow (same person requests and
+ *      later clicks the link, same browser), but broken here: the code
+ *      would be written to *this admin's* browser cookies, while the
+ *      invited user (a different person, different browser) is the one
+ *      who actually clicks the emailed link, so they'd always hit "PKCE
+ *      code verifier not found in storage". The implicit-flow client
+ *      produces a hash-fragment link (`#access_token=...`) instead, which
+ *      carries everything needed in the URL itself — no server-side state
+ *      to share across browsers, and set-password/page.tsx already
+ *      handles that format (used by the original invite email too).
  *
  * DELETE /api/admin/users/:userId
  *   -> permanently deletes the Supabase Auth user. `public.profiles` has
@@ -143,10 +163,10 @@ export async function POST(
     ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/set-password`
     : undefined;
 
-  const { error } = await admin.auth.admin.inviteUserByEmail(profile.email, {
-    data: { role: profile.role },
-    redirectTo,
-  });
+  if (!supabase) {
+    return NextResponse.json({ message: "Supabase is not configured" }, { status: 500 });
+  }
+  const { error } = await supabase.auth.resetPasswordForEmail(profile.email, { redirectTo });
 
   if (error) {
     return NextResponse.json({ message: error.message }, { status: 400 });

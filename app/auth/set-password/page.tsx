@@ -2,19 +2,34 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { supabase } from "@/lib/supabase";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 
 type Status = "checking" | "ready" | "submitting" | "success" | "error";
 
 /**
- * Lands here from the invite/recovery email link
- * (?redirectTo=.../auth/set-password). Supabase's browser client
- * automatically detects the `code`/token in the URL and exchanges it for a
- * session on load (detectSessionInUrl, enabled by default), so by the time
- * this component mounts, `supabase.auth.getSession()` should already
- * resolve to a valid (aal1) session for the invited user — we just need
- * them to set a password to finish account activation.
+ * Lands here from two different kinds of email links, which use two
+ * different Supabase Auth flows and must be handled separately:
+ *
+ * - Invite links (`type=invite`) use the implicit grant flow: the tokens
+ *   arrive directly in the URL hash fragment
+ *   (`#access_token=...&refresh_token=...`). We parse that ourselves and
+ *   call `setSession()` on the plain (localStorage-based) client — no PKCE
+ *   or cookies involved.
+ * - Forgot-password links (`type=recovery`) use the PKCE flow: GoTrue
+ *   redirects here with `?code=...`. The code_verifier for that flow was
+ *   written to a cookie by the server (see
+ *   app/api/auth/forgot-password/route.ts), so only the cookie-aware
+ *   `supabaseBrowser` client (lib/supabase-browser.ts) can read it back.
+ *   Its default `detectSessionInUrl: true` behavior exchanges the code for
+ *   a session automatically — no manual `exchangeCodeForSession` call
+ *   needed.
+ *
+ * Whichever path establishes the session, `onSubmit` below must reuse that
+ * same client to call `updateUser({ password })`, since the two clients
+ * don't share storage.
  */
 export default function SetPasswordPage() {
   const router = useRouter();
@@ -22,29 +37,61 @@ export default function SetPasswordPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [activeClient, setActiveClient] = useState<SupabaseClient | null>(null);
 
   useEffect(() => {
-    if (!supabase) {
-      setStatus("error");
-      setErrorMessage("Supabase is not configured");
-      return;
-    }
+    const establishSession = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
 
-    supabase.auth.getSession().then(({ data }) => {
+      if (accessToken && refreshToken) {
+        if (!supabase) {
+          setStatus("error");
+          setErrorMessage("Supabase is not configured");
+          return;
+        }
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        window.history.replaceState(window.history.state, "", window.location.pathname);
+        if (error) {
+          console.error("[set-password] setSession failed:", error.message);
+          setStatus("error");
+          setErrorMessage(
+            "This invite link is invalid or has expired. Please ask an admin to resend it.",
+          );
+          return;
+        }
+        setActiveClient(supabase);
+        setStatus("ready");
+        return;
+      }
+
+      if (!supabaseBrowser) {
+        setStatus("error");
+        setErrorMessage("Supabase is not configured");
+        return;
+      }
+      const { data } = await supabaseBrowser.auth.getSession();
       if (data.session) {
+        setActiveClient(supabaseBrowser);
         setStatus("ready");
       } else {
         setStatus("error");
         setErrorMessage(
-          "This invite link is invalid or has expired. Please ask an admin to resend it.",
+          "This link is invalid or has expired. Please request a new one.",
         );
       }
-    });
+    };
+
+    establishSession();
   }, []);
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!supabase) return;
+    if (!activeClient) return;
 
     if (password.length < 8) {
       setStatus("error");
@@ -60,12 +107,33 @@ export default function SetPasswordPage() {
     setStatus("submitting");
     setErrorMessage("");
 
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error } = await activeClient.auth.updateUser({ password });
 
     if (error) {
       setStatus("error");
       setErrorMessage(error.message);
       return;
+    }
+
+    // Explicitly tell our own backend this account's setup is done — see
+    // app/api/auth/activate/route.ts for why this can't be inferred from
+    // any auth.users column via a database trigger. Best-effort: don't
+    // block the user from continuing to the dashboard if this call fails
+    // (worst case, the admin Users page still shows "invited" and an
+    // admin can nudge status manually — the account itself works fine
+    // either way since the password is already set).
+    const { data: sessionData } = await activeClient.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (accessToken) {
+      try {
+        await fetch("/api/auth/activate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accessToken }),
+        });
+      } catch (activateError) {
+        console.error("[set-password] activate call failed:", activateError);
+      }
     }
 
     setStatus("success");
@@ -84,7 +152,7 @@ export default function SetPasswordPage() {
         </p>
 
         {status === "checking" ? (
-          <p className="mt-6 text-sm text-slate-500">Verifying invite link…</p>
+          <p className="mt-6 text-sm text-slate-500">Verifying link…</p>
         ) : status === "success" ? (
           <p className="mt-6 text-sm text-green-600">
             Password set! Redirecting to your dashboard…

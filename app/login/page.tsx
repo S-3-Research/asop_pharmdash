@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type LoginState = "idle" | "loading" | "error";
 type Step = "credentials" | "mfa" | "otp-request" | "otp-code";
@@ -225,6 +226,13 @@ export default function LoginPage() {
             >
               {state === "loading" ? "Signing in..." : "Sign in"}
             </button>
+
+            <Link
+              href="/auth/forgot-password"
+              className="block text-center text-xs text-slate-400 hover:text-slate-600"
+            >
+              Forgot your password?
+            </Link>
           </form>
         ) : step === "otp-request" ? (
           <form className="mt-6 space-y-4" onSubmit={onSendOtp}>

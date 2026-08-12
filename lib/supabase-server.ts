@@ -28,6 +28,15 @@ export async function getSupabaseServerClient() {
   const cookieStore = await cookies();
 
   return createServerClient(supabaseUrl, supabasePublishableKey, {
+    auth: {
+      // Lets GoTrue embed the matching flow id in a PKCE flow's callback
+      // URL (e.g. the emailed forgot-password link). Without it, if more
+      // than one PKCE flow is pending in the same browser (repeat
+      // submissions, multiple invites/resets, etc.), the client landing on
+      // /auth/set-password has no reliable way to know which cookie slot
+      // holds the right code_verifier.
+      experimental: { appendPkceFlowIdToRedirects: true },
+    },
     cookies: {
       getAll() {
         return cookieStore.getAll();
