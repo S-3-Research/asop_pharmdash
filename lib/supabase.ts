@@ -9,5 +9,17 @@ const supabasePublishableKey =
 
 export const supabase =
   supabaseUrl && supabasePublishableKey
-    ? createClient(supabaseUrl, supabasePublishableKey)
+    ? createClient(supabaseUrl, supabasePublishableKey, {
+        auth: {
+          // Distinct storageKey from lib/supabase-browser.ts's
+          // createBrowserClient. Both clients default to the same
+          // `sb-<project-ref>-auth-token` key, which is also used as the
+          // BroadcastChannel name GoTrue uses to sync auth state across
+          // tabs/instances — sharing it causes "Multiple GoTrueClient
+          // instances" warnings and can cross-wire onAuthStateChange
+          // events between the two clients even though they use different
+          // storage backends (localStorage here vs. cookies there).
+          storageKey: "sb-implicit-auth-token",
+        },
+      })
     : null;
