@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { LogoNav } from "@/app/dashboard/components/logo-nav";
+
 type ProfileRow = {
   user_id: string;
   email: string | null;
@@ -163,7 +165,9 @@ export default function UsersClient({
   };
 
   return (
-    <main className="mx-auto min-h-screen max-w-4xl space-y-8 bg-white p-6 text-slate-900">
+    <div className="flex min-h-screen flex-col bg-[#f3f7f9]">
+      <LogoNav />
+      <main className="mx-auto w-full max-w-4xl flex-1 space-y-8 p-8 text-slate-900">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-slate-900">
           {isManager ? "My invited viewers" : "Users"}
@@ -180,7 +184,7 @@ export default function UsersClient({
         <p className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-800">{error}</p>
       ) : null}
 
-      <section className="rounded-xl border border-slate-200 p-4">
+      <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Invite a new user</h2>
         <p className="mt-1 text-xs text-slate-500">
           Sends an email with a one-time link where they choose their own password. No password
@@ -235,7 +239,7 @@ export default function UsersClient({
         </form>
       </section>
 
-      <section className="rounded-xl border border-slate-200 p-4">
+      <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">All users</h2>
         {loading ? (
           <p className="mt-2 text-sm text-slate-500">Loading…</p>
@@ -341,6 +345,7 @@ export default function UsersClient({
           </table>
         )}
       </section>
-    </main>
+      </main>
+    </div>
   );
 }

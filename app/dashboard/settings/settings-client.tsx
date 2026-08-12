@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { LogoNav } from "@/app/dashboard/components/logo-nav";
+
 type Factor = { id: string; friendly_name?: string; status: string; created_at: string };
 
 type EnrollState = {
@@ -77,7 +79,7 @@ function ChangePasswordSection() {
 
   if (mfaRequired) {
     return (
-      <section className="rounded-xl border border-slate-200 p-4">
+      <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Change password</h2>
         <form className="mt-4 space-y-4" onSubmit={onSubmitMfaCode}>
           <p className="text-sm text-slate-600">
@@ -121,7 +123,7 @@ function ChangePasswordSection() {
   }
 
   return (
-    <section className="rounded-xl border border-slate-200 p-4">
+    <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
       <h2 className="text-lg font-semibold text-slate-900">Change password</h2>
 
       <form className="mt-4 space-y-4" onSubmit={onSubmit}>
@@ -257,7 +259,7 @@ function TwoFactorSection() {
   const verifiedFactors = factors.filter((f) => f.status === "verified");
 
   return (
-    <section className="rounded-xl border border-slate-200 p-4">
+    <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
       <h2 className="text-lg font-semibold text-slate-900">Two-factor authentication</h2>
 
       {message ? (
@@ -348,7 +350,9 @@ function TwoFactorSection() {
 
 export default function SettingsClient() {
   return (
-    <main className="mx-auto min-h-screen max-w-2xl space-y-6 bg-white p-6 text-slate-900">
+    <div className="flex min-h-screen flex-col bg-[#f3f7f9]">
+      <LogoNav />
+      <main className="mx-auto w-full max-w-2xl flex-1 space-y-6 p-8 text-slate-900">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-slate-900">Settings</h1>
         <Link href="/dashboard" className="text-sm text-slate-500 hover:text-slate-800">
@@ -358,6 +362,7 @@ export default function SettingsClient() {
 
       <ChangePasswordSection />
       <TwoFactorSection />
-    </main>
+      </main>
+    </div>
   );
 }

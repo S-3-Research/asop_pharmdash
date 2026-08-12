@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { LogoNav } from "@/app/dashboard/components/logo-nav";
+
 /**
  * Gzip-compresses a JSON-serializable value in the browser before upload.
  * Real release payloads (100k+ social_media rows) can exceed Vercel's
@@ -199,7 +201,9 @@ export default function DataReleasesClient() {
   };
 
   return (
-    <main className="mx-auto min-h-screen max-w-5xl space-y-8 bg-white p-6 text-slate-900">
+    <div className="flex min-h-screen flex-col bg-[#f3f7f9]">
+      <LogoNav />
+      <main className="mx-auto w-full max-w-5xl flex-1 space-y-8 p-8 text-slate-900">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-slate-900">Data Releases</h1>
         <Link href="/dashboard" className="text-sm text-slate-500 hover:text-slate-800">
@@ -216,7 +220,7 @@ export default function DataReleasesClient() {
         {(["preview", "production"] as const).map((channel) => {
           const pointer = channels?.[channel];
           return (
-            <div key={channel} className="rounded-xl border border-slate-200 p-4">
+            <div key={channel} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
                 {channel}
               </h2>
@@ -234,7 +238,7 @@ export default function DataReleasesClient() {
       </section>
 
       {/* Upload form */}
-      <section className="rounded-xl border border-slate-200 p-4">
+      <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Upload new release</h2>
         <form className="mt-4 space-y-4" onSubmit={handleUpload}>
           <div className="flex gap-4">
@@ -366,7 +370,7 @@ export default function DataReleasesClient() {
       </section>
 
       {/* Release history */}
-      <section className="rounded-xl border border-slate-200 p-4">
+      <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Release history</h2>
         {loading ? (
           <p className="mt-2 text-sm text-slate-500">Loading…</p>
@@ -433,7 +437,7 @@ export default function DataReleasesClient() {
       </section>
 
       {/* Audit log */}
-      <section className="rounded-xl border border-slate-200 p-4">
+      <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Audit log</h2>
         <table className="mt-4 w-full text-left text-xs">
           <thead>
@@ -465,6 +469,7 @@ export default function DataReleasesClient() {
           </tbody>
         </table>
       </section>
-    </main>
+      </main>
+    </div>
   );
 }
