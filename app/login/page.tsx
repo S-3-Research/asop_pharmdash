@@ -3,6 +3,9 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
+
+import AuthBackground from "@/app/auth/components/auth-background";
 
 type LoginState = "idle" | "loading" | "error";
 type Step = "credentials" | "mfa" | "otp-request" | "otp-code";
@@ -147,10 +150,20 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
-      <section className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg shadow-slate-200">
-        <h1 className="text-2xl font-semibold text-slate-900">ASOP PharmDash</h1>
-        <p className="mt-2 text-sm text-slate-500">
+    <AuthBackground>
+      <section className="auth-glass-card w-full rounded-2xl p-8">
+        <div className="mb-4">
+          <Image
+            src="/ASOP x S3.png"
+            alt="ASOP PharmDash"
+            width={140}
+            height={56}
+            className="object-contain"
+            priority
+          />
+        </div>
+        <h1 className="text-2xl font-semibold text-white">ASOP PharmDash</h1>
+        <p className="mt-2 text-sm text-slate-400">
           {step === "credentials"
             ? "Sign in with your credentials"
             : step === "mfa"
@@ -161,11 +174,11 @@ export default function LoginPage() {
         </p>
 
         {step === "credentials" || step === "otp-request" ? (
-          <div className="mt-4 flex rounded-lg bg-slate-100 p-1 text-xs font-medium">
+          <div className="mt-4 flex rounded-lg border border-white/10 bg-white/5 p-1 text-xs font-medium">
             <button
               type="button"
               className={`flex-1 rounded-md py-1.5 transition-colors ${
-                mode === "password" ? "bg-white text-slate-900 shadow" : "text-slate-500"
+                mode === "password" ? "bg-white/10 text-white shadow" : "text-slate-400"
               }`}
               onClick={() => switchMode("password")}
             >
@@ -174,7 +187,7 @@ export default function LoginPage() {
             <button
               type="button"
               className={`flex-1 rounded-md py-1.5 transition-colors ${
-                mode === "otp" ? "bg-white text-slate-900 shadow" : "text-slate-500"
+                mode === "otp" ? "bg-white/10 text-white shadow" : "text-slate-400"
               }`}
               onClick={() => switchMode("otp")}
             >
@@ -186,14 +199,14 @@ export default function LoginPage() {
         {step === "credentials" ? (
           <form className="mt-6 space-y-4" onSubmit={onSubmitCredentials}>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="email">
+              <label className="mb-1 block text-sm font-medium text-slate-300" htmlFor="email">
                 Email
               </label>
               <input
                 id="email"
                 type="email"
                 autoComplete="email"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 focus:border-blue-400/60"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 required
@@ -201,14 +214,14 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="password">
+              <label className="mb-1 block text-sm font-medium text-slate-300" htmlFor="password">
                 Password
               </label>
               <input
                 id="password"
                 type="password"
                 autoComplete="current-password"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 focus:border-blue-400/60"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
@@ -216,12 +229,12 @@ export default function LoginPage() {
             </div>
 
             {state === "error" ? (
-              <p className="text-sm text-red-600">{errorMessage}</p>
+              <p className="text-sm text-red-400">{errorMessage}</p>
             ) : null}
 
             <button
               type="submit"
-              className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+              className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-slate-500"
               disabled={state === "loading"}
             >
               {state === "loading" ? "Signing in..." : "Sign in"}
@@ -229,7 +242,7 @@ export default function LoginPage() {
 
             <Link
               href="/auth/forgot-password"
-              className="block text-center text-xs text-slate-400 hover:text-slate-600"
+              className="block text-center text-xs text-slate-500 hover:text-slate-300"
             >
               Forgot your password?
             </Link>
@@ -237,14 +250,14 @@ export default function LoginPage() {
         ) : step === "otp-request" ? (
           <form className="mt-6 space-y-4" onSubmit={onSendOtp}>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="otp-email">
+              <label className="mb-1 block text-sm font-medium text-slate-300" htmlFor="otp-email">
                 Email
               </label>
               <input
                 id="otp-email"
                 type="email"
                 autoComplete="email"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 focus:border-blue-400/60"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 required
@@ -252,12 +265,12 @@ export default function LoginPage() {
             </div>
 
             {state === "error" ? (
-              <p className="text-sm text-red-600">{errorMessage}</p>
+              <p className="text-sm text-red-400">{errorMessage}</p>
             ) : null}
 
             <button
               type="submit"
-              className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+              className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-slate-500"
               disabled={state === "loading"}
             >
               {state === "loading" ? "Sending code..." : "Send code"}
@@ -265,9 +278,9 @@ export default function LoginPage() {
           </form>
         ) : step === "otp-code" ? (
           <form className="mt-6 space-y-4" onSubmit={onVerifyOtp}>
-            {infoMessage ? <p className="text-xs text-slate-500">{infoMessage}</p> : null}
+            {infoMessage ? <p className="text-xs text-slate-400">{infoMessage}</p> : null}
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="otp-code">
+              <label className="mb-1 block text-sm font-medium text-slate-300" htmlFor="otp-code">
                 One-time code
               </label>
               <input
@@ -275,7 +288,7 @@ export default function LoginPage() {
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 maxLength={8}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-center text-lg tracking-[0.3em] outline-none focus:border-blue-500"
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center text-lg tracking-[0.3em] text-white outline-none focus:border-blue-400/60"
                 value={otpCode}
                 onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, ""))}
                 required
@@ -283,12 +296,12 @@ export default function LoginPage() {
             </div>
 
             {state === "error" ? (
-              <p className="text-sm text-red-600">{errorMessage}</p>
+              <p className="text-sm text-red-400">{errorMessage}</p>
             ) : null}
 
             <button
               type="submit"
-              className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+              className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-slate-500"
               disabled={state === "loading" || otpCode.length < 6}
             >
               {state === "loading" ? "Verifying..." : "Verify"}
@@ -296,7 +309,7 @@ export default function LoginPage() {
 
             <button
               type="button"
-              className="w-full text-center text-xs text-slate-400 hover:text-slate-600"
+              className="w-full text-center text-xs text-slate-500 hover:text-slate-300"
               onClick={() => {
                 setStep("otp-request");
                 setOtpCode("");
@@ -311,7 +324,7 @@ export default function LoginPage() {
         ) : (
           <form className="mt-6 space-y-4" onSubmit={onSubmitCode}>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="code">
+              <label className="mb-1 block text-sm font-medium text-slate-300" htmlFor="code">
                 Authentication code
               </label>
               <input
@@ -319,7 +332,7 @@ export default function LoginPage() {
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 maxLength={6}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-center text-lg tracking-[0.3em] outline-none focus:border-blue-500"
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-center text-lg tracking-[0.3em] text-white outline-none focus:border-blue-400/60"
                 value={code}
                 onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
                 required
@@ -327,12 +340,12 @@ export default function LoginPage() {
             </div>
 
             {state === "error" ? (
-              <p className="text-sm text-red-600">{errorMessage}</p>
+              <p className="text-sm text-red-400">{errorMessage}</p>
             ) : null}
 
             <button
               type="submit"
-              className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+              className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-slate-500"
               disabled={state === "loading" || code.length !== 6}
             >
               {state === "loading" ? "Verifying..." : "Verify"}
@@ -340,7 +353,7 @@ export default function LoginPage() {
 
             <button
               type="button"
-              className="w-full text-center text-xs text-slate-400 hover:text-slate-600"
+              className="w-full text-center text-xs text-slate-500 hover:text-slate-300"
               onClick={() => {
                 setStep(mode === "otp" ? "otp-request" : "credentials");
                 setCode("");
@@ -353,6 +366,6 @@ export default function LoginPage() {
           </form>
         )}
       </section>
-    </main>
+    </AuthBackground>
   );
 }

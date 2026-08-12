@@ -4,8 +4,11 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import Image from "next/image";
+
 import { supabase } from "@/lib/supabase";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import AuthBackground from "@/app/auth/components/auth-background";
 
 type Status = "checking" | "ready" | "submitting" | "success" | "error";
 
@@ -144,30 +147,40 @@ export default function SetPasswordPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
-      <section className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg shadow-slate-200">
-        <h1 className="text-2xl font-semibold text-slate-900">Activate your account</h1>
-        <p className="mt-2 text-sm text-slate-500">
+    <AuthBackground>
+      <section className="auth-glass-card w-full rounded-2xl p-8">
+        <div className="mb-4">
+          <Image
+            src="/ASOP x S3.png"
+            alt="ASOP PharmDash"
+            width={140}
+            height={56}
+            className="object-contain"
+            priority
+          />
+        </div>
+        <h1 className="text-2xl font-semibold text-white">Activate your account</h1>
+        <p className="mt-2 text-sm text-slate-400">
           Choose a password to finish setting up your ASOP PharmDash account.
         </p>
 
         {status === "checking" ? (
-          <p className="mt-6 text-sm text-slate-500">Verifying link…</p>
+          <p className="mt-6 text-sm text-slate-400">Verifying link…</p>
         ) : status === "success" ? (
-          <p className="mt-6 text-sm text-green-600">
+          <p className="mt-6 text-sm text-emerald-400">
             Password set! Redirecting to your dashboard…
           </p>
         ) : (
           <form className="mt-6 space-y-4" onSubmit={onSubmit}>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="password">
+              <label className="mb-1 block text-sm font-medium text-slate-300" htmlFor="password">
                 New password
               </label>
               <input
                 id="password"
                 type="password"
                 autoComplete="new-password"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 focus:border-blue-400/60"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 disabled={status === "error" && !!errorMessage && errorMessage.includes("invalid")}
@@ -177,7 +190,7 @@ export default function SetPasswordPage() {
 
             <div>
               <label
-                className="mb-1 block text-sm font-medium text-slate-700"
+                className="mb-1 block text-sm font-medium text-slate-300"
                 htmlFor="confirmPassword"
               >
                 Confirm password
@@ -186,18 +199,18 @@ export default function SetPasswordPage() {
                 id="confirmPassword"
                 type="password"
                 autoComplete="new-password"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 focus:border-blue-400/60"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 required
               />
             </div>
 
-            {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
+            {errorMessage ? <p className="text-sm text-red-400">{errorMessage}</p> : null}
 
             <button
               type="submit"
-              className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+              className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-slate-500"
               disabled={status === "submitting"}
             >
               {status === "submitting" ? "Saving…" : "Set password & continue"}
@@ -205,6 +218,6 @@ export default function SetPasswordPage() {
           </form>
         )}
       </section>
-    </main>
+    </AuthBackground>
   );
 }
