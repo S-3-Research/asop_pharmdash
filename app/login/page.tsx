@@ -170,7 +170,7 @@ export default function LoginPage() {
               ? "Enter the 6-digit code from your authenticator app"
               : step === "otp-request"
                 ? "Sign in with a one-time code sent to your email"
-                : "Enter the 6-digit code we emailed you"}
+              : "Enter the 8-digit code we emailed you"}
         </p>
 
         {step === "credentials" || step === "otp-request" ? (
@@ -302,7 +302,7 @@ export default function LoginPage() {
             <button
               type="submit"
               className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-slate-500"
-              disabled={state === "loading" || otpCode.length < 6}
+              disabled={state === "loading" || otpCode.length < 8}
             >
               {state === "loading" ? "Verifying..." : "Verify"}
             </button>

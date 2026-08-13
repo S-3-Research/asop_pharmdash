@@ -45,8 +45,37 @@ export default function SetPasswordPage() {
   useEffect(() => {
     const establishSession = async () => {
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const queryParams = new URLSearchParams(window.location.search);
+
+      // GoTrue reports a failed/expired/already-used link by redirecting
+      // back here with `error`/`error_code` on the query string (and often
+      // mirrored in the hash too) instead of a token — e.g.
+      // `?error=access_denied&error_code=otp_expired`. This MUST be
+      // checked first and short-circuit everything else below: if we
+      // instead fell through to "is there already a session in this
+      // browser?", a user who previously succeeded once on this exact
+      // page (or who simply has an unrelated, still-valid session sitting
+      // in this browser from something else entirely) would be silently
+      // let through to "set password" on every subsequent visit — even
+      // once the link itself has expired or been reused — because
+      // `getSession()` only reports "is there *a* valid session right
+      // now", not "did *this* page load just prove the link is valid".
+      const errorCode = queryParams.get("error_code") ?? hashParams.get("error_code");
+      const errorDescription =
+        queryParams.get("error_description") ?? hashParams.get("error_description");
+      if (errorCode) {
+        setStatus("error");
+        setErrorMessage(
+          errorDescription
+            ? decodeURIComponent(errorDescription.replace(/\+/g, " "))
+            : "This link is invalid or has expired. Please request a new one.",
+        );
+        return;
+      }
+
       const accessToken = hashParams.get("access_token");
       const refreshToken = hashParams.get("refresh_token");
+      const code = queryParams.get("code");
 
       if (accessToken && refreshToken) {
         if (!supabase) {
@@ -69,6 +98,21 @@ export default function SetPasswordPage() {
         }
         setActiveClient(supabase);
         setStatus("ready");
+        return;
+      }
+
+      // No recognized token in this URL at all (no hash tokens, no
+      // `?code=`, no `error_code=` either) — this isn't a real callback
+      // from an email link, so don't fall back to "well, is there some
+      // session already sitting in this browser?" (see comment above:
+      // that could be a stale/unrelated session and would let someone set
+      // a password for whatever account happens to already be logged in
+      // here, not the account the link was actually issued for).
+      if (!code) {
+        setStatus("error");
+        setErrorMessage(
+          "This link is invalid or has expired. Please request a new one.",
+        );
         return;
       }
 

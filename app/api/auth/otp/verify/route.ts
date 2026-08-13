@@ -10,7 +10,7 @@ type VerifyBody = {
 /**
  * POST /api/auth/otp/verify
  *   body: { email: string, code: string }
- *   -> verifies the 6-digit email OTP and, on success, persists a session
+ *   -> verifies the 8-digit email OTP and, on success, persists a session
  *      cookie (same as password login). If the account has an enrolled
  *      TOTP factor, the resulting session is only "aal1" until that second
  *      factor is also verified — mirrors the password-login flow in
