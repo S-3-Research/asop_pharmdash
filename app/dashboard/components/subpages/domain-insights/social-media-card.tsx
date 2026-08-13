@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Highcharts from "highcharts";
 
@@ -25,11 +26,26 @@ if (typeof window !== "undefined") {
 
 const HighchartsReact = dynamic(() => import("highcharts-react-official"), {
   ssr: false,
-  loading: () => <div className="h-52" />,
+  loading: () => <div className="h-full w-full animate-pulse bg-slate-50" />,
 });
 
 export function SocialMediaCard({ domains }: SocialMediaCardProps) {
   const options = buildSocialBubbleOptions(domains);
+
+  // See total-domain-card.tsx for why this ResizeObserver+reflow is needed.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const chartCompRef = useRef<any>(null);
+  const chartWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = chartWrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      chartCompRef.current?.chart?.reflow();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const counts: Record<string, number> = {};
   for (const d of domains)
@@ -47,7 +63,14 @@ export function SocialMediaCard({ domains }: SocialMediaCardProps) {
 
   return (
     <DashboardCard title="Social Media Outlet" className="h-full overflow-hidden">
-      <HighchartsReact highcharts={Highcharts} options={options} />
+      <div ref={chartWrapRef} className="relative h-full">
+        <HighchartsReact
+          ref={chartCompRef}
+          highcharts={Highcharts}
+          options={options}
+          containerProps={{ style: { position: "absolute", inset: 0 } }}
+        />
+      </div>
     </DashboardCard>
   );
 }

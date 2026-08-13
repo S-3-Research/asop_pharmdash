@@ -46,9 +46,7 @@ export function ProductDistribution({
           >
             Reset ✕
           </button>
-        ) : (
-          <span className="text-xs text-slate-300">•••</span>
-        )
+        ) : null
       }
     >
       <SunburstCard

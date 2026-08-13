@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowUp, MoreHorizontal } from "lucide-react";
+import { ArrowUp } from "lucide-react";
 import useSWR from "swr";
 
 import type { SocialKeywordCountPayload, SocialKeywordRanking } from "../../types";
@@ -12,7 +12,7 @@ interface KeywordRankingsCardProps {
   platform: string;
 }
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 4;
 
 const countFetcher = (url: string) =>
   fetch(url).then((r) => r.json() as Promise<SocialKeywordCountPayload>);
@@ -54,7 +54,6 @@ export function KeywordRankingsCard({ rankings, platform }: KeywordRankingsCardP
     <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 h-full flex flex-col">
       <div className="flex justify-between items-center mb-4">
         <h3 className="font-semibold text-gray-800 text-sm">Keyword Rankings</h3>
-        <MoreHorizontal size={16} className="text-gray-400 cursor-pointer" />
       </div>
 
       <div className="flex-1 overflow-auto">

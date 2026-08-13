@@ -18,6 +18,11 @@ export function TopProductsRanked({
   selectedPrimaryName,
   currentPeriodLabel,
 }: TopProductsRankedProps) {
+  // Uncategorized listings (no resolved product name/category) are shown
+  // under the "General-selling" label in this table — display-only rename,
+  // the underlying grouping key is unchanged.
+  const displayName = (name: string) => (name === "Unknown" ? "general-selling" : name);
+
   const rankedItems = useMemo((): RankedItem[] => {
     const counts: Record<string, number> = {};
     for (const l of filteredListings) {
@@ -28,7 +33,7 @@ export function TopProductsRanked({
       .slice(0, 5)
       .map(([name, count]) => ({
         id: name,
-        name,
+        name: displayName(name),
         value: `${count} listings`,
         change: null,
         direction: null,
@@ -42,7 +47,7 @@ export function TopProductsRanked({
       counts[l.secondaryCategory] = (counts[l.secondaryCategory] ?? 0) + 1;
     return Object.entries(counts)
       .sort(([, a], [, b]) => b - a)
-      .map(([label, value]) => ({ label, value }));
+      .map(([label, value]) => ({ label: displayName(label), value }));
   }, [filteredListings]);
   useWidgetData(
     "top-products-ranked",

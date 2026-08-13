@@ -19,9 +19,13 @@ const HeatmapMapClient = dynamic(
 
 interface HeatmapCardProps {
   domains: (Domain | DomainWithMatch)[];
+  /** Currently-selected primary-category filters (from the page's multi-
+   *  select dropdown) — passed through so point coloring can reflect the
+   *  selection when 2+ categories are active (see heatmap-map-client). */
+  selectedCategories?: string[];
 }
 
-export function HeatmapCard({ domains }: HeatmapCardProps) {
+export function HeatmapCard({ domains, selectedCategories }: HeatmapCardProps) {
   const cityCounts: Record<string, number> = {};
   for (const d of domains) {
     const city = d.geoLocation?.city;
@@ -40,7 +44,7 @@ export function HeatmapCard({ domains }: HeatmapCardProps) {
   return (
     <DashboardCard title="Domain Heatmap" className="h-full flex flex-col overflow-hidden">
       <div className="flex-1 min-h-0 relative -mx-4 -mb-4 rounded-b-xl overflow-hidden">
-        <HeatmapMapClient domains={domains} />
+        <HeatmapMapClient domains={domains} selectedCategories={selectedCategories} />
       </div>
     </DashboardCard>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Highcharts from "highcharts";
 
@@ -11,7 +11,7 @@ import { buildDomainStatusOptions } from "./config";
 
 const HighchartsReact = dynamic(() => import("highcharts-react-official"), {
   ssr: false,
-  loading: () => <div className="h-52" />,
+  loading: () => <div className="h-full w-full animate-pulse bg-slate-50" />,
 });
 
 interface DomainStatusCardProps {
@@ -20,6 +20,23 @@ interface DomainStatusCardProps {
 
 export function DomainStatusCard({ domains }: DomainStatusCardProps) {
   const options = useMemo(() => buildDomainStatusOptions(domains), [domains]);
+
+  // See total-domain-card.tsx for why this ResizeObserver+reflow is needed —
+  // highcharts-react-official only sizes the chart once at mount, which can
+  // race with the flex/grid layout still resolving its final height.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const chartCompRef = useRef<any>(null);
+  const chartWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = chartWrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      chartCompRef.current?.chart?.reflow();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useWidgetData(
     "domain-status",
@@ -34,7 +51,14 @@ export function DomainStatusCard({ domains }: DomainStatusCardProps) {
 
   return (
     <DashboardCard title="Status" className="h-full overflow-hidden">
-      <HighchartsReact highcharts={Highcharts} options={options} />
+      <div ref={chartWrapRef} className="relative h-full">
+        <HighchartsReact
+          ref={chartCompRef}
+          highcharts={Highcharts}
+          options={options}
+          containerProps={{ style: { position: "absolute", inset: 0 } }}
+        />
+      </div>
     </DashboardCard>
   );
 }

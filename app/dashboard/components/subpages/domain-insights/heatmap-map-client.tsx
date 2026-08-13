@@ -22,11 +22,18 @@ function categoryColor(label: string): string {
   return FALLBACK_PALETTE[hash % FALLBACK_PALETTE.length];
 }
 
+interface TooltipCategoryPair {
+  primary: string;
+  secondary: string;
+}
+
 interface TooltipState {
   domain: string;
   isLive: boolean;
-  primaryCategory: string;
-  secondaryCategory: string;
+  /** Full set of category/product pairs for this domain (not just the
+   *  single "representative" pair) so the tooltip can list every product
+   *  the domain sells, each colored by its own primary category. */
+  categories: TooltipCategoryPair[];
   registrar: string;
   /** Formatted "type · provider" string, or a "no data" placeholder — never
    *  a fabricated default like "Credit Card" when the release reported no
@@ -37,8 +44,21 @@ interface TooltipState {
   y: number;
 }
 
-export function HeatmapMapClient({ domains }: { domains: (Domain | DomainWithMatch)[] }) {
+export function HeatmapMapClient({
+  domains,
+  selectedCategories,
+}: {
+  domains: (Domain | DomainWithMatch)[];
+  /** Currently-selected primary-category filters. When 2+ categories are
+   *  selected, a domain's point color reflects whichever of ITS OWN
+   *  categories is first among the selected set, instead of always using
+   *  the domain's single "representative" primaryCategory (which may not
+   *  even be one of the selected categories) — avoids a misleading color
+   *  when a domain matches multiple selected categories. */
+  selectedCategories?: string[];
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const wrapperRef   = useRef<HTMLDivElement>(null);
   const mapRef       = useRef<mapboxgl.Map | null>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   // Evaluate once — NEXT_PUBLIC_ vars are inlined at build time
@@ -58,6 +78,18 @@ export function HeatmapMapClient({ domains }: { domains: (Domain | DomainWithMat
             : payment.provider
               ? `${payment.type} \u00b7 ${payment.provider}`
               : payment.type;
+          // When 1+ categories are selected, prefer whichever of this
+          // domain's own categories is first among the selected set (so the
+          // color always corresponds to a category the domain was actually
+          // matched on), falling back to the representative primaryCategory
+          // when there's no overlap (shouldn't normally happen, since the
+          // domain wouldn't have matched the filter otherwise) or when no
+          // filter is active.
+          const matchedCategory =
+            selectedCategories && selectedCategories.length > 0
+              ? (d.categories.find((c) => selectedCategories.includes(c.primary))?.primary ??
+                d.primaryCategory)
+              : d.primaryCategory;
           return {
             type: "Feature" as const,
             geometry: {
@@ -69,10 +101,15 @@ export function HeatmapMapClient({ domains }: { domains: (Domain | DomainWithMat
               isLive:            d.isLive,
               primaryCategory:   d.primaryCategory,
               secondaryCategory: d.secondaryCategory,
+              // Full category/product list, serialized — parsed back out in
+              // the mousemove handler for the tooltip.
+              categoriesJson:    JSON.stringify(
+                d.categories.map((c) => ({ primary: c.primary, secondary: c.secondary })),
+              ),
               registrar:         d.whois.registrar,
               paymentLabel,
               city:              d.geoLocation.city,
-              color:             categoryColor(d.primaryCategory),
+              color:             categoryColor(matchedCategory),
               // Number of currently-selected categories this domain matches —
               // drives heatmap density weight / circle size. Defaults to 1 when
               // the caller hasn't computed a matchCount (e.g. unfiltered Domain[]).
@@ -81,7 +118,7 @@ export function HeatmapMapClient({ domains }: { domains: (Domain | DomainWithMat
           };
         }),
     }),
-    [domains],
+    [domains, selectedCategories],
   );
 
   // Keep a stable ref so the load callback always sees the latest data
@@ -108,7 +145,15 @@ export function HeatmapMapClient({ domains }: { domains: (Domain | DomainWithMat
       new mapboxgl.NavigationControl({ showCompass: false }),
       "top-right",
     );
-    map.addControl(new mapboxgl.FullscreenControl(), "top-right");
+    // Target the outer wrapper (which also contains the tooltip overlay)
+    // rather than the map's own container — the Fullscreen API only renders
+    // the requested element's subtree, so if only containerRef were sent
+    // fullscreen, the tooltip (a sibling, not a descendant, of the map
+    // container) would be invisible while in fullscreen mode.
+    map.addControl(
+      new mapboxgl.FullscreenControl({ container: wrapperRef.current ?? undefined }),
+      "top-right",
+    );
 
     // Observe container size changes — fires when the flex layout resolves
     // a non-zero height, even if the container was 0×0 at map creation time.
@@ -175,14 +220,28 @@ export function HeatmapMapClient({ domains }: { domains: (Domain | DomainWithMat
         const props = (feature as any)?.properties as Record<string, unknown> | undefined;
         if (!props) return;
         map.getCanvas().style.cursor = "pointer";
+        let categories: TooltipCategoryPair[] = [];
+        try {
+          const parsed = JSON.parse(String(props.categoriesJson ?? "[]"));
+          if (Array.isArray(parsed)) categories = parsed;
+        } catch {
+          categories = [];
+        }
+        if (categories.length === 0) {
+          categories = [
+            {
+              primary: String(props.primaryCategory ?? ""),
+              secondary: String(props.secondaryCategory ?? ""),
+            },
+          ];
+        }
         setTooltip({
-          domain:            String(props.domain ?? ""),
-          isLive:            props.isLive === true || props.isLive === "true",
-          primaryCategory:   String(props.primaryCategory ?? ""),
-          secondaryCategory: String(props.secondaryCategory ?? ""),
-          registrar:         String(props.registrar ?? ""),
-          paymentLabel:      String(props.paymentLabel ?? "No payment data"),
-          city:              String(props.city ?? ""),
+          domain:       String(props.domain ?? ""),
+          isLive:       props.isLive === true || props.isLive === "true",
+          categories,
+          registrar:    String(props.registrar ?? ""),
+          paymentLabel: String(props.paymentLabel ?? "No payment data"),
+          city:         String(props.city ?? ""),
           x: e.point.x,
           y: e.point.y,
         });
@@ -220,7 +279,7 @@ export function HeatmapMapClient({ domains }: { domains: (Domain | DomainWithMat
   }
 
   return (
-    <>
+    <div ref={wrapperRef} className="absolute inset-0 h-full">
       <div ref={containerRef} className="absolute inset-0 h-full" />
 
       {/* Domain hover tooltip */}
@@ -254,16 +313,31 @@ export function HeatmapMapClient({ domains }: { domains: (Domain | DomainWithMat
                 {tooltip.city}
               </span>
             </div>
-            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[10px]">
-              <dt className="text-slate-400">Category</dt>
-              <dd
-                className="font-medium truncate"
-                style={{ color: categoryColor(tooltip.primaryCategory) }}
-              >
-                {tooltip.primaryCategory}
+            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[10px] mb-2">
+              <dt className="text-slate-400 self-start">Category</dt>
+              <dd className="space-y-0.5">
+                {Object.entries(
+                  tooltip.categories.reduce<Record<string, number>>((acc, c) => {
+                    acc[c.primary] = (acc[c.primary] ?? 0) + 1;
+                    return acc;
+                  }, {}),
+                ).map(([primary, count]) => (
+                  <div key={primary} className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-1.5 w-1.5 rounded-full shrink-0"
+                      style={{ backgroundColor: categoryColor(primary) }}
+                    />
+                    <span className="font-medium truncate" style={{ color: categoryColor(primary) }}>
+                      {primary}
+                    </span>
+                    {count > 1 && (
+                      <span className="text-slate-400 text-[9px]">×{count}</span>
+                    )}
+                  </div>
+                ))}
               </dd>
-              <dt className="text-slate-400">Product</dt>
-              <dd className="text-slate-700 truncate">{tooltip.secondaryCategory}</dd>
+            </dl>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[10px]">
               <dt className="text-slate-400">Registrar</dt>
               <dd className="text-slate-700 truncate">{tooltip.registrar}</dd>
               <dt className="text-slate-400">Payment</dt>
@@ -272,6 +346,6 @@ export function HeatmapMapClient({ domains }: { domains: (Domain | DomainWithMat
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

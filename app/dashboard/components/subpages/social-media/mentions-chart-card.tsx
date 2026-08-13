@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart2, LayoutList, MoreHorizontal } from "lucide-react";
+import { BarChart2, LayoutList } from "lucide-react";
 
 import type { SocialMentionByApp } from "../../types";
 import { useWidgetData } from "../../copilot/copilot-context";
@@ -33,10 +33,9 @@ export function MentionsChartCard({ mentionsByApp }: MentionsChartCardProps) {
   const total    = top.reduce((s, d) => s + d.count, 0);
 
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col h-[380px]">
+    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col h-full">
       <div className="flex justify-between items-center mb-3">
         <h3 className="font-semibold text-gray-800 text-sm">Mentions by App</h3>
-        <MoreHorizontal size={16} className="text-gray-400 cursor-pointer" />
       </div>
 
       {/* Toggle */}
@@ -60,13 +59,13 @@ export function MentionsChartCard({ mentionsByApp }: MentionsChartCardProps) {
       </div>
 
       {view === "chart" ? (
-        <div className="flex-1 flex flex-col gap-3 justify-center">
+        <div className="flex-1 flex flex-col gap-3 justify-start overflow-auto">
           {top.map(({ app, count }) => {
             const color = appColor(app);
             const pct   = (count / maxCount) * 100;
             return (
               <div key={app} className="flex items-center gap-2">
-                <span className="text-[11px] text-gray-500 w-20 text-right truncate flex-shrink-0">
+                <span className="text-[11px] text-gray-500 w-14 text-left truncate flex-shrink-0">
                   {app}
                 </span>
                 <div className="flex-1 bg-gray-100 rounded-full h-3.5 overflow-hidden">

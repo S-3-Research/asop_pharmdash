@@ -1,8 +1,8 @@
 "use client";
 
+import { useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Highcharts from "highcharts";
-import { MoreHorizontal } from "lucide-react";
 import useSWR from "swr";
 
 import type { SocialKeywordBubble, SocialKeywordCountPayload } from "../../types";
@@ -23,7 +23,7 @@ if (typeof window !== "undefined") {
 
 const HighchartsReact = dynamic(() => import("highcharts-react-official"), {
   ssr: false,
-  loading: () => <div className="h-52" />,
+  loading: () => <div className="h-full w-full animate-pulse bg-slate-50" />,
 });
 
 interface KeywordPerformanceCardProps {
@@ -37,6 +37,24 @@ const countFetcher = (url: string) =>
 export function KeywordPerformanceCard({ bubbles, platform }: KeywordPerformanceCardProps) {
   const top12    = bubbles.slice(0, 12);
   const keywords = top12.map((b) => b.keyword).join(",");
+
+  // See total-domain-card.tsx (domain insights) for why this
+  // ResizeObserver+reflow is needed — without it, this chart used a
+  // hardcoded pixel height and would overflow/underflow whenever the
+  // parent card's flex-computed height changed.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const chartCompRef = useRef<any>(null);
+  const chartWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = chartWrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      chartCompRef.current?.chart?.reflow();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useWidgetData(
     "social-keyword-performance",
@@ -72,10 +90,10 @@ export function KeywordPerformanceCard({ bubbles, platform }: KeywordPerformance
   const options: Highcharts.Options = {
     chart: {
       type: "bubble",
-      height: 290,
       backgroundColor: "transparent",
       style: { fontFamily: "var(--font-geist-sans)" },
       animation: { duration: 300 },
+      spacingBottom: 4,
     },
     title:    { text: undefined },
     credits:  { enabled: false },
@@ -95,6 +113,7 @@ export function KeywordPerformanceCard({ bubbles, platform }: KeywordPerformance
     },
     tooltip: {
       useHTML: true,
+      outside: true,
       borderRadius: 10,
       borderWidth: 1,
       borderColor: "#e5e7eb",
@@ -139,7 +158,7 @@ export function KeywordPerformanceCard({ bubbles, platform }: KeywordPerformance
 
   if (bubbles.length === 0) {
     return (
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col h-[380px]">
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col h-full">
         <h3 className="font-semibold text-gray-800 text-sm mb-4">Keyword Performance</h3>
         <div className="flex-1 flex items-center justify-center text-xs text-gray-400">
           No data available
@@ -149,16 +168,20 @@ export function KeywordPerformanceCard({ bubbles, platform }: KeywordPerformance
   }
 
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col h-[380px]">
+    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col h-full">
       <div className="flex justify-between items-center mb-1">
         <div>
           <h3 className="font-semibold text-gray-800 text-sm">Keyword Performance</h3>
           <p className="text-[10px] text-gray-400 mt-0.5">X: raw count · Y: signal count · size: raw count</p>
         </div>
-        <MoreHorizontal size={16} className="text-gray-400 cursor-pointer" />
       </div>
-      <div className="flex-1 min-h-0">
-        <HighchartsReact highcharts={Highcharts} options={options} />
+      <div ref={chartWrapRef} className="relative flex-1 min-h-0">
+        <HighchartsReact
+          ref={chartCompRef}
+          highcharts={Highcharts}
+          options={options}
+          containerProps={{ style: { position: "absolute", inset: 0 } }}
+        />
       </div>
     </div>
   );

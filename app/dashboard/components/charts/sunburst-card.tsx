@@ -133,6 +133,7 @@ export function SunburstCard({
       credits: { enabled: false },
       accessibility: { enabled: false },
       tooltip: {
+        outside: true,
         formatter: function () {
           const pt = this as any;
           if (pt.options?.id === "root") return false;
@@ -145,6 +146,7 @@ export function SunburstCard({
           stickyTracking: false,
           borderWidth: 1.5,
           borderColor: "#ffffff",
+          borderRadius: 3,
           cursor: "pointer",
           dataLabels: {
             enabled: true,

@@ -56,6 +56,7 @@ export function DrillablePieChart({
         itemStyle: { fontSize: "11px", fontWeight: "500" },
       },
       tooltip: {
+        outside: true,
         pointFormat: "<b>{point.y}%</b>",
       },
       plotOptions: {

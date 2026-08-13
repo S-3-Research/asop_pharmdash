@@ -51,16 +51,14 @@ export function MetricsRow({ filteredListings, selectedPrimaryName, currentPerio
     return [
       {
         id: "total-listings",
-        label: selectedPrimaryName
-          ? `${selectedPrimaryName} Listings`
-          : `${currentPeriodLabel} Total Listings`,
+        label: "Total Product Listings",
         value: total.toLocaleString(),
         change: null,
         direction: null,
       },
       {
         id: "online-vs-social",
-        label: "Online vs Social",
+        label: "Total Product Listings (Online vs. Social)",
         value: `${online} / ${social}`,
         change: null,
         direction: null,

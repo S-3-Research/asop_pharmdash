@@ -124,23 +124,31 @@ export function getCategoryColor(label: string): string {
 }
 
 /** Builds the full set of selectable category options present in a release,
- *  fully derived from the data — no hardcoded "must be one of 4" cutoff. */
+ *  fully derived from the data — no hardcoded "must be one of 4" cutoff.
+ *  `isTop` marks whichever category has the highest product count (ties
+ *  broken by name), not a fixed whitelist — so exactly one option is ever
+ *  flagged "TOP 1". */
 export function buildCategoryRegistry(domains: DomainData[]): CategoryOption[] {
-  const labels = new Set<string>();
+  const counts = new Map<string, number>();
   for (const d of domains) {
     for (const p of d.product_info) {
       for (const raw of p.product_category ?? []) {
-        labels.add(normalizeCategoryLabel(raw));
+        const label = normalizeCategoryLabel(raw);
+        counts.set(label, (counts.get(label) ?? 0) + 1);
       }
     }
   }
-  return Array.from(labels)
+  let topName: string | null = null;
+  for (const [name, count] of counts) {
+    if (topName === null || count > (counts.get(topName) ?? 0)) topName = name;
+  }
+  return Array.from(counts.keys())
     .sort()
     .map((name) => ({
       id: name,
       name,
       color: getCategoryColor(name),
-      isTop: name in FIXED_CATEGORY_COLORS,
+      isTop: name === topName,
     }));
 }
 
@@ -397,11 +405,15 @@ export function mapReleaseData(
 import type { PieChartNodeData } from "@/app/dashboard/components/types";
 
 export function buildDrillablePieData(listings: Listing[]): PieChartNodeData[] {
-  const total = listings.length;
+  // Uncategorized listings (no product_category resolved) are excluded from
+  // the sunburst entirely — they still count in table/ranking totals
+  // elsewhere, but shouldn't appear as a fake "category" slice here.
+  const categorized = listings.filter((l) => l.primaryCategory !== "Uncategorized");
+  const total = categorized.length;
   if (total === 0) return [];
 
   const byPrimary = new Map<string, Listing[]>();
-  for (const l of listings) {
+  for (const l of categorized) {
     const arr = byPrimary.get(l.primaryCategory) ?? [];
     arr.push(l);
     byPrimary.set(l.primaryCategory, arr);
@@ -419,13 +431,18 @@ export function buildDrillablePieData(listings: Listing[]): PieChartNodeData[] {
         bySecondary.set(l.secondaryCategory, (bySecondary.get(l.secondaryCategory) ?? 0) + 1);
       }
 
-      const children = Array.from(bySecondary.entries()).map(([secondaryCat, count]) => ({
-        id: `${primaryCat}-${secondaryCat}`,
-        name: secondaryCat,
-        value: count,
-        percentage: count > 0 ? Math.round((count / primaryCount) * 100) : 0,
-        color,
-      }));
+      // Sort children by count descending too, so the outer ring's arc
+      // order matches the inner ring's convention (largest segment first)
+      // instead of following arbitrary Map-insertion order.
+      const children = Array.from(bySecondary.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([secondaryCat, count]) => ({
+          id: `${primaryCat}-${secondaryCat}`,
+          name: secondaryCat,
+          value: count,
+          percentage: count > 0 ? Math.round((count / primaryCount) * 100) : 0,
+          color,
+        }));
 
       return {
         id: primaryCat.replace(/\s+/g, "-"),
@@ -891,19 +908,31 @@ const AGGREGATE_KEYWORD_COLORS = [
  *  `resolveSocialCategories`), rather than from domains[].product_info —
  *  see the SocialAggregateTable.categoryOptions doc comment for why. */
 function buildSocialCategoryOptions(index: SocialPostLite[]): CategoryOption[] {
-  const labels = new Set<string>();
+  const counts = new Map<string, number>();
   for (const post of index) {
     for (const c of post.categories) {
-      if (c.primaryCategory !== "Uncategorized") labels.add(c.primaryCategory);
+      if (c.primaryCategory !== "Uncategorized") {
+        counts.set(c.primaryCategory, (counts.get(c.primaryCategory) ?? 0) + 1);
+      }
     }
   }
-  return Array.from(labels)
+  // `isTop` marks whichever category has the highest post count (matching
+  // the same semantics as buildDomainCategoryOptions() in
+  // app/dashboard/components/subpages/domain-insights/config.ts) — this
+  // used to incorrectly check membership in FIXED_CATEGORY_COLORS, which
+  // made every category that happened to be one of the 4 preset names bold
+  // simultaneously instead of only the single most-frequent one.
+  let topName: string | null = null;
+  for (const [name, count] of counts) {
+    if (topName === null || count > (counts.get(topName) ?? 0)) topName = name;
+  }
+  return Array.from(counts.keys())
     .sort()
     .map((name) => ({
       id: name,
       name,
       color: getCategoryColor(name),
-      isTop: name in FIXED_CATEGORY_COLORS,
+      isTop: name === topName,
     }));
 }
 

@@ -23,7 +23,7 @@ export function DashboardCard({
 
   return (
     <section
-      className={`rounded-xl border p-4 shadow-sm ${
+      className={`flex flex-col rounded-xl border p-4 shadow-sm ${
         isTeal
           ? "border-[#2d6470] bg-[#1f4e58] text-white"
           : "border-gray-100 bg-white text-slate-900"
@@ -44,7 +44,7 @@ export function DashboardCard({
           {rightSlot}
         </header>
       ) : null}
-      {children}
+      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
       {note ? (
         <div className={`mt-3 border-t pt-2.5 ${
           isTeal ? "border-white/10" : "border-gray-100"

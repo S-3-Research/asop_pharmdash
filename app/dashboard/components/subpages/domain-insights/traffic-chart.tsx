@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Highcharts from "highcharts";
 import { Plus, Minus, Search, Hand, Home, Menu } from "lucide-react";
@@ -16,14 +16,29 @@ interface TrafficChartProps {
 
 const HighchartsReact = dynamic(() => import("highcharts-react-official"), {
   ssr: false,
-  loading: () => <div className="h-48" />,
+  loading: () => <div className="h-full w-full animate-pulse bg-slate-50" />,
 });
 
-const RANGES: TrafficRange[] = ["1M", "6M", "YTD"];
+const RANGES: TrafficRange[] = ["6M", "YTD", "MAX"];
 
 export function TrafficChart({ domains }: TrafficChartProps) {
-  const [range, setRange] = useState<TrafficRange>("YTD");
+  const [range, setRange] = useState<TrafficRange>("MAX");
   const datasets = useMemo(() => buildTrafficDatasets(domains), [domains]);
+
+  // See total-domain-card.tsx for why this ResizeObserver+reflow is needed.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const chartCompRef = useRef<any>(null);
+  const chartWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = chartWrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      chartCompRef.current?.chart?.reflow();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const totals = useMemo(() => {
     let organic = 0;
@@ -49,39 +64,46 @@ export function TrafficChart({ domains }: TrafficChartProps) {
   );
 
   return (
-    <DashboardCard title="Traffic" className="h-full overflow-hidden">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between mb-2">
-        {/* Time-range selector */}
-        <div className="flex divide-x divide-slate-200 border border-slate-200 rounded bg-white shadow-sm text-xs text-slate-600">
-          {RANGES.map((r) => (
-            <button
-              key={r}
-              onClick={() => setRange(r)}
-              className={`px-3 py-1 transition-colors ${
-                range === r
-                  ? "bg-slate-100 font-semibold text-slate-800"
-                  : "hover:bg-slate-50"
-              }`}
-            >
-              {r}
-            </button>
-          ))}
+    <DashboardCard title="Average Traffic" className="h-full overflow-hidden">
+      <div className="flex h-full flex-col">
+        {/* Toolbar */}
+        <div className="flex items-center justify-between mb-2">
+          {/* Time-range selector */}
+          <div className="flex divide-x divide-slate-200 border border-slate-200 rounded bg-white shadow-sm text-xs text-slate-600">
+            {RANGES.map((r) => (
+              <button
+                key={r}
+                onClick={() => setRange(r)}
+                className={`px-3 py-1 transition-colors ${
+                  range === r
+                    ? "bg-slate-100 font-semibold text-slate-800"
+                    : "hover:bg-slate-50"
+                }`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+
+          {/* Chart tool icons */}
+          {/* <div className="flex items-center gap-2 text-slate-400">
+            <Plus   className="w-3.5 h-3.5 cursor-pointer hover:text-blue-500" />
+            <Minus  className="w-3.5 h-3.5 cursor-pointer hover:text-blue-500" />
+            <Search className="w-3.5 h-3.5 cursor-pointer hover:text-blue-500" />
+            <Hand   className="w-3.5 h-3.5 cursor-pointer hover:text-blue-500" />
+            <Home   className="w-3.5 h-3.5 cursor-pointer hover:text-blue-500" />
+            <Menu   className="w-3.5 h-3.5 cursor-pointer hover:text-blue-500" />
+          </div> */}
         </div>
 
-        {/* Chart tool icons */}
-        {/* <div className="flex items-center gap-2 text-slate-400">
-          <Plus   className="w-3.5 h-3.5 cursor-pointer hover:text-blue-500" />
-          <Minus  className="w-3.5 h-3.5 cursor-pointer hover:text-blue-500" />
-          <Search className="w-3.5 h-3.5 cursor-pointer hover:text-blue-500" />
-          <Hand   className="w-3.5 h-3.5 cursor-pointer hover:text-blue-500" />
-          <Home   className="w-3.5 h-3.5 cursor-pointer hover:text-blue-500" />
-          <Menu   className="w-3.5 h-3.5 cursor-pointer hover:text-blue-500" />
-        </div> */}
-      </div>
-
-      <div className="-mx-4 -mb-4">
-        <HighchartsReact highcharts={Highcharts} options={datasets[range]} />
+        <div ref={chartWrapRef} className="-mx-4 -mb-4 min-h-0 flex-1 relative">
+          <HighchartsReact
+            ref={chartCompRef}
+            highcharts={Highcharts}
+            options={datasets[range]}
+            containerProps={{ style: { position: "absolute", inset: 0 } }}
+          />
+        </div>
       </div>
     </DashboardCard>
   );

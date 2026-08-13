@@ -147,12 +147,17 @@ export function SocialMediaInsightsSubpage() {
             <div className="text-sm text-slate-400 text-center py-12">Loading social media data…</div>
           ) : (
             <>
-              {/* Row 1: Stats (5) + Signal Samples (7) */}
-              <div className="grid grid-cols-12 gap-4 mb-4">
-                <div className="col-span-12 lg:col-span-5 h-[380px]">
+              {/* Row 1: Stats (5) + Signal Samples (7) — height is set once
+                  on this flex row container; both cards stretch to fill it
+                  via h-full, so changing the row height here is the only
+                  place that needs editing to resize both cards together.
+                  (flex, not grid — flex respects the container's explicit
+                  height instead of auto-sizing the row to fit content.) */}
+              <div className="flex flex-col lg:flex-row gap-4 mb-4 h-auto lg:h-[350px]">
+                <div className="w-full lg:basis-5/12 lg:min-w-0 h-[300px] lg:h-full">
                   <StatsRow metrics={data.metrics} />
                 </div>
-                <div className="col-span-12 lg:col-span-7 h-[380px]">
+                <div className="w-full lg:basis-7/12 lg:min-w-0 h-[300px] lg:h-full">
                   <SelectableCard
                     className="h-full"
                     widget={{
@@ -167,10 +172,15 @@ export function SocialMediaInsightsSubpage() {
                 </div>
               </div>
 
-              {/* Row 2: Mentions (4) + Keyword Rankings (4) + Performance (4) */}
-              <div className="grid grid-cols-12 gap-4">
-                <div className="col-span-12 lg:col-span-4">
+              {/* Row 2: Mentions (4) + Keyword Rankings (4) + Performance (4) —
+                  height is set once on this flex row container; all three
+                  cards stretch to fill it via h-full, so changing the row
+                  height here is the only place needed to resize the whole
+                  row. */}
+              <div className="flex flex-col lg:flex-row gap-4 h-auto lg:h-[330px]">
+                <div className="w-full lg:basis-1/3 lg:min-w-0 h-[380px] lg:h-full">
                   <SelectableCard
+                    className="h-full"
                     widget={{
                       widgetId: "social-mentions-by-app",
                       title: "Mentions by App",
@@ -181,7 +191,7 @@ export function SocialMediaInsightsSubpage() {
                     <MentionsChartCard mentionsByApp={data.mentionsByApp} />
                   </SelectableCard>
                 </div>
-                <div className="col-span-12 lg:col-span-4 h-[380px]">
+                <div className="w-full lg:basis-1/3 lg:min-w-0 h-[380px] lg:h-full">
                   <SelectableCard
                     className="h-full"
                     widget={{
@@ -194,8 +204,9 @@ export function SocialMediaInsightsSubpage() {
                     <KeywordRankingsCard rankings={data.keywordRankings} platform={selectedPlatform} />
                   </SelectableCard>
                 </div>
-                <div className="col-span-12 lg:col-span-4">
+                <div className="w-full lg:basis-1/3 lg:min-w-0 h-[380px] lg:h-full">
                   <SelectableCard
+                    className="h-full"
                     widget={{
                       widgetId: "social-keyword-performance",
                       title: "Keyword Performance",

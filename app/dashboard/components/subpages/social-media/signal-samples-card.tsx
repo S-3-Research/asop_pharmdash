@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import useSWR from "swr";
-import { CheckCircle2, MoreHorizontal } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 
 import type { SocialSamplesPayload } from "../../types";
 import { useWidgetData } from "../../copilot/copilot-context";
 import { HoverTextTooltip } from "../../ui/hover-text-tooltip";
 import { platformColor } from "./config";
+import { socialPlatformLabel } from "../../utils/platform-label";
 
 const PAGE_SIZE = 8;
 
@@ -64,7 +65,7 @@ export function SignalSamplesCard({ categories, platform }: SignalSamplesCardPro
   );
 
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col h-[380px]">
+    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col h-full">
       <div className="flex justify-between items-center mb-4">
         <h3 className="font-semibold text-gray-800 text-sm">
           Signal Samples
@@ -72,10 +73,9 @@ export function SignalSamplesCard({ categories, platform }: SignalSamplesCardPro
             <span className="ml-2 text-[11px] text-gray-400 font-normal">{total} total</span>
           )}
         </h3>
-        <MoreHorizontal size={16} className="text-gray-400 cursor-pointer" />
       </div>
 
-      <div className="flex-1 overflow-y-auto flex flex-col gap-3 pr-1 [scrollbar-width:thin] [scrollbar-color:#e2e8f0_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-300">
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3 pr-1 [scrollbar-width:thin] [scrollbar-color:#e2e8f0_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-300">
         {isLoading && samples.length === 0 && (
           <div className="text-xs text-gray-400 text-center py-8">Loading…</div>
         )}
@@ -100,7 +100,7 @@ export function SignalSamplesCard({ categories, platform }: SignalSamplesCardPro
                   <div>
                     <p className="text-xs font-bold text-gray-800 leading-tight">{post.username}</p>
                     <p className="text-[10px] text-gray-400">
-                      {post.platform} · {ts ? ts.toLocaleDateString() : "Unknown date"}
+                      {socialPlatformLabel(post.platform)} · {ts ? ts.toLocaleDateString() : "Unknown date"}
                     </p>
                   </div>
                 </div>
@@ -129,7 +129,7 @@ export function SignalSamplesCard({ categories, platform }: SignalSamplesCardPro
                       <div>
                         <p className="text-xs font-bold text-gray-800 leading-tight">{post.username}</p>
                         <p className="text-[10px] text-gray-400">
-                          {post.platform} · {ts ? ts.toLocaleDateString() : "Unknown date"}
+                          {socialPlatformLabel(post.platform)} · {ts ? ts.toLocaleDateString() : "Unknown date"}
                         </p>
                       </div>
                     </div>

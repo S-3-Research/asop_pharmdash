@@ -166,7 +166,7 @@ export function ListingTrendChart({
       plotOptions: {
         line: { marker: { enabled: true, radius: 3 }, lineWidth: 2.2 },
       },
-      tooltip: { shared: true },
+      tooltip: { shared: true, outside: true },
       series,
     };
   }, [filteredListings, allRptPeriodKeys, selectedPrimaryName, categories]);

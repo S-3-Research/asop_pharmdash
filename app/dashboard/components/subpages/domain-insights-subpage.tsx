@@ -133,7 +133,7 @@ export function DomainInsightsSubpage() {
 
       {/* ── Dashboard grid — mirrors dashboardlayout.tsx ── */}
       {!isLoading && !error && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 auto-rows-[300px]">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 auto-rows-[350px]">
 
           {/* Row 1 — four equal cards, all selectable */}
           <SelectableCard
@@ -213,7 +213,7 @@ export function DomainInsightsSubpage() {
                 description: "Geographic distribution of rogue domains by city",
               }}
             >
-              <HeatmapCard domains={filteredDomains} />
+              <HeatmapCard domains={filteredDomains} selectedCategories={selectedCategories} />
             </SelectableCard>
           </div>
 

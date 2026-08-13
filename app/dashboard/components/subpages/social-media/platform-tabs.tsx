@@ -2,6 +2,7 @@
 
 import type { SocialPlatformTab } from "../../types";
 import { platformColor } from "./config";
+import { socialPlatformLabel } from "../../utils/platform-label";
 
 interface PlatformTabsProps {
   tabs: SocialPlatformTab[];
@@ -24,7 +25,7 @@ export function PlatformTabs({ tabs, selected, onSelect }: PlatformTabsProps) {
       {tabs.map(({ platform, count }) => (
         <TabButton
           key={platform}
-          label={platform}
+          label={socialPlatformLabel(platform)}
           count={count}
           isActive={selected === platform}
           color={platformColor(platform)}

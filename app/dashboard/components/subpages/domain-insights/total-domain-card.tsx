@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Highcharts from "highcharts";
 
@@ -11,7 +11,7 @@ import { buildTotalDomainChart } from "./config";
 
 const HighchartsReact = dynamic(() => import("highcharts-react-official"), {
   ssr: false,
-  loading: () => <div className="h-40" />,
+  loading: () => <div className="h-full w-full animate-pulse bg-slate-50" />,
 });
 
 interface TotalDomainCardProps {
@@ -19,6 +19,27 @@ interface TotalDomainCardProps {
 }
 
 export function TotalDomainCard({ domains }: TotalDomainCardProps) {
+  // Chart instance ref + ResizeObserver: highcharts-react-official only
+  // sizes the chart once at mount time from the container's clientHeight,
+  // which can be 0/stale if the flex/grid layout hasn't finished resolving
+  // yet (especially right after the dynamic-imported component swaps in).
+  // Explicitly reflowing on every container resize keeps the chart in sync
+  // with its actual box size instead of getting stuck at Highcharts' default
+  // fallback size.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const chartCompRef = useRef<any>(null);
+  const chartWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = chartWrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      chartCompRef.current?.chart?.reflow();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   // Current rpt. period = the latest one actually present in the data —
   // derived from the release's own reportingPeriodId rather than a
   // hardcoded constant, so this automatically tracks whatever release is
@@ -68,15 +89,22 @@ export function TotalDomainCard({ domains }: TotalDomainCardProps) {
         ) : undefined
       }
     >
-      <div className="flex items-baseline gap-2 mb-0.5">
-        <span className="text-3xl font-bold text-slate-800">{count}</span>
-        <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${badgeClass}`}>
-          {changeLabel}
-        </span>
-      </div>
-      <p className="text-xs text-slate-400 mb-2">vs prior rpt. period</p>
-      <div className="-mx-4 -mb-4">
-        <HighchartsReact highcharts={Highcharts} options={options} />
+      <div className="flex h-full flex-col">
+        <div className="flex items-baseline gap-2 mb-0.5">
+          <span className="text-3xl font-bold text-slate-800">{count}</span>
+          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${badgeClass}`}>
+            {changeLabel}
+          </span>
+        </div>
+        <p className="text-xs text-slate-400 mb-2">vs prior rpt. period</p>
+        <div ref={chartWrapRef} className="-mx-4 -mb-4 min-h-0 flex-1 relative">
+          <HighchartsReact
+            ref={chartCompRef}
+            highcharts={Highcharts}
+            options={options}
+            containerProps={{ style: { position: "absolute", inset: 0 } }}
+          />
+        </div>
       </div>
     </DashboardCard>
   );

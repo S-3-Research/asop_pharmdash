@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Highcharts from "highcharts";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import { DashboardCard } from "../../ui/dashboard-card";
 import { useWidgetData } from "../../copilot/copilot-context";
 import { buildPaymentTreemapOptions } from "./config";
@@ -38,11 +38,26 @@ if (typeof window !== "undefined") {
 
 const HighchartsReact = dynamic(() => import("highcharts-react-official"), {
   ssr: false,
-  loading: () => <div className="h-52" />,
+  loading: () => <div className="h-full w-full animate-pulse bg-slate-50" />,
 });
 
 export function PaymentTreemapCard({ domains }: PaymentTreemapCardProps) {
   const options = useMemo(() => buildPaymentTreemapOptions(domains), [domains]);
+
+  // See total-domain-card.tsx for why this ResizeObserver+reflow is needed.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const chartCompRef = useRef<any>(null);
+  const chartWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = chartWrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      chartCompRef.current?.chart?.reflow();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const counts: Record<string, number> = {};
   for (const d of domains)
@@ -59,8 +74,16 @@ export function PaymentTreemapCard({ domains }: PaymentTreemapCardProps) {
   );
 
   return (
-    <DashboardCard title="Payment Info" className="h-full overflow-hidden">
-      <HighchartsReact highcharts={Highcharts} options={options} immutable />
+    <DashboardCard title="Purported Payment Info" className="h-full overflow-hidden">
+      <div ref={chartWrapRef} className="relative h-full">
+        <HighchartsReact
+          ref={chartCompRef}
+          highcharts={Highcharts}
+          options={options}
+          immutable
+          containerProps={{ style: { position: "absolute", inset: 0 } }}
+        />
+      </div>
     </DashboardCard>
   );
 }

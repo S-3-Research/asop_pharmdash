@@ -23,11 +23,6 @@ export function HighchartsCard({ chart, note }: HighchartsCardProps) {
       subtitle={chart.subtitle}
       className="p-5"
       note={note}
-      rightSlot={
-        <button type="button" className="text-sm text-slate-400 hover:text-slate-600">
-          •••
-        </button>
-      }
     >
       <HighchartsReact highcharts={Highcharts} options={chart.options} />
     </DashboardCard>

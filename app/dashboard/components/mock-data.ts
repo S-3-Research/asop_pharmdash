@@ -261,12 +261,29 @@ const getDrillablePieData = () => {
 
 const drillablePieData = getDrillablePieData();
 
+// `isTop` marks whichever category has the highest listing count in the mock
+// dataset (ties broken by name) — computed dynamically so exactly one entry
+// is ever flagged "TOP 1", mirroring buildCategoryRegistry() in
+// lib/release-mapping.ts.
+const topCategoryName = (() => {
+  let best: string | null = null;
+  let bestCount = -1;
+  for (const cat of ALL_PRIMARY) {
+    const count = topProductsListings.filter((l) => l.primaryCategory === cat).length;
+    if (count > bestCount) {
+      best = cat;
+      bestCount = count;
+    }
+  }
+  return best;
+})();
+
 const topProductsCategories: CategoryOption[] = [
   { id: "all", name: "All Categories" },
-  { id: "cns-med", name: "CNS Med", isTop: true, color: "#a855f7" },
-  { id: "glp-1", name: "GLP-1", color: "#3b82f6" },
-  { id: "cancer-med", name: "Cancer Med", color: "#10b981" },
-  { id: "pain-med", name: "Pain Med", color: "#f59e0b" },
+  { id: "cns-med", name: "CNS Med", isTop: topCategoryName === "CNS Med", color: "#a855f7" },
+  { id: "glp-1", name: "GLP-1", isTop: topCategoryName === "GLP-1", color: "#3b82f6" },
+  { id: "cancer-med", name: "Cancer Med", isTop: topCategoryName === "Cancer Med", color: "#10b981" },
+  { id: "pain-med", name: "Pain Med", isTop: topCategoryName === "Pain Med", color: "#f59e0b" },
 ];
 
 const domainInsightsMetrics: MetricCardData[] = [

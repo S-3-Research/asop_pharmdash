@@ -3,6 +3,7 @@
 
 import type Highcharts from "highcharts";
 import type { CategoryOption, Domain } from "../../types";
+import { socialPlatformLabel } from "../../utils/platform-label";
 
 const CHART_STYLE = { fontFamily: "var(--font-geist-sans)" };
 
@@ -42,18 +43,22 @@ function hashCategoryColor(label: string): string {
  *  instead of a hardcoded 4-value list — so newly-introduced categories in
  *  a release automatically become selectable in the filter dropdown. */
 export function buildDomainCategoryOptions(domains: Domain[]): CategoryOption[] {
-  const labels = new Set<string>();
+  const counts = new Map<string, number>();
   for (const d of domains) {
-    for (const c of d.categories) labels.add(c.primary);
+    for (const c of d.categories) counts.set(c.primary, (counts.get(c.primary) ?? 0) + 1);
   }
-  if (labels.size === 0) return DOMAIN_PRIMARY_CATEGORIES;
-  return Array.from(labels)
+  if (counts.size === 0) return DOMAIN_PRIMARY_CATEGORIES;
+  let topName: string | null = null;
+  for (const [name, count] of counts) {
+    if (topName === null || count > (counts.get(topName) ?? 0)) topName = name;
+  }
+  return Array.from(counts.keys())
     .sort()
     .map((name) => ({
       id: name,
       name,
       color: FIXED_CATEGORY_COLORS[name] ?? hashCategoryColor(name),
-      isTop: name in FIXED_CATEGORY_COLORS,
+      isTop: name === topName,
     }));
 }
 
@@ -129,7 +134,7 @@ export function buildTotalDomainChart(
     legend: { enabled: false },
     credits: { enabled: false },
     accessibility: { enabled: false },
-    tooltip: { shared: true, pointFormat: "{series.name}: <b>{point.y}</b><br/>" },
+    tooltip: { shared: true, outside: true, pointFormat: "{series.name}: <b>{point.y}</b><br/>" },
     plotOptions: {
       area: {
         fillColor: { linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 }, stops: [[0, "rgba(56,189,248,0.55)"], [1, "rgba(56,189,248,0.02)"]] },
@@ -165,18 +170,24 @@ export function buildDomainStatusOptions(domains: Domain[]): Highcharts.Options 
   const online  = cats.map((c) => domains.filter((d) => d.isLive && d.categories.some((p) => p.secondary === c)).length);
   const offline = cats.map((c) => domains.filter((d) => !d.isLive && d.categories.some((p) => p.secondary === c)).length);
   return {
-    chart: { type: "column", height: 225, backgroundColor: "transparent", style: CHART_STYLE },
+    chart: { type: "column", backgroundColor: "transparent", style: CHART_STYLE },
     title: { text: undefined },
     xAxis: {
       categories: cats.map((c) => (c.length > 11 ? c.slice(0, 11) + "..." : c)),
       labels: { rotation: -90, style: { fontSize: "9px", color: "#6b7280" } },
       lineColor: "#e2e8f0", tickLength: 0,
     },
-    yAxis: { title: { text: undefined }, gridLineColor: "#e5e7eb", gridLineDashStyle: "Dash", labels: { style: { color: "#6b7280", fontSize: "10px" } } },
+    yAxis: { title: { text: undefined }, gridLineColor: "#e5e7eb", gridLineDashStyle: "Dash", labels: { enabled: false } },
     legend: { align: "center", verticalAlign: "top", itemStyle: { fontSize: "10px", fontWeight: "500" }, margin: 4 },
     credits: { enabled: false }, accessibility: { enabled: false },
-    plotOptions: { column: { grouping: true, borderWidth: 0, borderRadius: 2 } },
-    tooltip: { shared: true, headerFormat: "<b>{point.key}</b><br/>", pointFormat: "{series.name}: <b>{point.y}</b><br/>" },
+    plotOptions: {
+      // Stacked (not grouped) so a category with zero offline domains just
+      // shows a single full-height Online segment instead of reserving an
+      // empty-looking slot for a zero-height Offline bar next to it — which
+      // made per-category gaps look uneven when grouped side-by-side.
+      column: { stacking: "normal", borderWidth: 0, borderRadius: 2 },
+    },
+    tooltip: { shared: true, outside: true, headerFormat: "<b>{point.key}</b><br/>", pointFormat: "{series.name}: <b>{point.y}</b><br/>" },
     series: [
       { type: "column", name: "Online",  color: "#4ade80", data: online  },
       { type: "column", name: "Offline", color: "#cbd5e1", data: offline },
@@ -189,15 +200,19 @@ export function buildDomainStatusOptions(domains: Domain[]): Highcharts.Options 
 // domain's actual social media presence — rather than `platforms`, which is
 // the search engine the domain was *discovered* through (Google/Bing/etc.)
 // and is a completely different concept.
+// Each platform gets its own hue (no two platforms share a color) so
+// bubbles remain visually distinguishable at a glance.
 const SOCIAL_PLATFORM_COLORS: Record<string, string> = {
-  facebook: "#93c5fd", instagram: "#f9a8d4", reddit: "#fca5a5", twitter: "#7dd3fc",
-  threads: "#cbd5e1", linkedin: "#93c5fd", tiktok: "#94a3b8", youtube: "#fca5a5",
-  tumblr: "#c4b5fd", pinterest: "#fca5a5", quora: "#fdba74", whatsapp: "#86efac",
-  telegram: "#93c5fd", snapchat: "#fde047", "about.me": "#e2e8f0", kik: "#fde68a",
-  myspace: "#c4b5fd", venmo: "#93c5fd",
+  facebook: "#3b82f6", instagram: "#ec4899", reddit: "#f97316", twitter: "#0f172a", // X — deliberately dark navy, distinct from Threads' black
+  threads: "#000000", linkedin: "#0369a1", tiktok: "#06b6d4", youtube: "#ef4444",
+  tumblr: "#6366f1", pinterest: "#db2777", quora: "#b45309", whatsapp: "#22c55e",
+  telegram: "#38bdf8", snapchat: "#eab308", "about.me": "#14b8a6", kik: "#84cc16",
+  myspace: "#7e22ce", venmo: "#2563eb",
 };
 
-const FALLBACK_PLATFORM_PALETTE = ["#bfdbfe", "#fbcfe8", "#c7d2fe", "#fed7aa", "#bbf7d0"];
+const FALLBACK_PLATFORM_PALETTE = [
+  "#a855f7", "#d946ef", "#f43f5e", "#fb923c", "#84cc16", "#10b981", "#0ea5e9", "#64748b",
+];
 
 function hashPlatformColor(label: string): string {
   let hash = 0;
@@ -211,19 +226,23 @@ export function buildSocialBubbleOptions(domains: Domain[]): Highcharts.Options 
     for (const p of d.socialProfiles) counts[p.platform] = (counts[p.platform] ?? 0) + 1;
   }
   const data = Object.entries(counts).map(([name, value]) => ({
-    name,
+    name: socialPlatformLabel(name),
     value,
     color: SOCIAL_PLATFORM_COLORS[name.toLowerCase()] ?? hashPlatformColor(name),
   }));
   return {
-    chart: { type: "packedbubble", height: 232, backgroundColor: "transparent", style: CHART_STYLE },
+    chart: { type: "packedbubble", backgroundColor: "transparent", style: CHART_STYLE },
     title: { text: undefined }, credits: { enabled: false }, accessibility: { enabled: false }, legend: { enabled: false },
-    tooltip: { useHTML: true, pointFormat: "<b>{point.name}</b>: {point.y}" },
+    tooltip: { useHTML: true, outside: true, pointFormat: "<b>{point.name}</b>: {point.y}" },
     plotOptions: {
       packedbubble: {
         minSize: "30%", maxSize: "110%",
+        marker: { lineWidth: 0 },
         layoutAlgorithm: { gravitationalConstant: 0.05, splitSeries: false, seriesInteraction: true, dragBetweenSeries: false, parentNodeLimit: true },
-        dataLabels: { enabled: true, format: "{point.name}", style: { fontSize: "10px", fontWeight: "500", textOutline: "none", color: "#1e293b" } },
+        // "contrast" auto-picks black/white text based on each bubble's own
+        // background color, so labels stay legible on both light and dark
+        // platform colors without needing per-platform label overrides.
+        dataLabels: { enabled: true, format: "{point.name}", style: { fontSize: "10px", fontWeight: "600", textOutline: "1px contrast", color: "contrast" } },
       } as Highcharts.PlotPackedbubbleOptions,
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -236,11 +255,24 @@ export function buildSocialBubbleOptions(domains: Domain[]): Highcharts.Options 
 // Bank Transfer / ...) -> paymentoption (Visa / Bitcoin / ...). Entries with
 // no paymentoption still count toward their type parent but are excluded
 // from the child ring (no synthetic "Unknown" leaf).
-const TREEMAP_COLORS: Record<string, string> = {
-  "Credit Card": "#1d4ed8", Visa: "#3b82f6", Mastercard: "#2563eb", "American Express": "#1d4ed8", AMEX: "#1d4ed8", Discover: "#0ea5e9",
-  "Crypto Token": "#065f46", "Crypto Stablecoin": "#047857", Bitcoin: "#10b981", Ethereum: "#059669", USDT: "#34d399", USDC: "#6ee7b7", XRP: "#a7f3d0", RLUSD: "#a7f3d0",
-  "Bank Transfer": "#7c2d12", "Digital Wallets": "#9a3412", "Gift Card": "#c2410c", "Debit Card": "#ea580c",
-};
+// Colors are computed, not hand-picked: payment types are ranked by total
+// count and assigned a shade along a light blue→green gradient (same family
+// as the WHOIS registrar sunburst). There are only a handful of payment
+// types, so we use a short palette with wide steps between each color
+// (rather than the finer-grained gradient used for registrars, which has
+// more distinct entries) so each type reads as clearly different.
+const PAYMENT_GRADIENT = ["#60a5fa", "#2dd4bf", "#4ade80"];
+
+/** Lighten a hex color toward white by a fraction (0-1). Used so a payment
+ *  type's provider leaf nodes read as a paler tint of their parent's color
+ *  (rather than darker, since the parent palette is already light). */
+function lighten(hex: string, amount: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.min(255, Math.floor(((n >> 16) & 0xff) + (255 - ((n >> 16) & 0xff)) * amount));
+  const g = Math.min(255, Math.floor(((n >> 8) & 0xff) + (255 - ((n >> 8) & 0xff)) * amount));
+  const b = Math.min(255, Math.floor((n & 0xff) + (255 - (n & 0xff)) * amount));
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
 
 export function buildPaymentTreemapOptions(domains: Domain[]): Highcharts.Options {
   const parentCounts: Record<string, number> = {};
@@ -253,24 +285,64 @@ export function buildPaymentTreemapOptions(domains: Domain[]): Highcharts.Option
       childCounts[type][provider] = (childCounts[type][provider] ?? 0) + 1;
     }
   }
+  // Rank payment types by total count (descending) so the largest gets the
+  // deepest blue and later types shade toward teal/green.
+  const rankedTypes = Object.entries(parentCounts).sort((a, b) => b[1] - a[1]);
   const data: object[] = [];
-  for (const [type] of Object.entries(parentCounts)) {
+  rankedTypes.forEach(([type], idx) => {
     const pid = type.replace(/\s+/g, "-").toLowerCase();
-    data.push({ id: pid, name: type, color: TREEMAP_COLORS[type] ?? "#94a3b8" });
-    for (const [provider, count] of Object.entries(childCounts[type] ?? {})) {
-      data.push({ id: `${pid}-${provider.toLowerCase()}`, name: provider, parent: pid, value: count, color: TREEMAP_COLORS[provider] ?? "#cbd5e1" });
-    }
-  }
+    const color = PAYMENT_GRADIENT[idx % PAYMENT_GRADIENT.length];
+    data.push({ id: pid, name: type, color });
+    // Provider (child) nodes ranked by count within their type and given a
+    // progressively paler tint of the parent's color, so the largest
+    // provider stays closest to its parent's hue and smaller ones fade
+    // lighter — while still visibly belonging to the same color family.
+    const rankedProviders = Object.entries(childCounts[type] ?? {}).sort((a, b) => b[1] - a[1]);
+    rankedProviders.forEach(([provider, count], childIdx) => {
+      const childColor = lighten(color, 0.25 + childIdx * 0.15);
+      data.push({ id: `${pid}-${provider.toLowerCase()}`, name: provider, parent: pid, value: count, color: childColor });
+    });
+  });
   return {
-    chart: { type: "treemap", height: 232, backgroundColor: "transparent", style: CHART_STYLE },
+    chart: { type: "treemap", backgroundColor: "transparent", style: CHART_STYLE },
     title: { text: undefined }, credits: { enabled: false }, accessibility: { enabled: false }, legend: { enabled: false },
-    tooltip: { pointFormat: "<b>{point.name}</b>: {point.value}" },
+    tooltip: { outside: true, pointFormat: "<b>{point.name}</b>: {point.value}" },
     series: [{
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      type: "treemap" as any, layoutAlgorithm: "squarified", allowTraversingTree: true, borderWidth: 2, borderColor: "#f8fafc",
+      type: "treemap" as any, layoutAlgorithm: "squarified", allowTraversingTree: true, borderWidth: 2, borderColor: "#f8fafc", borderRadius: 8,
       levels: [
-        { level: 1, layoutAlgorithm: "squarified", dataLabels: { enabled: true, style: { fontSize: "12px", fontWeight: "600", color: "#fff", textOutline: "none" } }, borderWidth: 3 },
-        { level: 2, dataLabels: { enabled: true, style: { fontSize: "10px", color: "rgba(255,255,255,0.9)", textOutline: "none" } } },
+        // Level 1 (payment type) — larger, bolder, fully opaque white text.
+        // Anchored to the top-left corner (rather than centered) so that
+        // when a type has only one provider — meaning its child tile
+        // occupies the parent's *entire* rectangle — the type's own label
+        // still has a dedicated spot instead of being fully covered by the
+        // child's centered label (which happens when both are centered).
+        {
+          level: 1,
+          layoutAlgorithm: "squarified",
+          dataLabels: {
+            enabled: true,
+            align: "left",
+            verticalAlign: "top",
+            x: 6,
+            y: 4,
+            style: { fontSize: "13px", fontWeight: "700", color: "#fff", textOutline: "none" },
+          },
+          borderWidth: 3,
+        },
+        // Level 2 (provider) — inset within its parent (borderWidth creates
+        // a visible margin revealing the parent's own color/label behind
+        // it) and centered, visibly smaller/dimmer than level 1 so the
+        // hierarchy between the two rings is unambiguous.
+        {
+          level: 2,
+          dataLabels: {
+            enabled: true,
+            verticalAlign: "middle",
+            style: { fontSize: "10px", fontWeight: "500", color: "rgba(15,23,42,0.75)", textOutline: "none" },
+          },
+          borderWidth: 4,
+        },
       ],
       data,
     }],
@@ -278,12 +350,25 @@ export function buildPaymentTreemapOptions(domains: Domain[]): Highcharts.Option
 }
 
 // ── Card 5: Registrar Sunburst ────────────────────────────────────────────────
-const REGISTRAR_COLORS: Record<string, string> = {
-  GoDaddy: "#3b82f6", Namecheap: "#10b981", Tucows: "#f59e0b", Other: "#a855f7",
-};
+// Blue → green gradient, ordered by descending domain count so the largest
+// registrar gets the deepest blue and later ones shade toward teal/green.
+// "Unknown" always stays a fixed neutral gray, outside the gradient.
+const REGISTRAR_GRADIENT = ["#60a5fa", "#38bdf8", "#2dd4bf", "#34d399", "#4ade80", "#86efac"];
+const REGISTRAR_UNKNOWN_COLOR = "#94a3b8";
+
+/** Darken a hex color by a fraction (0-1) toward black, used so a registrar's
+ *  domain leaf nodes read as a deeper shade of their parent's gradient color. */
+function darken(hex: string, amount: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.max(0, Math.floor(((n >> 16) & 0xff) * (1 - amount)));
+  const g = Math.max(0, Math.floor(((n >> 8) & 0xff) * (1 - amount)));
+  const b = Math.max(0, Math.floor((n & 0xff) * (1 - amount)));
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
 
 export function buildRegistrarSunburstPoints(
   domains: Domain[],
+  options?: { excludeUnknown?: boolean },
 ): { id: string; parent: string; name: string; fullName?: string; value?: number; color?: string }[] {
   // Use Map<registrar, Set<domain>> so both levels are deduplicated by
   // data-structure construction:
@@ -292,35 +377,54 @@ export function buildRegistrarSunburstPoints(
   // This covers multi-select scenarios where the same domain can appear in
   // filteredDomains more than once, and guards against whitespace/casing
   // differences in registrar names via .trim().
-  // "Unknown" registrars (missing/unresolved whois data) are folded into
-  // the "Other" bucket rather than shown as their own segment.
+  // Registrars with missing/unresolved whois data are folded into a single
+  // "Unknown" bucket rather than shown as their own segment.
+  const excludeUnknown = options?.excludeUnknown ?? false;
   const byRegistrar = new Map<string, Set<string>>();
   for (const d of domains) {
     const raw = d.whois.registrar.trim();
-    const r = raw === "" || raw === "Unknown" ? "Other" : raw;
+    const r = raw === "" || raw === "Unknown" ? "Unknown" : raw;
+    if (excludeUnknown && r === "Unknown") continue;
     if (!byRegistrar.has(r)) byRegistrar.set(r, new Set());
     byRegistrar.get(r)!.add(d.domain); // Set.add is idempotent — no duplicates
   }
 
   const pts: { id: string; parent: string; name: string; fullName?: string; value?: number; color?: string }[] = [
-    { id: "root", parent: "", name: "" },
+    // Explicit neutral color for the center/root node — without this,
+    // Highcharts falls back to its default series palette (a blue), which
+    // looks like an intentional "registrar" color but isn't one we set.
+    { id: "root", parent: "", name: "", color: "#f1f5f9" },
   ];
-  for (const [registrar, domainSet] of byRegistrar) {
-    const color = REGISTRAR_COLORS[registrar] ?? "#94a3b8";
+  // Sort all registrars (including Unknown) by domain count descending so
+  // both the gradient assignment and the sunburst's push order (which
+  // determines each segment's angular position) follow the same ranking.
+  const sortedRegistrars = [...byRegistrar.entries()].sort((a, b) => b[1].size - a[1].size);
+  let gradientIdx = 0;
+  const colorByRegistrar = new Map<string, string>();
+  for (const [registrar] of sortedRegistrars) {
+    if (registrar === "Unknown") continue;
+    colorByRegistrar.set(registrar, REGISTRAR_GRADIENT[gradientIdx % REGISTRAR_GRADIENT.length]);
+    gradientIdx++;
+  }
+  for (const [registrar, domainSet] of sortedRegistrars) {
+    const color = registrar === "Unknown" ? REGISTRAR_UNKNOWN_COLOR : colorByRegistrar.get(registrar)!;
     pts.push({ id: registrar, name: registrar, parent: "root", value: domainSet.size, color });
+    // Domain leaf nodes inherit the parent's gradient color but darkened one
+    // step further, so the outer ring reads as a deeper shade of its parent.
+    const childColor = registrar === "Unknown" ? darken(REGISTRAR_UNKNOWN_COLOR, 0.15) : darken(color, 0.2);
     for (const dom of domainSet) {
       const shortDom = dom.length > 18 ? dom.slice(0, 17) + "…" : dom;
       // `name` stays truncated for the in-chart data label (limited arc space);
       // `fullName` carries the untruncated domain for the tooltip.
       // Composite ID avoids collision between registrar names and domain names.
-      pts.push({ id: `${registrar}:${dom}`, name: shortDom, fullName: dom, parent: registrar, value: 1, color });
+      pts.push({ id: `${registrar}:${dom}`, name: shortDom, fullName: dom, parent: registrar, value: 1, color: childColor });
     }
   }
   return pts;
 }
 
 // ── Card 6: Traffic ───────────────────────────────────────────────────────────
-export type TrafficRange = "1M" | "6M" | "YTD";
+export type TrafficRange = "1M" | "6M" | "YTD" | "MAX";
 
 const MONTH_INDEX: Record<string, number> = {
   jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
@@ -339,7 +443,7 @@ function parseSeoMonthLabel(label: string): { year: number; month: number } | nu
 
 function buildTrafficOptions(categories: string[], data: number[]): Highcharts.Options {
   return {
-    chart: { type: "area", height: 190, backgroundColor: "transparent", style: CHART_STYLE, margin: [10, 10, 48, 20] },
+      chart: { type: "area", backgroundColor: "transparent", style: CHART_STYLE, spacingTop: 10, spacingLeft: 20, spacingRight: 20 },
     title: { text: undefined },
     xAxis: {
       categories,
@@ -356,14 +460,15 @@ function buildTrafficOptions(categories: string[], data: number[]): Highcharts.O
         style: { color: "#6b7280", fontSize: "10px" },
       },
     },
-    yAxis: { title: { text: undefined }, gridLineColor: "#e5e7eb", gridLineDashStyle: "Dash", labels: { style: { color: "#6b7280", fontSize: "10px" } } },
+    yAxis: { title: { text: undefined }, gridLineColor: "#e5e7eb", gridLineDashStyle: "Dash", labels: { enabled: false } },
     legend: { enabled: false }, credits: { enabled: false }, accessibility: { enabled: false },
     tooltip: {
+      outside: true,
       formatter() {
         // `this.x` is the numeric category index in modern Highcharts —
         // use the point's category label ("Aug '24") instead.
         const label = this.category ?? this.key ?? this.x;
-        return `<b>${label}</b><br/>Clicks: <b>${(this.y ?? 0).toLocaleString("en-US")}</b>`;
+        return `<b>${label}</b><br/>Avg Clicks: <b>${(this.y ?? 0).toLocaleString("en-US", { maximumFractionDigits: 0 })}</b>`;
       },
     },
     plotOptions: {
@@ -372,35 +477,44 @@ function buildTrafficOptions(categories: string[], data: number[]): Highcharts.O
         lineColor: "#334155", lineWidth: 1.5, marker: { enabled: false },
       },
     },
-    series: [{ type: "area", name: "Clicks", data }],
+    series: [{ type: "area", name: "Avg Clicks", data }],
   };
 }
 
-/** Aggregates every domain's `seoClickHistory` (organic + paid clicks) into
- *  a single chronological monthly time series, summed across all domains —
- *  replaces the old "count of domains created" proxy metric with the
- *  actual traffic figures reported upstream via seo_info.history_click_us. */
+/** Aggregates every domain's `seoClickHistory` into a chronological monthly
+ *  time series of the AVERAGE clicks (organic + paid) per domain — computed
+ *  only over domains that actually reported a (non-null) data point for that
+ *  month, rather than treating missing months as 0 and diluting the average
+ *  across every domain. This replaces the previous sum-across-all-domains
+ *  metric, which skewed upward/downward as domains with sparse history
+ *  entered/left the dataset. */
 export function buildTrafficDatasets(domains: Domain[]): Record<TrafficRange, Highcharts.Options> {
-  const totalsByMonth = new Map<string, { year: number; month: number; label: string; total: number }>();
+  // month key -> { sum of clicks, count of domains with a non-null point that month }
+  const statsByMonth = new Map<string, { year: number; month: number; label: string; sum: number; count: number }>();
 
   for (const d of domains) {
     for (const point of d.seoClickHistory) {
       const parsed = parseSeoMonthLabel(point.date);
       if (!parsed) continue;
-      const key = `${parsed.year}-${String(parsed.month).padStart(2, "0")}`;
-      const existing = totalsByMonth.get(key);
+      // Only count this domain toward the month's average if it actually
+      // reported at least one non-null click figure — a domain with no
+      // data for a month should not pull the average toward 0.
+      if (point.organicClicks == null && point.paidClicks == null) continue;
       const clicks = (point.organicClicks ?? 0) + (point.paidClicks ?? 0);
+      const key = `${parsed.year}-${String(parsed.month).padStart(2, "0")}`;
+      const existing = statsByMonth.get(key);
       if (existing) {
-        existing.total += clicks;
+        existing.sum += clicks;
+        existing.count += 1;
       } else {
-        totalsByMonth.set(key, { year: parsed.year, month: parsed.month, label: point.date, total: clicks });
+        statsByMonth.set(key, { year: parsed.year, month: parsed.month, label: point.date, sum: clicks, count: 1 });
       }
     }
   }
 
-  const sorted = Array.from(totalsByMonth.values()).sort(
-    (a, b) => a.year - b.year || a.month - b.month,
-  );
+  const sorted = Array.from(statsByMonth.values())
+    .sort((a, b) => a.year - b.year || a.month - b.month)
+    .map((p) => ({ label: p.label, year: p.year, month: p.month, avg: p.count > 0 ? p.sum / p.count : 0 }));
 
   const nowDate = new Date();
   const currentYear = nowDate.getFullYear();
@@ -408,11 +522,13 @@ export function buildTrafficDatasets(domains: Domain[]): Record<TrafficRange, Hi
   const last1 = sorted.slice(-1);
   const last6 = sorted.slice(-6);
   const ytd = sorted.filter((p) => p.year === currentYear);
+  const max = sorted;
 
   return {
-    "1M":  buildTrafficOptions(last1.map((p) => p.label), last1.map((p) => p.total)),
-    "6M":  buildTrafficOptions(last6.map((p) => p.label), last6.map((p) => p.total)),
-    "YTD": buildTrafficOptions(ytd.map((p) => p.label),   ytd.map((p) => p.total)),
+    "1M":  buildTrafficOptions(last1.map((p) => p.label), last1.map((p) => p.avg)),
+    "6M":  buildTrafficOptions(last6.map((p) => p.label), last6.map((p) => p.avg)),
+    "YTD": buildTrafficOptions(ytd.map((p) => p.label),   ytd.map((p) => p.avg)),
+    "MAX": buildTrafficOptions(max.map((p) => p.label),   max.map((p) => p.avg)),
   };
 }
 
