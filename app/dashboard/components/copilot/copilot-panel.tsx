@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, isDynamicToolUIPart } from "ai";
+import { DefaultChatTransport, getToolName, isToolUIPart } from "ai";
 import { ArrowUp, RotateCcw, Sparkles, X } from "lucide-react";
 
 import { useCopilot } from "./copilot-context";
@@ -55,22 +55,31 @@ export function CopilotPanel() {
       if (msg.role !== "assistant") continue;
       for (const part of msg.parts) {
         if (
-          isDynamicToolUIPart(part) &&
-          part.toolName === "propose_filter_action" &&
+          isToolUIPart(part) &&
+          getToolName(part) === "propose_filter_action" &&
           part.state === "output-available" &&
           !seenToolCallIds.current.has(part.toolCallId)
         ) {
           seenToolCallIds.current.add(part.toolCallId);
 
-          const output = part.output as {
-            proposedAction: {
-              id: string;
-              actionType: string;
-              categories?: string[];
-              platform?: string;
-              description: string;
-            };
-          };
+          const output = part.output as
+            | {
+                status: "awaiting_confirmation";
+                proposedAction: {
+                  id: string;
+                  actionType: string;
+                  categories?: string[];
+                  platform?: string;
+                  description: string;
+                };
+              }
+            | { status: "invalid"; reason: string };
+
+          // Server-side validation (against the page's real available
+          // filters) rejected this proposal — no banner, the model will see
+          // `reason` and explain the mismatch in its next text response
+          // instead of falsely claiming the filter was applied.
+          if (output.status !== "awaiting_confirmation") continue;
 
           const pa = output.proposedAction;
           let action: FilterAction;
@@ -102,7 +111,7 @@ export function CopilotPanel() {
 
   // ── Sending helpers ────────────────────────────────────────────────────────
   const sendWithContext = useCallback(
-    (text: string, opts?: { includeAllWidgets?: boolean }) => {
+    (text: string, opts?: { includeAllWidgets?: boolean; forceFilterTool?: boolean }) => {
       // Pull the freshest data snapshot for the selected widget at send time.
       const entry = selectedWidget
         ? getWidgetData(selectedWidget.widgetId)
@@ -123,10 +132,18 @@ export function CopilotPanel() {
         pageContext,
         selectedWidget: liveWidget,
         widgetsSnapshot,
+        forceFilterTool: opts?.forceFilterTool,
       });
       void sendMessage(
         { text },
-        { body: { pageContext, selectedWidget: liveWidget, widgetsSnapshot } },
+        {
+          body: {
+            pageContext,
+            selectedWidget: liveWidget,
+            widgetsSnapshot,
+            forceFilterTool: opts?.forceFilterTool,
+          },
+        },
       );
     },
     [sendMessage, pageContext, selectedWidget, getWidgetData, getAllWidgetData],
@@ -161,21 +178,28 @@ export function CopilotPanel() {
     ? ` · ${pageContext.filters.platform}`
     : "";
 
-  if (!isPanelOpen) return null;
-
   return (
     <div
-      className="flex w-[380px] min-w-[340px] shrink-0 flex-col bg-white"
+      className={`flex shrink-0 flex-col overflow-hidden bg-white transition-all duration-300 ease-in-out ${
+        isPanelOpen ? "w-[380px] opacity-100" : "w-0 opacity-0"
+      }`}
       style={{
-        borderLeft: "1px solid rgba(0,0,0,0.07)",
-        boxShadow: "-6px 0 32px rgba(0,0,0,0.07)",
+        borderLeft: isPanelOpen ? "1px solid rgba(0,0,0,0.07)" : "none",
+        boxShadow: isPanelOpen ? "-6px 0 32px rgba(0,0,0,0.07)" : "none",
+        borderTopLeftRadius: "0rem",
+        borderBottomLeftRadius: "0rem",
       }}
     >
+      <div
+        className={`flex h-full w-[380px] min-w-[380px] flex-col transition-opacity duration-200 ${
+          isPanelOpen ? "opacity-100 delay-100" : "pointer-events-none opacity-0"
+        }`}
+      >
       {/* ── Header ── */}
-      <div className="flex h-14 shrink-0 items-center justify-between px-5">
+      <div className="flex h-14 shrink-0 items-center justify-between px-7">
         <div className="flex items-center gap-2.5">
           <div
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[10px]"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl"
             style={{
               background: `linear-gradient(135deg, ${B} 0%, #4ecdd0 100%)`,
               boxShadow: `0 3px 10px ${B}50`,
@@ -183,16 +207,24 @@ export function CopilotPanel() {
           >
             <Sparkles className="h-3.5 w-3.5 text-white" strokeWidth={1.8} />
           </div>
-          <span className="text-sm font-semibold tracking-tight text-slate-800">
-            Copilot
-          </span>
+          <div className="flex flex-col leading-none">
+            <span className="text-sm font-semibold tracking-tight text-slate-800">
+              Copilot
+            </span>
+            <span
+              className="mt-0.5 text-[9px] font-bold tracking-wide"
+              style={{ color: B }}
+            >
+              BETA
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-0.5">
           <button
             type="button"
             onClick={handleClearSession}
             title="Clear session"
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-600 active:scale-95"
+            className="rounded-xl p-1.5 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-600 active:scale-95"
           >
             <RotateCcw className="h-3.5 w-3.5" />
           </button>
@@ -200,7 +232,7 @@ export function CopilotPanel() {
             type="button"
             onClick={togglePanel}
             title="Close"
-            className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-600 active:scale-95"
+            className="rounded-xl p-1.5 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-600 active:scale-95"
           >
             <X className="h-4 w-4" />
           </button>
@@ -208,13 +240,13 @@ export function CopilotPanel() {
       </div>
 
       {/* ── Context + Selected Widget (no dividers, unified row) ── */}
-      <div className="shrink-0 px-5 pb-2">
-        <p className="text-xs text-slate-400">
+      <div className="shrink-0 px-7 pb-3">
+        <p className="text-xs text-slate-600">
           {pageContext.pageTitle}
           {filterLabel !== "All" && (
-            <span className="text-slate-400"> · {filterLabel}</span>
+            <span className="text-slate-500"> · {filterLabel}</span>
           )}
-          {platformLabel && <span className="text-slate-400">{platformLabel}</span>}
+          {platformLabel && <span className="text-slate-500">{platformLabel}</span>}
           {selectedWidget && (
             <>
               <span className="mx-1.5 text-slate-200">·</span>
@@ -241,7 +273,15 @@ export function CopilotPanel() {
       </div>
 
       {/* ── Messages ── */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div
+        className="flex-1 overflow-y-auto px-6 py-6 [scrollbar-width:thin] [scrollbar-color:#e2e8f0_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-300"
+        style={{
+          maskImage:
+            "linear-gradient(to bottom, transparent 0, black 20px, black calc(100% - 20px), transparent 100%)",
+          WebkitMaskImage:
+            "linear-gradient(to bottom, transparent 0, black 20px, black calc(100% - 20px), transparent 100%)",
+        }}
+      >
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
             <div
@@ -280,13 +320,15 @@ export function CopilotPanel() {
         <PromptButtons
           pageContext={pageContext}
           selectedWidget={selectedWidget}
-          onSelect={(prompt) => sendWithContext(prompt, { includeAllWidgets: true })}
+          onSelect={(prompt, opts) =>
+            sendWithContext(prompt, { includeAllWidgets: true, forceFilterTool: opts?.forceFilterTool })
+          }
           disabled={isStreaming}
         />
       </div>
 
       {/* ── Input ── */}
-      <div className="shrink-0 px-4 pb-5 pt-2">
+      <div className="shrink-0 px-6 pb-6 pt-3">
         <form
           onSubmit={handleFormSubmit}
           className="flex items-center gap-2 rounded-2xl px-4 py-3"
@@ -315,6 +357,7 @@ export function CopilotPanel() {
             <ArrowUp className="h-3.5 w-3.5 text-white" strokeWidth={2.5} />
           </button>
         </form>
+      </div>
       </div>
     </div>
   );

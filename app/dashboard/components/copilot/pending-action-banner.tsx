@@ -30,7 +30,7 @@ export function PendingActionBanner({
     >
       <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: B }}>
         <span
-          className="flex h-4 w-4 items-center justify-center rounded-full text-white text-[10px]"
+          className="flex h-4 w-4 items-center justify-center rounded-md text-white text-[10px]"
           style={{ background: B }}
         >
           ⚡

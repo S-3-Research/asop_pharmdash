@@ -1,7 +1,10 @@
 "use client";
 
-import { isTextUIPart, isDynamicToolUIPart, type UIMessage } from "ai";
+import { isTextUIPart, isToolUIPart, getToolName, type UIMessage } from "ai";
 import { Loader2 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { Components } from "react-markdown";
 
 const B = "#64D6D8";
 
@@ -40,56 +43,66 @@ function ToolStatus({
   );
 }
 
-// ── Minimal markdown renderer ─────────────────────────────────────────────────
+// ── Markdown renderer (GFM: tables, lists, headings, bold, etc.) ──────────────
 
-function renderInline(text: string): React.ReactNode[] {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={i}>{part.slice(2, -2)}</strong>;
-    }
-    return <span key={i}>{part}</span>;
-  });
-}
+const markdownComponents: Components = {
+  h1: ({ children }) => (
+    <p className="mt-2 mb-0.5 text-[12px] font-bold text-slate-900">{children}</p>
+  ),
+  h2: ({ children }) => (
+    <p className="mt-2 mb-0.5 text-[12px] font-semibold text-slate-800">{children}</p>
+  ),
+  h3: ({ children }) => (
+    <p className="mt-2 mb-0.5 text-[12px] font-semibold text-slate-900">{children}</p>
+  ),
+  h4: ({ children }) => (
+    <p className="mt-1.5 mb-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+      {children}
+    </p>
+  ),
+  p: ({ children }) => (
+    <p className="text-[12px] leading-relaxed text-slate-800">{children}</p>
+  ),
+  strong: ({ children }) => <strong className="font-semibold text-slate-900">{children}</strong>,
+  ul: ({ children }) => <ul className="my-1 list-disc space-y-0.5 pl-4 text-[12px] leading-relaxed text-slate-800">{children}</ul>,
+  ol: ({ children }) => <ol className="my-1 list-decimal space-y-0.5 pl-4 text-[12px] leading-relaxed text-slate-800">{children}</ol>,
+  li: ({ children }) => <li>{children}</li>,
+  a: ({ children, href }) => (
+    <a href={href} target="_blank" rel="noreferrer" className="underline" style={{ color: B }}>
+      {children}
+    </a>
+  ),
+  code: ({ children }) => (
+    <code className="rounded bg-black/[0.06] px-1 py-0.5 text-[11px] text-slate-800">{children}</code>
+  ),
+  hr: () => <hr className="my-2 border-black/[0.08]" />,
+  table: ({ children }) => (
+    <div className="my-1.5 overflow-x-auto rounded-lg border border-black/[0.07]">
+      <table className="w-full border-collapse text-[11px]">{children}</table>
+    </div>
+  ),
+  thead: ({ children }) => <thead className="bg-black/[0.03]">{children}</thead>,
+  tbody: ({ children }) => <tbody>{children}</tbody>,
+  tr: ({ children }) => <tr className="even:bg-black/[0.015]">{children}</tr>,
+  th: ({ children }) => (
+    <th className="border-b border-black/[0.07] px-2 py-1.5 text-left font-semibold text-slate-700">
+      {children}
+    </th>
+  ),
+  td: ({ children }) => (
+    <td className="border-b border-black/[0.05] px-2 py-1.5 text-slate-800 last:border-b-0">
+      {children}
+    </td>
+  ),
+};
 
 function FormattedText({ text }: { text: string }) {
-  const lines = text.split("\n");
   return (
-    <>
-      {lines.map((line, i) => {
-        if (line.startsWith("### "))
-          return (
-            <p key={i} className="mt-2 mb-0.5 text-[12px] font-semibold text-slate-800">
-              {line.slice(4)}
-            </p>
-          );
-        if (line.startsWith("## "))
-          return (
-            <p key={i} className="mt-2 mb-0.5 text-[12px] font-semibold text-slate-700">
-              {line.slice(3)}
-            </p>
-          );
-        if (line.startsWith("# "))
-          return (
-            <p key={i} className="mt-2 mb-0.5 text-[12px] font-bold text-slate-800">
-              {line.slice(2)}
-            </p>
-          );
-        if (line.startsWith("- ") || line.startsWith("* "))
-          return (
-            <div key={i} className="flex gap-1.5 text-[12px] leading-relaxed">
-              <span className="mt-0.5 shrink-0 text-slate-300">•</span>
-              <span className="text-slate-700">{renderInline(line.slice(2))}</span>
-            </div>
-          );
-        if (line === "") return <div key={i} className="h-1.5" />;
-        return (
-          <p key={i} className="text-[12px] leading-relaxed text-slate-700">
-            {renderInline(line)}
-          </p>
-        );
-      })}
-    </>
+    <div className="space-y-0.5">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+        {text}
+      </ReactMarkdown>
+    </div>
   );
 }
 
@@ -102,7 +115,7 @@ interface MessageListProps {
 
 export function MessageList({ messages, isStreaming }: MessageListProps) {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       {messages.map((msg) => (
         <div
           key={msg.id}
@@ -124,10 +137,10 @@ export function MessageList({ messages, isStreaming }: MessageListProps) {
           ) : (
             <div className="max-w-[92%] space-y-1.5">
               {/* Tool call status badges */}
-              {msg.parts.filter(isDynamicToolUIPart).map((part) => (
+              {msg.parts.filter(isToolUIPart).map((part) => (
                 <ToolStatus
                   key={part.toolCallId}
-                  toolName={part.toolName}
+                  toolName={getToolName(part)}
                   state={part.state}
                 />
               ))}
@@ -142,11 +155,9 @@ export function MessageList({ messages, isStreaming }: MessageListProps) {
                   <div
                     className="rounded-2xl rounded-tl-md px-3.5 py-2.5"
                     style={{
-                      background: "rgba(255,255,255,0.85)",
-                      backdropFilter: "blur(8px)",
-                      WebkitBackdropFilter: "blur(8px)",
-                      border: "1px solid rgba(0,0,0,0.06)",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+                      background: "#FeFeFe",
+                      border: "1px solid rgba(0,0,0,0.09)",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
                     }}
                   >
                     <FormattedText text={textContent} />
@@ -164,9 +175,9 @@ export function MessageList({ messages, isStreaming }: MessageListProps) {
           <div
             className="rounded-2xl rounded-tl-md px-4 py-3"
             style={{
-              background: "rgba(255,255,255,0.85)",
-              border: "1px solid rgba(0,0,0,0.06)",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+              background: "#F5F5F5",
+              border: "1px solid rgba(0,0,0,0.09)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
             }}
           >
             <div className="flex gap-1.5">
