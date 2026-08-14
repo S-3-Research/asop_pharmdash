@@ -166,7 +166,40 @@ export function ListingTrendChart({
       plotOptions: {
         line: { marker: { enabled: true, radius: 3 }, lineWidth: 2.2 },
       },
-      tooltip: { shared: true, outside: true },
+      tooltip: {
+        shared: true,
+        outside: true,
+        useHTML: true,
+        // Constrain the tooltip's own box instead of letting it grow
+        // unbounded — with many category/product series sharing one
+        // tooltip, an unconstrained box can grow tall enough to push the
+        // page's scroll height around on every hover, which forces a full
+        // layout reflow (visible as jank) each time the tooltip's line count
+        // changes. A capped, internally-scrollable box keeps the tooltip's
+        // footprint constant regardless of how many series it lists.
+        style: { pointerEvents: "auto" },
+        formatter(): string {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const ctx = this as any;
+          const points: Array<{ series: { name: string; color: string }; y: number; key?: string }> =
+            ctx.points ?? [];
+          const sorted = [...points].sort((a, b) => b.y - a.y);
+          const xLabel = points[0]?.key ?? ctx.x;
+          const rows = sorted
+            .map(
+              (p) =>
+                `<tr><td style="padding-right:10px;color:${p.series.color}">● ${p.series.name}</td>` +
+                `<td style="font-weight:600;color:#1e293b;text-align:right">${p.y}</td></tr>`,
+            )
+            .join("");
+          return (
+            `<div style="font-size:11px;font-weight:700;color:#1e293b;margin-bottom:6px">Rpt: ${xLabel}</div>` +
+            `<div class="[scrollbar-width:thin] [scrollbar-color:#e2e8f0_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-300" style="max-height:180px;overflow-y:auto">` +
+            `<table style="font-size:11px;border-collapse:collapse">${rows}</table>` +
+            `</div>`
+          );
+        },
+      },
       series,
     };
   }, [filteredListings, allRptPeriodKeys, selectedPrimaryName, categories]);
