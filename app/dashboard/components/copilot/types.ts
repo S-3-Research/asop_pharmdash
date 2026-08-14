@@ -9,6 +9,23 @@ export interface PageFilters {
   platform?: string;
 }
 
+/**
+ * The REAL set of filter options selectable on the current page, derived
+ * live from whatever release data is loaded (never a hardcoded list) — the
+ * Copilot must only ever suggest/apply values found here, since each page's
+ * category taxonomy and single-vs-multi selection mode can differ (and can
+ * change release to release).
+ */
+export interface AvailableFilters {
+  /** Every selectable category name on this page right now */
+  categories: string[];
+  /** Whether this page's category filter allows one selection or many */
+  categorySelectionMode: "single" | "multi";
+  /** Every selectable platform value on this page right now; omitted/undefined
+   *  on pages with no platform filter (e.g. Domain Insights) */
+  platforms?: string[];
+}
+
 export interface PageStat {
   label: string;
   value: string | number;
@@ -24,6 +41,8 @@ export interface PageContext {
    *  No concrete dates are exposed. */
   reportingPeriod: string;
   filters: PageFilters;
+  /** Real, live-derived filter options for this page — see AvailableFilters doc */
+  availableFilters: AvailableFilters;
   /** Snapshot of visible metrics on the current page */
   stats: PageStat[];
 }

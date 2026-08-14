@@ -29,6 +29,7 @@ const defaultPageContext: PageContext = {
   // Filled in by each subpage once its release data loads — never hardcoded.
   reportingPeriod: "",
   filters: { categories: [] },
+  availableFilters: { categories: [], categorySelectionMode: "single" },
   stats: [],
 };
 
@@ -83,8 +84,18 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const confirmPendingAction = useCallback(() => {
-    if (pendingAction && filterHandlerRef.current) {
-      filterHandlerRef.current(pendingAction.action);
+    if (pendingAction) {
+      if (filterHandlerRef.current) {
+        filterHandlerRef.current(pendingAction.action);
+      } else {
+        // No subpage has registered a filter handler (e.g. a race during
+        // page navigation) — fail loudly instead of silently no-op'ing, so
+        // this doesn't look like a mysterious "Apply did nothing" bug again.
+        console.warn(
+          "[copilot] confirmPendingAction: no filter handler registered for the current page; action was not applied",
+          pendingAction,
+        );
+      }
     }
     setPendingAction(null);
   }, [pendingAction]);

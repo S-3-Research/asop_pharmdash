@@ -51,6 +51,14 @@ function CopilotToggleButton() {
     >
       <Sparkles className="h-3.5 w-3.5" strokeWidth={1.8} />
       Copilot
+      {!isPanelOpen && (
+        <span
+          className="rounded-full px-1.5 py-[1px] text-[9px] font-bold leading-none tracking-wide"
+          style={{ background: "rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.85)" }}
+        >
+          BETA
+        </span>
+      )}
     </button>
   );
 }

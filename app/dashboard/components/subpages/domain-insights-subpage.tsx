@@ -90,13 +90,19 @@ export function DomainInsightsSubpage() {
       // Mock data carries no release — label it as such, no derivation.
       reportingPeriod: data?.reportingPeriodId || "mock-data",
       filters: { categories: selectedCategories },
+      availableFilters: {
+        categories: categoryOptions.map((c) => c.name),
+        categorySelectionMode: "multi",
+        // Domain Insights has no platform filter — omit `platforms` entirely
+        // so the Copilot never proposes a platform change on this page.
+      },
       stats: [
         { label: "Total Domains", value: filteredDomains.length },
         { label: "Live", value: live },
         { label: "Inactive", value: filteredDomains.length - live },
       ],
     });
-  }, [updatePageContext, selectedCategories, filteredDomains, data?.reportingPeriodId]);
+  }, [updatePageContext, selectedCategories, filteredDomains, data?.reportingPeriodId, categoryOptions]);
 
   return (
     <section>

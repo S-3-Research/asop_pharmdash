@@ -88,6 +88,11 @@ export function SocialMediaInsightsSubpage() {
         categories: selectedIds,
         platform: selectedPlatform !== "all" ? selectedPlatform : undefined,
       },
+      availableFilters: {
+        categories: categoryOptions.map((c) => c.name),
+        categorySelectionMode: "multi",
+        platforms: (data?.platformTabs ?? []).map((p) => p.platform),
+      },
       stats: m
         ? [
             { label: "Posts / Comments", value: m.totalPosts },
@@ -97,7 +102,7 @@ export function SocialMediaInsightsSubpage() {
           ]
         : [],
     });
-  }, [updatePageContext, selectedIds, selectedPlatform, data?.metrics]);
+  }, [updatePageContext, selectedIds, selectedPlatform, data?.metrics, data?.platformTabs, categoryOptions]);
 
   return (
     <section>

@@ -85,6 +85,27 @@ function buildSystemPrompt(
         ? ctx.filters.categories.join(", ")
         : "None"
     }${ctx.filters.platform ? ` · Platform: ${ctx.filters.platform}` : ""}`,
+    "",
+    "=== AVAILABLE FILTERS ON THIS PAGE (use ONLY these exact values) ===",
+    `Category selection mode: ${ctx.availableFilters.categorySelectionMode} ` +
+      (ctx.availableFilters.categorySelectionMode === "single"
+        ? "(only ONE category can be active at a time on this page)"
+        : "(multiple categories can be active at once, OR-matched)"),
+    `Selectable categories: ${
+      ctx.availableFilters.categories.length > 0
+        ? ctx.availableFilters.categories.join(", ")
+        : "(none available yet)"
+    }`,
+    ctx.availableFilters.platforms
+      ? `Selectable platforms: ${
+          ctx.availableFilters.platforms.length > 0
+            ? ctx.availableFilters.platforms.join(", ")
+            : "(none available yet)"
+        }`
+      : "This page has NO platform filter — never propose a set_platform action here.",
+    "IMPORTANT: propose_filter_action's `categories`/`platform` arguments MUST " +
+      "be chosen ONLY from the lists above, spelled exactly as shown. Never " +
+      "invent or guess a category/platform name that isn't listed.",
   ];
 
   if (ctx.stats.length > 0) {
@@ -153,9 +174,13 @@ export async function POST(req: Request) {
     pageContext?: PageContext;
     selectedWidget?: SelectedWidget | null;
     widgetsSnapshot?: WidgetSnapshot[];
+    /** When true (Suggest filters / Suggest a filter buttons), the model MUST
+     *  call propose_filter_action on its first step instead of just chatting
+     *  about filters — see the prepareStep forcing below. */
+    forceFilterTool?: boolean;
   };
 
-  const { messages, id: sessionId, pageContext, selectedWidget, widgetsSnapshot } = body;
+  const { messages, id: sessionId, pageContext, selectedWidget, widgetsSnapshot, forceFilterTool } = body;
 
   console.log(
     `[copilot] session=${sessionId} page=${pageContext?.page} msgs=${messages.length}`,
@@ -175,7 +200,10 @@ export async function POST(req: Request) {
     description:
       "Propose a filter change for the user to review and confirm before applying. " +
       "Use this when you want to suggest a specific filter to focus the user's analysis. " +
-      "The user will see a confirmation prompt before the filter is applied.",
+      "The user will see a confirmation prompt before the filter is applied. " +
+      "`categories` and `platform` MUST be chosen only from the current page's " +
+      "'AVAILABLE FILTERS' list in the system prompt — values not in that list " +
+      "will be rejected.",
     inputSchema: z.object({
       actionType: z
         .enum(["set_categories", "set_platform", "clear_filters"])
@@ -184,16 +212,18 @@ export async function POST(req: Request) {
         .array(z.string())
         .optional()
         .describe(
-          "Category names to set (required for set_categories). " +
-            "Use the category names as they appear in the dashboard: " +
-            "GLP-1, Cancer Med, CNS Med, Pain Med",
+          "Category names to set (required for set_categories). Must exactly " +
+            "match names from the current page's 'Selectable categories' list — " +
+            "do not invent names. If the page's category selection mode is " +
+            "'single', provide exactly one category.",
         ),
       platform: z
         .string()
         .optional()
         .describe(
-          "Platform name to set (required for set_platform). " +
-            "Examples: Reddit, X, YouTube, Instagram, TikTok, Telegram",
+          "Platform name to set (required for set_platform). Must exactly match " +
+            "one entry from the current page's 'Selectable platforms' list. Only " +
+            "propose this on pages that have a platform filter.",
         ),
       description: z
         .string()
@@ -202,12 +232,62 @@ export async function POST(req: Request) {
         ),
     }),
     execute: async ({ actionType, categories, platform, description }) => {
+      const available = pageContext?.availableFilters;
+
+      if (actionType === "set_categories") {
+        const validCategories = (categories ?? []).filter((c) =>
+          available?.categories.includes(c),
+        );
+        if (validCategories.length === 0) {
+          return {
+            status: "invalid",
+            reason: `None of the proposed categories (${(categories ?? []).join(", ") || "none given"}) exist on this page. Available categories: ${available?.categories.join(", ") || "none"}. Do not tell the user the filter was applied — explain the mismatch instead.`,
+          };
+        }
+        const finalCategories =
+          available?.categorySelectionMode === "single"
+            ? [validCategories[0]]
+            : validCategories;
+        return {
+          proposedAction: {
+            id: crypto.randomUUID(),
+            actionType,
+            categories: finalCategories,
+            description,
+          },
+          status: "awaiting_confirmation",
+        };
+      }
+
+      if (actionType === "set_platform") {
+        if (!available?.platforms) {
+          return {
+            status: "invalid",
+            reason: "This page has no platform filter. Do not propose a platform change here.",
+          };
+        }
+        if (!platform || !available.platforms.includes(platform)) {
+          return {
+            status: "invalid",
+            reason: `Platform "${platform ?? "(none given)"}" does not exist on this page. Available platforms: ${available.platforms.join(", ")}. Do not tell the user the filter was applied — explain the mismatch instead.`,
+          };
+        }
+        return {
+          proposedAction: {
+            id: crypto.randomUUID(),
+            actionType,
+            platform,
+            description,
+          },
+          status: "awaiting_confirmation",
+        };
+      }
+
+      // clear_filters always valid — no page-specific values to check
       return {
         proposedAction: {
           id: crypto.randomUUID(),
           actionType,
-          categories,
-          platform,
           description,
         },
         status: "awaiting_confirmation",
@@ -225,6 +305,7 @@ export async function POST(req: Request) {
       pageTitle: "Top Products",
       reportingPeriod: "",
       filters: { categories: [] },
+      availableFilters: { categories: [], categorySelectionMode: "single" },
       stats: [],
     },
     selectedWidget ?? null,
@@ -239,6 +320,16 @@ export async function POST(req: Request) {
     messages: await convertToModelMessages(messages),
     stopWhen: isStepCount(3),
     tools,
+    // "Suggest filters" buttons must actually trigger propose_filter_action,
+    // not just a text description of what filter to use — force it on step 0
+    // only, so the model can still follow up with explanatory text once the
+    // tool result comes back (forcing it on every step would loop forever).
+    prepareStep: forceFilterTool
+      ? ({ stepNumber }) =>
+          stepNumber === 0
+            ? { toolChoice: { type: "tool", toolName: "propose_filter_action" } }
+            : {}
+      : undefined,
   });
 
   return createUIMessageStreamResponse({

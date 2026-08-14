@@ -106,6 +106,12 @@ export function TopProductsSubpage() {
       filters: {
         categories: selectedPrimaryName ? [selectedPrimaryName] : [],
       },
+      availableFilters: {
+        categories: realCategories.map((c) => c.name),
+        // The Top Products category dropdown is single-select (one active
+        // category id at a time, or "all") — unlike Domain/Social Insights.
+        categorySelectionMode: "single",
+      },
       stats: [
         {
           label: "Total Listings",
@@ -121,7 +127,7 @@ export function TopProductsSubpage() {
         },
       ],
     });
-  }, [updatePageContext, selectedPrimaryName, filteredListings, data?.reportingPeriodId]);
+  }, [updatePageContext, selectedPrimaryName, filteredListings, data?.reportingPeriodId, realCategories]);
 
   if (isLoading) {
     return (

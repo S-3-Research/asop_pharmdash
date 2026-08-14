@@ -5,7 +5,7 @@ import type { PageContext, SelectedWidget } from "./types";
 interface PromptButtonsProps {
   pageContext: PageContext;
   selectedWidget: SelectedWidget | null;
-  onSelect: (prompt: string) => void;
+  onSelect: (prompt: string, opts?: { forceFilterTool?: boolean }) => void;
   disabled?: boolean;
 }
 
@@ -14,6 +14,11 @@ interface PromptButton {
   label: string;
   prompt: string;
   icon: string;
+  /** When true, this button should force the model to actually call
+   *  propose_filter_action (via toolChoice) instead of just chatting about
+   *  filters — used for prompts that are explicitly about suggesting/
+   *  proposing a filter change. */
+  forceFilterTool?: boolean;
 }
 
 function buildPrompts(
@@ -34,8 +39,10 @@ function buildPrompts(
         id: "suggest-filters",
         label: "Suggest filters",
         prompt:
-          "Based on the current data, what filters would you suggest to focus the analysis on the most important signals?",
+          "Based on the current data, what filters would you suggest to focus the analysis on the most important signals? " +
+          "Use the propose_filter_action tool to propose your recommendation.",
         icon: "🔍",
+        forceFilterTool: true,
       },
       {
         id: "anomaly",
@@ -108,8 +115,11 @@ function buildPrompts(
     prompts.push({
       id: "suggest-filter",
       label: "Suggest a filter",
-      prompt: `Based on the "${widget.title}" chart, what filter change would help dig deeper into this data? Propose a specific filter.`,
+      prompt:
+        `Based on the "${widget.title}" chart, what filter change would help dig deeper into this data? ` +
+        "Use the propose_filter_action tool to propose a specific filter.",
       icon: "🔍",
+      forceFilterTool: true,
     });
   }
 
@@ -148,7 +158,7 @@ export function PromptButtons({
           key={p.id}
           type="button"
           disabled={disabled}
-          onClick={() => onSelect(p.prompt)}
+          onClick={() => onSelect(p.prompt, { forceFilterTool: p.forceFilterTool })}
           className="group flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium text-slate-500 transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
           style={{
             background: "#f5f5f7",
