@@ -16,8 +16,10 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const keywordsParam = searchParams.get("keywords") ?? "";
   const platform      = searchParams.get("platform") ?? "all";
+  const categoriesParam = searchParams.get("categories");
 
   const keywords = keywordsParam.split(",").filter(Boolean);
+  const selectedCategories = categoriesParam ? categoriesParam.split(",").filter(Boolean) : [];
 
   const channel = getActiveChannel();
   const pointer = await readChannel(channel);
@@ -40,7 +42,7 @@ export async function GET(request: NextRequest) {
   }
 
   const release = await fetchReleaseData(pointer.current.releaseId);
-  const results = lookupKeywordRawCounts(release.keyword_stats, keywords, platform);
+  const results = lookupKeywordRawCounts(release.keyword_stats, keywords, selectedCategories, platform);
 
   const payload: SocialKeywordCountPayload = {
     platform,

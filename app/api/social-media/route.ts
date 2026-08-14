@@ -8,8 +8,8 @@ import type {
   SocialMediaPayload,
 } from "@/app/dashboard/components/types";
 import { getActiveChannel } from "@/lib/channel";
-import { readChannel, fetchSocialIndex, fetchSocialAggregateTable, isMockRelease } from "@/lib/releases";
-import { buildSocialAggregates } from "@/lib/release-mapping";
+import { readChannel, fetchSocialIndex, fetchSocialAggregateTable, fetchReleaseData, isMockRelease } from "@/lib/releases";
+import { buildSocialAggregates, buildKeywordRankingsFromStats, buildKeywordBubblesFromStats } from "@/lib/release-mapping";
 import { SOCIAL_PRIMARY_CATEGORIES } from "@/app/dashboard/components/subpages/social-media/config";
 
 const CATEGORY_ALL_KEY = "__all__";
@@ -135,10 +135,34 @@ export async function GET(request: NextRequest) {
     platformTabs = aggregates.platformTabs;
     mentionsByApp = aggregates.mentionsByApp;
 
-    // Keyword rankings/bubbles have no category dimension (KeywordStat
-    // carries no product/category field) — always a precomputed, platform-
-    // only lookup regardless of the category-filter path taken above.
-    const keywordAgg = table.byPlatformKeywords[platformKey] ?? table.byPlatformKeywords[PLATFORM_ALL_KEY];
+    // Keyword rankings/bubbles: as of the 2026-08-12 schema, KeywordStat
+    // carries `product_category` directly, so these now respect the same
+    // category filter as everything else — single-category (or none)
+    // selections hit the precomputed table below; 2+ selected categories
+    // (rare multi-select case) fall back to filtering keyword_stats on
+    // demand, mirroring the platformTabs/metrics fallback above.
+    let keywordAgg: { uniqueKeywordCount: number; keywordRankings: SocialKeywordRanking[]; keywordBubbles: SocialKeywordBubble[] };
+    if (selectedCategories.length <= 1) {
+      const categoryKey = selectedCategories.length === 0 ? CATEGORY_ALL_KEY : selectedCategories[0];
+      keywordAgg =
+        table.byCategoryKeywords[categoryKey]?.[platformKey] ??
+        table.byCategoryKeywords[CATEGORY_ALL_KEY]?.[PLATFORM_ALL_KEY];
+    } else {
+      const release = await fetchReleaseData(releaseId);
+      const keywordRankings = buildKeywordRankingsFromStats(release.keyword_stats, selectedCategories, platformParam, 25, KEYWORD_COLORS);
+      const keywordBubbles = buildKeywordBubblesFromStats(release.keyword_stats, selectedCategories, platformParam, 15, KEYWORD_COLORS);
+      const relevantStats =
+        platformParam && platformParam !== PLATFORM_ALL_KEY
+          ? release.keyword_stats.filter(
+              (s) => s.socialmedia_platform === platformParam && s.product_category && selectedCategories.includes(s.product_category),
+            )
+          : release.keyword_stats.filter((s) => s.product_category && selectedCategories.includes(s.product_category));
+      keywordAgg = {
+        uniqueKeywordCount: new Set(relevantStats.map((s) => s.keyword)).size,
+        keywordRankings,
+        keywordBubbles,
+      };
+    }
 
     metrics = {
       totalPosts: aggregates.metrics.totalPosts,

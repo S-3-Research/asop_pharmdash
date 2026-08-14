@@ -38,10 +38,12 @@ export async function GET(request: NextRequest) {
       filtered = filtered.filter((p) => p.platform === platformParam);
     }
 
-    filtered.sort(
-      (a, b) => (b.timestamp ? new Date(b.timestamp).getTime() : 0) -
-                (a.timestamp ? new Date(a.timestamp).getTime() : 0),
-    );
+    filtered.sort((a, b) => {
+      const scoreDiff = b.confidenceScore - a.confidenceScore;
+      if (scoreDiff !== 0) return scoreDiff;
+      return (b.timestamp ? new Date(b.timestamp).getTime() : 0) -
+             (a.timestamp ? new Date(a.timestamp).getTime() : 0);
+    });
 
     const total  = filtered.length;
     const start  = (page - 1) * pageSize;

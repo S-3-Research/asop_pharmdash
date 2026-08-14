@@ -228,7 +228,7 @@ export const ProductCategory = z.enum([
 
 export const ProductTypeSchema = z.object({
   product_category: ProductCategory.nullish(),
-  product_name: z.string(),
+  product_name: z.string().nullish(),
 });
 
 export const HistoryClickUsItemSchema = z.object({
@@ -282,6 +282,8 @@ export const SocialMediaDataSchema = z.object({
   user_url: httpUrl,
   form_type: FormType,
 
+  confidence_score: z.number(),
+
   text: z.string().nullish(),
   create_date: z.string().nullish(),
   create_timestamp: z.number().int().nullish(),
@@ -295,9 +297,12 @@ export const SocialMediaDataSchema = z.object({
 // NOTE: as of the 2026-07-30 schema, the previous `DataStat` +
 // `SocialMediaSummary` pair was collapsed into this single flattened model
 // (dropped fields: `timestamp`, `user_num`, nested `keyword_summary`).
+// NOTE: as of the 2026-08-12 schema, `product_name` was replaced with
+// `product_category` — keyword stats now carry a category directly instead
+// of a product name, letting rankings/bubbles be filtered by category.
 export const KeywordStatSchema = z.object({
   keyword: z.string(),
-  product_name: z.string().nullish(),
+  product_category: ProductCategory.nullish(),
   socialmedia_platform: SocialMediaPlatform,
   raw_num: z.number().int().nullish(),
   signal_num: z.number().int().nullish(),

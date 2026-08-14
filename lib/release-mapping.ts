@@ -548,7 +548,7 @@ function resolveSocialCategories(
   const categories = productList
     .map((item) => ({
       primaryCategory: item.product_category ? normalizeCategoryLabel(item.product_category) : "Uncategorized",
-      secondaryCategory: item.product_name,
+      secondaryCategory: item.product_name ?? "Unknown",
     }))
     .filter(
       (pair, i, arr) =>
@@ -567,7 +567,9 @@ function mapSocialRow(
   post: SocialMediaData,
   originalIndex: number,
 ): SocialMediaPost {
-  const productNames = (post.product_list ?? []).map((p) => p.product_name);
+  const productNames = (post.product_list ?? [])
+    .map((p) => p.product_name)
+    .filter((name): name is string => !!name);
   return {
     id: `social-${originalIndex}`,
     link: post.link,
@@ -580,6 +582,7 @@ function mapSocialRow(
     status: (post.is_live ?? true) ? "active" : "inactive",
     keywords: productNames.length > 0 ? productNames : null,
     categories: resolveSocialCategories(post),
+    confidenceScore: post.confidence_score,
   };
 }
 
@@ -615,6 +618,9 @@ export interface SocialPostLite {
   platform: string;
   username: string;
   timestampMs: number;
+  /** Model confidence (0–1) that this row is a genuine pharma signal —
+   *  drives Signal Samples' default sort order (highest first). */
+  confidenceScore: number;
   status: "active" | "inactive";
   mentions: string[];
   categories: { primaryCategory: string; secondaryCategory: string }[];
@@ -638,6 +644,7 @@ export function buildSocialIndex(
       platform: post.socialmedia_platform,
       username: usernameToHandle(post.user_url, post.user_name),
       timestampMs: new Date(safeIsoTimestamp(post.create_date, post.create_timestamp) ?? 0).getTime(),
+      confidenceScore: post.confidence_score,
       status: (post.is_live ?? true ? "active" : "inactive") as "active" | "inactive",
       mentions: extractMentions(post.contact_info),
       categories: resolveSocialCategories(post),
@@ -648,21 +655,46 @@ export function buildSocialIndex(
 
 
 /**
+ * Filters KeywordStat[] rows by platform (single platform, or "all"/omit for
+ * every platform) AND by category (multi-select OR match against each row's
+ * `product_category`, normalized to the same display-label taxonomy used
+ * elsewhere; empty/omitted selection matches every row). As of the
+ * 2026-08-12 schema, KeywordStat carries `product_category` directly, so
+ * keyword rankings/bubbles/raw-counts can now respect the page's category
+ * filter the same way platformTabs/metrics/mentionsByApp already do.
+ */
+function filterKeywordStats(
+  stats: KeywordStat[],
+  selectedCategories: string[] | null | undefined,
+  platform: string | null | undefined,
+): KeywordStat[] {
+  let result = stats;
+  if (selectedCategories && selectedCategories.length > 0) {
+    result = result.filter(
+      (s) => s.product_category != null && selectedCategories.includes(normalizeCategoryLabel(s.product_category)),
+    );
+  }
+  if (platform && platform !== "all") {
+    result = result.filter((s) => s.socialmedia_platform === platform);
+  }
+  return result;
+}
+
+/**
  * Aggregates keyword_stats[] (release's flattened KeywordStat rows — one
- * per keyword/platform pair) into the dashboard's keyword-ranking view
- * model. Sums `signal_num` across matching rows; optionally restricted to
- * a single platform (pass "all" or omit for every platform combined).
+ * per keyword/platform/category triple) into the dashboard's keyword-ranking
+ * view model. Sums `signal_num` across matching rows; restricted to
+ * whichever platform and categories are selected (empty categories / "all"
+ * platform = no restriction on that dimension).
  */
 export function buildKeywordRankingsFromStats(
   stats: KeywordStat[],
+  selectedCategories: string[] | null | undefined,
   platform: string | null | undefined,
   limit: number,
   colors: string[],
 ): SocialKeywordRanking[] {
-  const filtered =
-    platform && platform !== "all"
-      ? stats.filter((s) => s.socialmedia_platform === platform)
-      : stats;
+  const filtered = filterKeywordStats(stats, selectedCategories, platform);
 
   const totals = new Map<string, number>();
   for (const s of filtered) {
@@ -682,29 +714,29 @@ export function buildKeywordRankingsFromStats(
 
 export function buildKeywordBubblesFromStats(
   stats: KeywordStat[],
+  selectedCategories: string[] | null | undefined,
   platform: string | null | undefined,
   limit: number,
   colors: string[],
 ): SocialKeywordBubble[] {
-  return buildKeywordRankingsFromStats(stats, platform, limit, colors).map(
+  return buildKeywordRankingsFromStats(stats, selectedCategories, platform, limit, colors).map(
     ({ keyword, signalCount, color }) => ({ keyword, signalCount, color }),
   );
 }
 
 /**
  * Looks up raw_num (search-result counts) for a specific set of keywords,
- * summing across platforms when `platform` is "all"/omitted, matching a
- * single platform's rows otherwise.
+ * summing across matching rows restricted to the selected categories
+ * (OR match, empty = no restriction) and platform ("all"/omit = every
+ * platform combined).
  */
 export function lookupKeywordRawCounts(
   stats: KeywordStat[],
   keywords: string[],
+  selectedCategories: string[] | null | undefined,
   platform: string | null | undefined,
 ): { keyword: string; rawCount: number }[] {
-  const filtered =
-    platform && platform !== "all"
-      ? stats.filter((s) => s.socialmedia_platform === platform)
-      : stats;
+  const filtered = filterKeywordStats(stats, selectedCategories, platform);
 
   const totals = new Map<string, number>();
   for (const s of filtered) {
@@ -804,7 +836,11 @@ export function paginateSocialPosts(
   pageSize: number,
 ): { samples: SocialMediaPost[]; total: number } {
   const filtered = filterSocialIndex(index, selectedCategories, platform);
-  filtered.sort((a, b) => b.timestampMs - a.timestampMs);
+  filtered.sort((a, b) => {
+    const scoreDiff = b.confidenceScore - a.confidenceScore;
+    if (scoreDiff !== 0) return scoreDiff;
+    return b.timestampMs - a.timestampMs;
+  });
 
   const total = filtered.length;
   const start = (page - 1) * pageSize;
@@ -852,8 +888,15 @@ export interface SocialKeywordAggregateEntry {
 export interface SocialAggregateTable {
   /** category label (or "__all__") -> platform label (or "all") -> precomputed entry */
   byCategory: Record<string, Record<string, SocialAggregateEntry>>;
-  /** platform label (or "all") -> precomputed keyword rankings/bubbles (category-independent) */
-  byPlatformKeywords: Record<string, SocialKeywordAggregateEntry>;
+  /** category label (or "__all__") -> platform label (or "all") -> precomputed
+   *  keyword rankings/bubbles. As of the 2026-08-12 schema, KeywordStat
+   *  carries `product_category` directly, so this table mirrors `byCategory`'s
+   *  shape instead of being platform-only — keyword rankings/bubbles now
+   *  respect the page's category filter too. Only single-category (and
+   *  "__all__") combinations are precomputed, same rationale as `byCategory`
+   *  (2+ selected categories fall back to on-demand filtering — see the
+   *  route's multi-category branch). */
+  byCategoryKeywords: Record<string, Record<string, SocialKeywordAggregateEntry>>;
   /** Dynamically derived category filter options. As of the 2026-08-05
    *  schema, social_media rows carry their own product_category directly,
    *  so this is built from whatever categories actually occur across the
@@ -953,6 +996,13 @@ export function buildSocialAggregateTable(
     platformLabels.add(post.platform);
     for (const c of post.categories) categoryLabels.add(c.primaryCategory);
   }
+  // KeywordStat rows can reference categories that don't otherwise appear on
+  // any social_media[] post (unlikely, but not guaranteed) — include those
+  // too so the precomputed table stays a strict superset of what the route's
+  // single-category fast path might request.
+  for (const s of keywordStats) {
+    if (s.product_category) categoryLabels.add(normalizeCategoryLabel(s.product_category));
+  }
 
   const byCategory: Record<string, Record<string, SocialAggregateEntry>> = {};
   for (const category of categoryLabels) {
@@ -968,20 +1018,22 @@ export function buildSocialAggregateTable(
     byCategory[category] = perPlatform;
   }
 
-  const byPlatformKeywords: Record<string, SocialKeywordAggregateEntry> = {};
-  for (const platform of platformLabels) {
-    const relevantStats =
-      platform === PLATFORM_ALL_KEY
-        ? keywordStats
-        : keywordStats.filter((s) => s.socialmedia_platform === platform);
-    byPlatformKeywords[platform] = {
-      uniqueKeywordCount: new Set(relevantStats.map((s) => s.keyword)).size,
-      keywordRankings: buildKeywordRankingsFromStats(keywordStats, platform, 25, AGGREGATE_KEYWORD_COLORS),
-      keywordBubbles: buildKeywordBubblesFromStats(keywordStats, platform, 15, AGGREGATE_KEYWORD_COLORS),
-    };
+  const byCategoryKeywords: Record<string, Record<string, SocialKeywordAggregateEntry>> = {};
+  for (const category of categoryLabels) {
+    const selectedCategories = category === CATEGORY_ALL_KEY ? [] : [category];
+    const perPlatform: Record<string, SocialKeywordAggregateEntry> = {};
+    for (const platform of platformLabels) {
+      const relevantStats = filterKeywordStats(keywordStats, selectedCategories, platform);
+      perPlatform[platform] = {
+        uniqueKeywordCount: new Set(relevantStats.map((s) => s.keyword)).size,
+        keywordRankings: buildKeywordRankingsFromStats(keywordStats, selectedCategories, platform, 25, AGGREGATE_KEYWORD_COLORS),
+        keywordBubbles: buildKeywordBubblesFromStats(keywordStats, selectedCategories, platform, 15, AGGREGATE_KEYWORD_COLORS),
+      };
+    }
+    byCategoryKeywords[category] = perPlatform;
   }
 
   const categoryOptions = buildSocialCategoryOptions(index);
 
-  return { byCategory, byPlatformKeywords, categoryOptions };
+  return { byCategory, byCategoryKeywords, categoryOptions };
 }

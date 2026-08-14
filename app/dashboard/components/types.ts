@@ -203,6 +203,8 @@ export interface SocialMediaPost {
   keywords: string[] | null;
   /** One or more drug-category associations. A post can match multiple drug classes. */
   categories: Array<{ primaryCategory: string; secondaryCategory: string }>;
+  /** Model confidence (0–1) that this row is a genuine pharma signal. Drives Signal Samples' default sort order (highest first). */
+  confidenceScore: number;
 }
 
 export interface SocialPlatformTab {

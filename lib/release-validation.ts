@@ -68,7 +68,7 @@ export function runBusinessValidation(data: PharmDashReleaseData): ValidationRep
 
   data.social_media.forEach((record, index) => {
     (record.product_list ?? []).forEach((item, itemIndex) => {
-      if (!knownProductNames.has(item.product_name)) {
+      if (item.product_name && !knownProductNames.has(item.product_name)) {
         issues.push({
           level: "warning",
           code: "unknown_product_reference",

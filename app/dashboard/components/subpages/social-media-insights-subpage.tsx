@@ -201,7 +201,7 @@ export function SocialMediaInsightsSubpage() {
                       description: "Top keywords ranked by signal count and growth rate",
                     }}
                   >
-                    <KeywordRankingsCard rankings={data.keywordRankings} platform={selectedPlatform} />
+                    <KeywordRankingsCard rankings={data.keywordRankings} platform={selectedPlatform} categories={selectedIds} />
                   </SelectableCard>
                 </div>
                 <div className="w-full lg:basis-1/3 lg:min-w-0 h-[380px] lg:h-full">
@@ -214,7 +214,7 @@ export function SocialMediaInsightsSubpage() {
                       description: "Bubble chart of keyword signal volume and distribution",
                     }}
                   >
-                    <KeywordPerformanceCard bubbles={data.keywordBubbles} platform={selectedPlatform} />
+                    <KeywordPerformanceCard bubbles={data.keywordBubbles} platform={selectedPlatform} categories={selectedIds} />
                   </SelectableCard>
                 </div>
               </div>

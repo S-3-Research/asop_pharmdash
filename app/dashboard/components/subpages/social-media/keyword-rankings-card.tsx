@@ -10,6 +10,9 @@ import { useWidgetData } from "../../copilot/copilot-context";
 interface KeywordRankingsCardProps {
   rankings: SocialKeywordRanking[];
   platform: string;
+  /** Selected category ids (e.g. ["GLP-1"]) — forwarded to the raw-count
+   *  lookup so it matches the same category filter used to build `rankings`. */
+  categories: string[];
 }
 
 const PAGE_SIZE = 4;
@@ -17,7 +20,7 @@ const PAGE_SIZE = 4;
 const countFetcher = (url: string) =>
   fetch(url).then((r) => r.json() as Promise<SocialKeywordCountPayload>);
 
-export function KeywordRankingsCard({ rankings, platform }: KeywordRankingsCardProps) {
+export function KeywordRankingsCard({ rankings, platform, categories }: KeywordRankingsCardProps) {
   const [page, setPage] = useState(1);
 
   useWidgetData(
@@ -39,6 +42,7 @@ export function KeywordRankingsCard({ rankings, platform }: KeywordRankingsCardP
   const pageKeywords = visible.map((r) => r.keyword).join(",");
   const kwParams = new URLSearchParams({ keywords: pageKeywords });
   if (platform !== "all") kwParams.set("platform", platform);
+  if (categories.length > 0) kwParams.set("categories", categories.join(","));
 
   const { data: countData } = useSWR<SocialKeywordCountPayload>(
     pageKeywords ? `/api/social-media/keyword-count?${kwParams}` : null,

@@ -29,12 +29,15 @@ const HighchartsReact = dynamic(() => import("highcharts-react-official"), {
 interface KeywordPerformanceCardProps {
   bubbles: SocialKeywordBubble[];
   platform: string;
+  /** Selected category ids (e.g. ["GLP-1"]) — forwarded to the raw-count
+   *  lookup so it matches the same category filter used to build `bubbles`. */
+  categories: string[];
 }
 
 const countFetcher = (url: string) =>
   fetch(url).then((r) => r.json() as Promise<SocialKeywordCountPayload>);
 
-export function KeywordPerformanceCard({ bubbles, platform }: KeywordPerformanceCardProps) {
+export function KeywordPerformanceCard({ bubbles, platform, categories }: KeywordPerformanceCardProps) {
   const top12    = bubbles.slice(0, 12);
   const keywords = top12.map((b) => b.keyword).join(",");
 
@@ -66,6 +69,7 @@ export function KeywordPerformanceCard({ bubbles, platform }: KeywordPerformance
 
   const kwParams = new URLSearchParams({ keywords });
   if (platform !== "all") kwParams.set("platform", platform);
+  if (categories.length > 0) kwParams.set("categories", categories.join(","));
 
   const { data: countData } = useSWR<SocialKeywordCountPayload>(
     keywords ? `/api/social-media/keyword-count?${kwParams}` : null,

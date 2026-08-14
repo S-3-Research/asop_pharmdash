@@ -800,6 +800,9 @@ function generateSocialPosts(): SocialMediaPost[] {
     const kwPool = SOCIAL_KW_BY_PRIMARY[primaryCategory];
     const numKw = 1 + Math.floor(socialSeeded() * 3);
     const keywords = socialRngPickN(kwPool, numKw);
+    // 0.50–1.00, skewed toward the high end so most mock posts read as
+    // confident signals (matches typical real-release distributions).
+    const confidenceScore = Math.round((0.5 + Math.pow(socialSeeded(), 0.5) * 0.5) * 100) / 100;
 
     posts.push({
       id: `social-${i + 1}`,
@@ -813,6 +816,7 @@ function generateSocialPosts(): SocialMediaPost[] {
       status,
       keywords,
       categories,
+      confidenceScore,
     });
   }
   return posts;
