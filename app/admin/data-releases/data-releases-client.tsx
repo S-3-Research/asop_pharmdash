@@ -200,6 +200,26 @@ export default function DataReleasesClient() {
     refresh();
   };
 
+  const downloadRelease = async (releaseId: string) => {
+    setActionMessage(null);
+    const res = await fetch(`/api/admin/releases/${encodeURIComponent(releaseId)}/download`);
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      setActionMessage(`Error: ${body?.message ?? "Failed to download release"}`);
+      return;
+    }
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${releaseId}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-[#f3f7f9]">
       <LogoNav />
@@ -408,6 +428,14 @@ export default function DataReleasesClient() {
                           r.recordCounts.socialMediaSummary}
                     </td>
                     <td className="space-x-2 py-2 text-right">
+                      {!isMock ? (
+                        <button
+                          className="rounded bg-slate-100 px-2 py-1 text-xs hover:bg-slate-200"
+                          onClick={() => downloadRelease(r.releaseId)}
+                        >
+                          Download
+                        </button>
+                      ) : null}
                       <button
                         className="rounded bg-slate-100 px-2 py-1 text-xs hover:bg-slate-200"
                         onClick={() => publish(r.releaseId, "preview")}
