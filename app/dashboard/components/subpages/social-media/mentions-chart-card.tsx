@@ -25,7 +25,7 @@ export function MentionsChartCard({ mentionsByApp }: MentionsChartCardProps) {
     mentionsByApp.map((m) => ({ label: m.app, value: m.count })),
     "Bar chart / table of external app names mentioned inside flagged social media posts (e.g. messaging or payment apps used to move the transaction off-platform). " +
       "The data points here contain ALL mentioned apps; the on-screen chart shows only the top 7. " +
-      "Data source: text analysis of flagged post content in the published data release, after the page's category and platform filters.",
+      "Data source: text analysis of flagged post content in the published data release, after the page's category/platform filter selection.",
   );
 
   const top      = mentionsByApp.slice(0, MAX_ITEMS);

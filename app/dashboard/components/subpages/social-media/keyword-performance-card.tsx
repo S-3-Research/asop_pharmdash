@@ -64,7 +64,7 @@ export function KeywordPerformanceCard({ bubbles, platform, categories }: Keywor
     bubbles.map((b) => ({ label: b.keyword, value: b.signalCount })),
     "Bubble chart of keyword performance: bubble size = signal count per monitored keyword, plus a live raw-mention count per keyword. " +
       "The data points here contain ALL keywords with their signal counts; the on-screen chart shows only the top 12. " +
-      "Data source: keyword signal aggregates from the published data release, filtered by the page's category and platform selection; raw counts come from the live keyword-count API.",
+      "Data source: keyword signal aggregates from the published data release, after the page's category/platform filter selection; raw counts come from the live keyword-count API.",
   );
 
   const kwParams = new URLSearchParams({ keywords });

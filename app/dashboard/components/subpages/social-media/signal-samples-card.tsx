@@ -61,7 +61,7 @@ export function SignalSamplesCard({ categories, platform }: SignalSamplesCardPro
     ],
     "Feed of sample social media posts/comments flagged as pharmaceutical signals, with platform badges; paginated via a 'load more' button. " +
       "Data points include the total matching count and the full text of every currently loaded sample. " +
-      "Data source: live samples API backed by the published data release, filtered by the page's category and platform selection.",
+      "Data source: live samples API backed by the published data release, after the page's category/platform filter selection.",
   );
 
   return (

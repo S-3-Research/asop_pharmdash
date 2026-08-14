@@ -31,7 +31,7 @@ export function KeywordRankingsCard({ rankings, platform, categories }: KeywordR
     })),
     "Paginated table ranking monitored keywords by signal count, with growth rate vs the prior period and a raw-mention count fetched per keyword. " +
       "The data points here contain the COMPLETE keyword ranking (all pages), not just the visible page. " +
-      "Data source: keyword signal aggregates from the published data release, filtered by the page's category and platform selection; raw counts come from the live keyword-count API.",
+      "Data source: keyword signal aggregates from the published data release, after the page's category/platform filter selection; raw counts come from the live keyword-count API.",
   );
 
   const totalPages = Math.max(1, Math.ceil(rankings.length / PAGE_SIZE));

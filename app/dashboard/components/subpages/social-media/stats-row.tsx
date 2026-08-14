@@ -12,16 +12,17 @@ interface StatsRowProps {
 const METRIC_PROMPTS: Record<string, string> = {
   "total-posts":
     "Single metric: total number of social media posts and comments flagged as pharmaceutical signals in the current reporting period. " +
-    "Data source: social media signal records in the published data release, after the page's category and platform filters.",
+    "Data source: social media signal records in the published data release, after the page's category/platform filter selection.",
   "unique-accounts":
     "Single metric: number of distinct social media accounts that produced flagged signals. " +
-    "Data source: deduplicated account IDs from the signal records in the published data release, after the page's category and platform filters.",
+    "Data source: deduplicated account IDs from the signal records in the published data release, after the page's category/platform filter selection.",
   "active-signals":
     "Single metric: number of signals currently classified as active (still live/visible on the platform). " +
-    "Data source: the active flag on signal records in the published data release, after the page's category and platform filters.",
+    "Data source: the active flag on signal records in the published data release, after the page's category/platform filter selection.",
   "active-keywords":
-    "Single metric: number of distinct monitored keywords that have at least one active signal. " +
-    "Data source: keyword field of active signal records in the published data release, after the page's category and platform filters.",
+    "Single metric: number of distinct monitored keywords with signal data matching the current filter selection — " +
+    "NOT the number of keywords appearing specifically in 'active' (still-live) posts; this count is independent of each post's active/inactive status. " +
+    "Data source: keyword_stats aggregates from the published data release, after the page's category/platform filter selection.",
 };
 
 function SelectableStat({ item }: { item: MetricCardData }) {
