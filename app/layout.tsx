@@ -5,7 +5,13 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "ASOP PharmDash",
-  description: "Next.js + Vercel + Supabase + Highcharts dashboard starter",
+  description: "Online pharmacy monitoring and intelligence dashboard",
+
+  openGraph: {
+    title: "ASOP PharmDash",
+    description: "Online pharmacy monitoring and intelligence dashboard",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
