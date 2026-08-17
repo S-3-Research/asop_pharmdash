@@ -17,8 +17,8 @@ export function Sidebar({ items, activeKey, onChange }: SidebarProps) {
       <div>
         <div className="flex h-14 items-center bg-[#0a1116] px-4 py-2">
           <Image
-            src="/ASOP x S3.png"
-            alt="ASOP x S3"
+            src="/ASOP Global x S3.png"
+            alt="ASOP Global x S3"
             width={176}
             height={28}
             className="h-10 w-auto"

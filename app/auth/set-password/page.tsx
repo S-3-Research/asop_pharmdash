@@ -195,7 +195,7 @@ export default function SetPasswordPage() {
       <section className="auth-glass-card w-full rounded-2xl p-8">
         <div className="mb-4">
           <Image
-            src="/ASOP x S3.png"
+            src="/ASOP Global x S3.png"
             alt="ASOP PharmDash"
             width={140}
             height={56}
