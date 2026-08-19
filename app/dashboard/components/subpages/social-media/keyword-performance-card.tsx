@@ -59,14 +59,6 @@ export function KeywordPerformanceCard({ bubbles, platform, categories }: Keywor
     return () => ro.disconnect();
   }, []);
 
-  useWidgetData(
-    "social-keyword-performance",
-    bubbles.map((b) => ({ label: b.keyword, value: b.signalCount })),
-    "Bubble chart of keyword performance: bubble size = signal count per monitored keyword, plus a live raw-mention count per keyword. " +
-      "The data points here contain ALL keywords with their signal counts; the on-screen chart shows only the top 12. " +
-      "Data source: keyword signal aggregates from the published data release, after the page's category/platform filter selection; raw counts come from the live keyword-count API.",
-  );
-
   const kwParams = new URLSearchParams({ keywords });
   if (platform !== "all") kwParams.set("platform", platform);
   if (categories.length > 0) kwParams.set("categories", categories.join(","));
@@ -79,6 +71,31 @@ export function KeywordPerformanceCard({ bubbles, platform, categories }: Keywor
 
   const rawCountMap = new Map(
     (countData?.results ?? []).map((r) => [r.keyword, r.rawCount]),
+  );
+
+  useWidgetData(
+    "social-keyword-performance",
+    bubbles.map((b) => {
+      const rawCount = rawCountMap.get(b.keyword);
+      const ratioPart =
+        rawCount != null && rawCount > 0
+          ? ` (ratio ${((b.signalCount / rawCount) * 100).toFixed(1)}% of ${rawCount} raw hits)`
+          : rawCount === 0
+            ? " (raw hits: 0)"
+            : "";
+      return { label: b.keyword, value: `${b.signalCount} signals${ratioPart}` };
+    }),
+    "Bubble chart of keyword performance: bubble size = signal count per monitored keyword, plus a live raw-mention count per keyword (x-axis = raw count). " +
+      "Meaning: for each keyword, we search that platform using the keyword and retrieve a set of 'raw' results/mentions (rawCount); " +
+      "'signalCount' is the number of those raw results that were detected/classified as illegal-selling signals (e.g. rogue pharmacy listings or solicitations). " +
+      "So rawCount is the total search hits for the keyword, and signalCount is the subset flagged as actual illegal-selling signals within that raw data. " +
+      "IMPORTANT for prioritization: what matters most is the RELATIVE SIZE of signalCount vs rawCount (i.e. the signal-to-raw ratio/'hit rate'), not the absolute numbers alone. " +
+      "A keyword with a small rawCount but a high signalCount/rawCount ratio is a concentrated, high-confidence signal and deserves attention even if its raw volume is low; " +
+      "a keyword with a huge rawCount but a low ratio (mostly noise/false positives) is lower priority despite a large signalCount or large bubble. " +
+      "When asked which keywords are worth watching, compare signalCount against rawCount (not signalCount/bubble size in isolation) and call out keywords with an unusually high ratio. " +
+      "NOTE: rawCount/ratio above is only available for keywords among the top 12 (fetched live from the keyword-count API) — for other keywords the raw count simply hasn't been fetched, not that it's zero. " +
+      "The data points here contain ALL keywords with their signal counts; the on-screen chart shows only the top 12. " +
+      "Data source: keyword signal aggregates from the published data release, after the page's category/platform filter selection; raw counts come from the live keyword-count API.",
   );
 
   // Build Highcharts bubble series data: x=rawCount, y=signalCount, z=rawCount (bubble size)

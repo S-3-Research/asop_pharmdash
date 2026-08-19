@@ -104,10 +104,63 @@ export function CopilotPanel() {
   }, [messages, proposePendingAction]);
 
   // ── Auto-scroll ────────────────────────────────────────────────────────────
+  // During streaming, `messages` gets a new array reference on nearly every
+  // token, which used to re-trigger a `scrollIntoView({ behavior: "smooth" })`
+  // call on every single token — each call restarts a smooth-scroll animation
+  // toward a target that itself keeps moving (the bubble keeps growing), so
+  // the animations kept interrupting each other and the bubble visibly
+  // bounced up/down instead of scrolling steadily. Fixed by:
+  //  1. Coalescing scroll requests to at most once per animation frame.
+  //  2. Using "auto" (instant) scrolling while streaming, so each frame just
+  //     snaps to the bottom instead of layering competing smooth animations.
+  //  3. Only auto-scrolling to the bottom when the user is already near it,
+  //     so it doesn't yank the view if they've scrolled up to read history.
+  //  4. Whenever a NEW user message is sent, it's pinned to the TOP of the
+  //     scroll container instead (like ChatGPT) — the assistant's reply then
+  //     streams in below without dragging the view down, so the user can
+  //     read the growing answer starting from their own question.
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const rafIdRef = useRef<number | null>(null);
+  const lastUserMsgIdRef = useRef<string | null>(null);
+
+  const isNearBottom = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  }, []);
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isStreaming]);
+    const last = messages[messages.length - 1];
+    const isNewUserMsg = !!last && last.role === "user" && last.id !== lastUserMsgIdRef.current;
+
+    if (rafIdRef.current != null) cancelAnimationFrame(rafIdRef.current);
+
+    if (isNewUserMsg) {
+      lastUserMsgIdRef.current = last.id;
+      rafIdRef.current = requestAnimationFrame(() => {
+        document
+          .getElementById(`copilot-msg-${last.id}`)
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        rafIdRef.current = null;
+      });
+      return () => {
+        if (rafIdRef.current != null) cancelAnimationFrame(rafIdRef.current);
+      };
+    }
+
+    if (!isNearBottom()) return;
+    rafIdRef.current = requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({
+        behavior: isStreaming ? "auto" : "smooth",
+      });
+      rafIdRef.current = null;
+    });
+
+    return () => {
+      if (rafIdRef.current != null) cancelAnimationFrame(rafIdRef.current);
+    };
+  }, [messages, isStreaming, isNearBottom]);
 
   // ── Sending helpers ────────────────────────────────────────────────────────
   const sendWithContext = useCallback(
@@ -153,6 +206,7 @@ export function CopilotPanel() {
     setMessages([]);
     setSelectedWidget(null);
     seenToolCallIds.current.clear();
+    lastUserMsgIdRef.current = null;
   }, [setMessages, setSelectedWidget]);
 
   // ── Input state ────────────────────────────────────────────────────────────
@@ -274,6 +328,7 @@ export function CopilotPanel() {
 
       {/* ── Messages ── */}
       <div
+        ref={messagesContainerRef}
         className="flex-1 overflow-y-auto px-6 py-6 [scrollbar-width:thin] [scrollbar-color:#e2e8f0_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-300"
         style={{
           maskImage:

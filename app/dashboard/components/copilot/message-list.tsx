@@ -119,6 +119,7 @@ export function MessageList({ messages, isStreaming }: MessageListProps) {
       {messages.map((msg) => (
         <div
           key={msg.id}
+          id={`copilot-msg-${msg.id}`}
           className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
         >
           {msg.role === "user" ? (

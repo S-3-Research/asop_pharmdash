@@ -23,17 +23,6 @@ const countFetcher = (url: string) =>
 export function KeywordRankingsCard({ rankings, platform, categories }: KeywordRankingsCardProps) {
   const [page, setPage] = useState(1);
 
-  useWidgetData(
-    "social-keyword-rankings",
-    rankings.map((r) => ({
-      label: r.keyword,
-      value: `${r.signalCount} signals${r.growthRate != null ? ` (growth ${r.growthRate}%)` : ""}`,
-    })),
-    "Paginated table ranking monitored keywords by signal count, with growth rate vs the prior period and a raw-mention count fetched per keyword. " +
-      "The data points here contain the COMPLETE keyword ranking (all pages), not just the visible page. " +
-      "Data source: keyword signal aggregates from the published data release, after the page's category/platform filter selection; raw counts come from the live keyword-count API.",
-  );
-
   const totalPages = Math.max(1, Math.ceil(rankings.length / PAGE_SIZE));
   const start   = (page - 1) * PAGE_SIZE;
   const visible = rankings.slice(start, start + PAGE_SIZE);
@@ -52,6 +41,34 @@ export function KeywordRankingsCard({ rankings, platform, categories }: KeywordR
 
   const rawCountMap = new Map(
     (countData?.results ?? []).map((r) => [r.keyword, r.rawCount]),
+  );
+
+  useWidgetData(
+    "social-keyword-rankings",
+    rankings.map((r) => {
+      const rawCount = rawCountMap.get(r.keyword);
+      const ratioPart =
+        rawCount != null && rawCount > 0
+          ? `, ratio ${((r.signalCount / rawCount) * 100).toFixed(1)}% of ${rawCount} raw hits`
+          : rawCount === 0
+            ? ", raw hits: 0"
+            : "";
+      return {
+        label: r.keyword,
+        value: `${r.signalCount} signals${ratioPart}${r.growthRate != null ? ` (growth ${r.growthRate}%)` : ""}`,
+      };
+    }),
+    "Paginated table ranking monitored keywords by signal count, with growth rate vs the prior period and a raw-mention count fetched per keyword. " +
+      "Meaning: for each keyword, we search that platform using the keyword and retrieve a set of 'raw' results/mentions (rawCount); " +
+      "'signalCount' is the number of those raw results that were detected/classified as illegal-selling signals (e.g. rogue pharmacy listings or solicitations). " +
+      "So rawCount is the total search hits for the keyword, and signalCount is the subset flagged as actual illegal-selling signals within that raw data. " +
+      "IMPORTANT for prioritization: what matters most is the RELATIVE SIZE of signalCount vs rawCount (i.e. the signal-to-raw ratio/'hit rate'), not the absolute numbers alone. " +
+      "A keyword with a small rawCount but a high signalCount/rawCount ratio is a concentrated, high-confidence signal and deserves attention even if its raw volume is low; " +
+      "a keyword with a huge rawCount but a low ratio (mostly noise) is lower priority despite a large signalCount. " +
+      "When asked which keywords are worth watching, compare signalCount against rawCount (not signalCount in isolation) and call out keywords with an unusually high or rising ratio. " +
+      "NOTE: rawCount/ratio is only shown above for keywords on the currently-viewed table page (fetched live from the keyword-count API) — for keywords without a ratio shown, the raw count simply hasn't been fetched yet, not that it's zero or unavailable. " +
+      "The data points here contain the COMPLETE keyword ranking (all pages), not just the visible page. " +
+      "Data source: keyword signal aggregates from the published data release, after the page's category/platform filter selection; raw counts come from the live keyword-count API.",
   );
 
   return (

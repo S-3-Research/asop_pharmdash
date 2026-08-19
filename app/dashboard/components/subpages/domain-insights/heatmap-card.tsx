@@ -36,8 +36,13 @@ export function HeatmapCard({ domains, selectedCategories }: HeatmapCardProps) {
     Object.entries(cityCounts)
       .sort((a, b) => b[1] - a[1])
       .map(([label, value]) => ({ label, value })),
-    "Geographic heatmap (Mapbox) of where the rogue domains are hosted/located, aggregated by city; each value is the number of domains geolocated to that city. " +
-      "Data source: each domain record's geoLocation (city, country, lat/lng) from the published data release, based on business address listed or other available location information such as whois registration details. " +
+    "Geographic heatmap (Mapbox) of where the rogue domains are located; the underlying data format is one point per domain with a geoLocation object " +
+      "(city, country, lat/lng), plus per-domain category/status/registrar/payment fields shown when hovering a point. " +
+      "The data points above are aggregated by CITY for convenience — each value is the number of domains geolocated to that city (from geoLocation.city). " +
+      "On hover, the tooltip's top-right corner shows the domain's CITY (geoLocation.city field) next to the live/offline status dot; the tooltip body also lists category, registrar, and purported payment info for that single domain. " +
+      "Data source: each domain record's geoLocation (city, country, lat/lng) from the published data release, resolved using a fallback priority order: " +
+      "(1) the domain's listed business address, if available; (2) otherwise the WHOIS registration address (registrant street/city/state/country); " +
+      "(3) otherwise other proxy signals such as the phone number's area/country code. " +
       "Counts reflect the page's current category filter.",
   );
 

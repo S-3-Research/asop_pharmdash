@@ -488,7 +488,17 @@ function buildTrafficOptions(categories: string[], data: number[]): Highcharts.O
  *  across every domain. This replaces the previous sum-across-all-domains
  *  metric, which skewed upward/downward as domains with sparse history
  *  entered/left the dataset. */
-export function buildTrafficDatasets(domains: Domain[]): Record<TrafficRange, Highcharts.Options> {
+/** Shared monthly average-clicks series, keyed by month, reusable by both the
+ *  chart-options builder below and by callers (e.g. the copilot data note)
+ *  that need the raw label/avg pairs rather than a Highcharts config. */
+export interface TrafficMonthPoint {
+  label: string;
+  year: number;
+  month: number;
+  avg: number;
+}
+
+export function buildTrafficMonthlySeries(domains: Domain[]): TrafficMonthPoint[] {
   // month key -> { sum of clicks, count of domains with a non-null point that month }
   const statsByMonth = new Map<string, { year: number; month: number; label: string; sum: number; count: number }>();
 
@@ -512,9 +522,13 @@ export function buildTrafficDatasets(domains: Domain[]): Record<TrafficRange, Hi
     }
   }
 
-  const sorted = Array.from(statsByMonth.values())
+  return Array.from(statsByMonth.values())
     .sort((a, b) => a.year - b.year || a.month - b.month)
     .map((p) => ({ label: p.label, year: p.year, month: p.month, avg: p.count > 0 ? p.sum / p.count : 0 }));
+}
+
+export function buildTrafficDatasets(domains: Domain[]): Record<TrafficRange, Highcharts.Options> {
+  const sorted = buildTrafficMonthlySeries(domains);
 
   const nowDate = new Date();
   const currentYear = nowDate.getFullYear();

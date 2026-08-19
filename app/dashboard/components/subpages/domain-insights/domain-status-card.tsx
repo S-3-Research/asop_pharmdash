@@ -38,15 +38,42 @@ export function DomainStatusCard({ domains }: DomainStatusCardProps) {
     return () => ro.disconnect();
   }, []);
 
+  // Per-secondary-category Online/Offline breakdown — mirrors the exact
+  // grouping logic used by buildDomainStatusOptions (config.ts) so the data
+  // points Copilot sees match what the stacked columns actually show,
+  // instead of only a flat live/inactive total with no category dimension.
+  const categoryBreakdown = useMemo(() => {
+    const secondarySet = new Set<string>();
+    for (const d of domains) {
+      for (const c of d.categories) secondarySet.add(c.secondary);
+    }
+    return Array.from(secondarySet).map((cat) => {
+      const inCategory = domains.filter((d) => d.categories.some((c) => c.secondary === cat));
+      return {
+        category: cat,
+        online: inCategory.filter((d) => d.isLive).length,
+        offline: inCategory.filter((d) => !d.isLive).length,
+      };
+    });
+  }, [domains]);
+
   useWidgetData(
     "domain-status",
     [
-      { label: "Live", value: domains.filter((d) => d.isLive).length },
-      { label: "Inactive", value: domains.filter((d) => !d.isLive).length },
+      { label: "Live (all categories)", value: domains.filter((d) => d.isLive).length },
+      { label: "Inactive (all categories)", value: domains.filter((d) => !d.isLive).length },
+      ...categoryBreakdown.map((c) => ({
+        label: `${c.category} — Online/Offline`,
+        value: `${c.online} online / ${c.offline} offline (${c.online + c.offline} total)`,
+      })),
     ],
-    "Shows live vs inactive rogue domains, broken down by secondary drug category in a stacked column chart. " +
-      "Data source: each domain record's isLive flag from the published data release, after the page's category filter. " +
-      "'Live' means the domain resolved and was serving content at scan time; 'Inactive' means it did not.",
+    "Stacked column chart of rogue domains broken down by secondary drug category (e.g. Ozempic, Tramadol). " +
+      "Each column represents one secondary category; its total height is the total number of domains selling that drug, " +
+      "split into a stacked 'Online' segment (currently live) and 'Offline' segment (taken down / no longer resolving). " +
+      "A domain selling multiple drugs contributes to multiple columns. " +
+      "The '<category> — Online/Offline' data points above give the EXACT per-category breakdown the chart is plotting — use these (not just the overall Live/Inactive totals) whenever asked about a specific drug/category. " +
+      "Data source: each domain record's categories[].secondary field and isLive flag from the published data release, after the page's category filter. " +
+      "'Online' means the domain resolved and was serving content at scan time; 'Offline' means it did not (e.g. taken down/seized).",
   );
 
   return (

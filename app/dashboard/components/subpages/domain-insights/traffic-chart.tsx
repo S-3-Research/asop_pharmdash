@@ -7,7 +7,7 @@ import { Plus, Minus, Search, Hand, Home, Menu } from "lucide-react";
 
 import { DashboardCard } from "../../ui/dashboard-card";
 import { useWidgetData } from "../../copilot/copilot-context";
-import { buildTrafficDatasets, type TrafficRange } from "./config";
+import { buildTrafficDatasets, buildTrafficMonthlySeries, type TrafficRange } from "./config";
 import type { Domain } from "../../types";
 
 interface TrafficChartProps {
@@ -50,17 +50,38 @@ export function TrafficChart({ domains }: TrafficChartProps) {
       }
     return { organic, paid };
   }, [domains]);
+
+  // Monthly average-clicks-per-domain series for the CURRENTLY SELECTED range
+  // (same data the chart itself is plotting) — this is what actually lets
+  // Copilot describe a month-over-month trend instead of just a lifetime sum.
+  const monthlySeries = useMemo(() => buildTrafficMonthlySeries(domains), [domains]);
+  const rangeSeries = useMemo(() => {
+    const nowDate = new Date();
+    const currentYear = nowDate.getFullYear();
+    switch (range) {
+      case "1M": return monthlySeries.slice(-1);
+      case "6M": return monthlySeries.slice(-6);
+      case "YTD": return monthlySeries.filter((p) => p.year === currentYear);
+      case "MAX":
+      default: return monthlySeries;
+    }
+  }, [monthlySeries, range]);
+
   useWidgetData(
     "domain-traffic",
     [
       { label: "Selected Range", value: range },
-      { label: "Total Organic Clicks (all periods)", value: totals.organic },
-      { label: "Total Paid Clicks (all periods)", value: totals.paid },
+      ...rangeSeries.map((p) => ({
+        label: `Avg Clicks/Domain — ${p.label}`,
+        value: Math.round(p.avg),
+      })),
       { label: "Domains Tracked", value: domains.length },
     ],
-    "Line chart of monthly SEO traffic (organic + paid search clicks) aggregated across all rogue domains, with a 1M / 6M / YTD range toggle. " +
-      "Data source: each domain record's seoClickHistory (monthly organicClicks and paidClicks from upstream SEO analytics) in the published data release. " +
-      "Totals here cover all available months regardless of the selected range; counts reflect the page's current category filter.",
+    "Line chart of monthly AVERAGE SEO traffic (organic + paid search clicks) per domain, with a 6M / YTD / MAX range toggle. " +
+      "Each month's value is the average across only the domains that had click data that month (missing months are not counted as 0). " +
+      "The 'Avg Clicks/Domain — <month>' data points above ARE the actual monthly series for the currently selected range (same numbers the chart is plotting) — use THESE to describe whether traffic is rising, falling, or flat month-over-month, comparing the most recent months against earlier ones. " +
+      "IMPORTANT: the underlying click history can extend further back than the current reporting period (CBU) — do NOT sum/aggregate all months into one grand total figure, as that number is not meaningful; always talk in terms of the monthly trend instead. " +
+      "Data source: each domain record's seoClickHistory (monthly organicClicks and paidClicks from upstream SEO analytics) in the published data release; counts reflect the page's current category filter.",
   );
 
   return (
