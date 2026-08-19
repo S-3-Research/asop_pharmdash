@@ -174,17 +174,17 @@ export function HeatmapMapClient({
         maxzoom: 8,
         paint: {
           "heatmap-weight":    ["get", "weight"],
-          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 0, 1, 8, 3],
+          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 0, 0.3, 8, .9],
           "heatmap-color": [
             "interpolate", ["linear"], ["heatmap-density"],
             0,   "rgba(33,102,172,0)",
             0.2, "rgba(103,169,207,0.6)",
             0.4, "rgba(209,229,240,0.8)",
             0.6, "rgba(253,219,199,0.9)",
-            0.8, "rgba(239,138,98,1)",
+            0.98, "rgba(239,138,98,1)",
             1,   "rgba(178,24,43,1)",
           ],
-          "heatmap-radius":  ["interpolate", ["linear"], ["zoom"], 0, 25, 8, 50],
+          "heatmap-radius":  ["interpolate", ["linear"], ["zoom"], 0, 15, 8, 30],
           "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 6, 1, 9, 0],
         },
       });

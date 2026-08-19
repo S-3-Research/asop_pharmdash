@@ -164,7 +164,14 @@ export function buildTotalDomainChart(
 export function buildDomainStatusOptions(domains: Domain[]): Highcharts.Options {
   const secondarySet = new Set<string>();
   for (const d of domains) {
-    for (const c of d.categories) secondarySet.add(c.secondary);
+    for (const c of d.categories) {
+      // "Unknown" (no resolvable product name — see lib/release-mapping.ts
+      // `meaningfulProductName`) is excluded outright, not toggleable: it
+      // isn't a real drug category and would otherwise show up as a
+      // meaningless column here.
+      if (c.secondary === "Unknown") continue;
+      secondarySet.add(c.secondary);
+    }
   }
   const cats = Array.from(secondarySet).slice(0, 11);
   const online  = cats.map((c) => domains.filter((d) => d.isLive && d.categories.some((p) => p.secondary === c)).length);

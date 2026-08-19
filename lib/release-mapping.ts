@@ -171,9 +171,27 @@ export function convertReportPeriod(reportPeriod: string): string {
 // Per-product category-pair + Listing derivation
 // ---------------------------------------------------------------------------
 
+/**
+ * A `product_name` only counts as meaningful if it's a non-empty, non-
+ * placeholder string — NOT merely non-null/undefined. Raw release data
+ * routinely has `product_name: ""` (empty string) or whitespace/"n/a"
+ * placeholders, none of which `??` catches. Anything that fails this check
+ * is bucketed as "Unknown" (displayed as "general-selling" — see
+ * app/dashboard/components/subpages/top-products/ranked.tsx `displayName`)
+ * rather than silently falling back to `product_title`, which is a
+ * different field (the listing/page title, not a resolved product name)
+ * and would misrepresent unresolved listings as categorized ones.
+ */
+function meaningfulProductName(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (trimmed === "" || trimmed.toLowerCase() === "n/a") return null;
+  return trimmed;
+}
+
 function productCategoryPairs(product: ProductInfoItem): DomainCategoryPair[] {
   const rawCategories = product.product_category ?? [];
-  const secondary = product.product_name ?? product.product_title;
+  const secondary = meaningfulProductName(product.product_name) ?? "Unknown";
   if (rawCategories.length === 0) {
     return [{ primary: "Uncategorized", secondary }];
   }
@@ -548,7 +566,7 @@ function resolveSocialCategories(
   const categories = productList
     .map((item) => ({
       primaryCategory: item.product_category ? normalizeCategoryLabel(item.product_category) : "Uncategorized",
-      secondaryCategory: item.product_name ?? "Unknown",
+      secondaryCategory: meaningfulProductName(item.product_name) ?? "Unknown",
     }))
     .filter(
       (pair, i, arr) =>

@@ -45,7 +45,13 @@ export function DomainStatusCard({ domains }: DomainStatusCardProps) {
   const categoryBreakdown = useMemo(() => {
     const secondarySet = new Set<string>();
     for (const d of domains) {
-      for (const c of d.categories) secondarySet.add(c.secondary);
+      for (const c of d.categories) {
+        // Kept in sync with buildDomainStatusOptions (config.ts): "Unknown"
+        // (no resolvable product name) isn't a real drug category and is
+        // excluded from the chart, so it's excluded here too.
+        if (c.secondary === "Unknown") continue;
+        secondarySet.add(c.secondary);
+      }
     }
     return Array.from(secondarySet).map((cat) => {
       const inCategory = domains.filter((d) => d.categories.some((c) => c.secondary === cat));
@@ -72,7 +78,7 @@ export function DomainStatusCard({ domains }: DomainStatusCardProps) {
       "split into a stacked 'Online' segment (currently live) and 'Offline' segment (taken down / no longer resolving). " +
       "A domain selling multiple drugs contributes to multiple columns. " +
       "The '<category> — Online/Offline' data points above give the EXACT per-category breakdown the chart is plotting — use these (not just the overall Live/Inactive totals) whenever asked about a specific drug/category. " +
-      "Data source: each domain record's categories[].secondary field and isLive flag from the published data release, after the page's category filter. " +
+      "Data source: each domain record's categories[].secondary field and isLive flag from the published data release, after the page's category filter. Domains with no resolvable product name (\"Unknown\") are excluded, since that isn't a real drug category. " +
       "'Online' means the domain resolved and was serving content at scan time; 'Offline' means it did not (e.g. taken down/seized).",
   );
 

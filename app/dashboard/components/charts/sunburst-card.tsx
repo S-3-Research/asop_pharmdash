@@ -221,6 +221,32 @@ export function SunburstCard({
     rootLabel,
   ]);
 
-  // No key needed: chart.update() handles rootId changes in-place with animation.
-  return <HighchartsReact highcharts={Highcharts} options={options} />;
+  // Stable signature of every node id currently in the tree (root + all
+  // primary/secondary ids). Changes ONLY when the node set itself changes
+  // structurally (e.g. the "Hide Unknown" toggle adding/removing secondary
+  // nodes, or the category filter changing which primaries exist) — NOT on
+  // every render, and NOT when only `selectedCategoryId`/rootId changes.
+  //
+  // This drives HighchartsReact's `key`: without it, toggling a node back
+  // into `data` after it had been filtered out relies on Highcharts'
+  // in-place chart.update() to add the point back into the sunburst's
+  // polar layout, which reserves its arc space (percentages/angles add up
+  // correctly) but can fail to actually paint the new point's shape —
+  // i.e. an invisible slice that still occupies space. Forcing a full
+  // remount (fresh `Highcharts.chart()`) whenever the node set changes
+  // sidesteps that incremental-update edge case entirely. Plain rootId
+  // zoom/drill (same node set) is unaffected and keeps its smooth in-place
+  // chart.update() animation — see comment below.
+  const nodeSignature = useMemo(() => {
+    const ids: string[] = ["root"];
+    for (const primary of data) {
+      ids.push(primary.id);
+      for (const child of primary.children ?? []) ids.push(child.id);
+    }
+    return ids.join("|");
+  }, [data]);
+
+  // Key = nodeSignature (only rootId changes on category selection —
+  // Highcharts animates that zoom in-place via chart.update() as before).
+  return <HighchartsReact key={nodeSignature} highcharts={Highcharts} options={options} />;
 }
