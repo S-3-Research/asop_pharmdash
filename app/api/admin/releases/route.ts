@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { requireRole } from "@/app/api/admin/_auth";
 import { createRelease, listReleases, readChannel } from "@/lib/releases";
+import { getSupabaseAdmin, DATA_BUCKET } from "@/lib/supabase-admin";
 import { PharmDashReleaseDataSchema } from "@/lib/schemas/pharmdash";
 import { runBusinessValidation } from "@/lib/release-validation";
 
@@ -13,10 +14,19 @@ import { runBusinessValidation } from "@/lib/release-validation";
  *
  * POST /api/admin/releases
  *   body: { reportPeriod: string, schemaVersion: string, data: <raw JSON> }
- *   -> validates (Zod + business rules), and if valid, creates an immutable
- *      release. Does NOT publish it to any channel.
+ *     -> legacy/small-payload path: raw (optionally gzip Content-Encoding)
+ *        body sent straight through this function. Subject to Vercel's
+ *        hard 4.5MB serverless-function request body limit.
+ *   body: { reportPeriod: string, schemaVersion: string, storagePath: string }
+ *     -> large-payload path: client already gzip-uploaded the payload
+ *        directly to Supabase Storage via a signed URL from
+ *        POST /api/admin/releases/upload-url (see that route). We download
+ *        it from Storage here instead — that transfer is between this
+ *        function and Supabase, not through Vercel's edge proxy, so it
+ *        isn't subject to the 4.5MB limit. The temp object is deleted once
+ *        read, regardless of what happens next.
  *
- *   `data` must be the full wrapped shape:
+ *   `data` (decoded, either way) must be the full wrapped shape:
  *     { domains: [...], social_media: [...], keyword_stats: [...] }
  */
 
@@ -41,28 +51,71 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  let body: unknown;
+  let reportPeriod: string | undefined;
+  let schemaVersion: string | undefined;
+  let data: unknown;
+  let tempStoragePath: string | null = null;
+
   try {
-    // Large release uploads are gzip-compressed client-side (see
-    // app/admin/data-releases/page.tsx `gzipJson`) to stay under Vercel's
-    // hard 4.5MB serverless-function request body limit. Fall back to plain
-    // JSON parsing for any caller that doesn't compress (e.g. curl/scripts).
+    // Release uploads are gzip-compressed client-side (see
+    // app/admin/data-releases/data-releases-client.tsx `gzipJson`) to
+    // shrink payloads. Small ones are still sent straight through this
+    // function; large ones go via Supabase Storage instead (storagePath
+    // path below) to dodge Vercel's hard 4.5MB request body limit entirely.
     if (request.headers.get("content-encoding") === "gzip") {
       const compressed = Buffer.from(await request.arrayBuffer());
       const decompressed = gunzipSync(compressed);
-      body = JSON.parse(decompressed.toString("utf-8"));
+      const parsed = JSON.parse(decompressed.toString("utf-8"));
+      reportPeriod = parsed.reportPeriod;
+      schemaVersion = parsed.schemaVersion;
+      data = parsed.data;
     } else {
-      body = await request.json();
+      const body = (await request.json()) as {
+        reportPeriod?: string;
+        schemaVersion?: string;
+        data?: unknown;
+        storagePath?: string;
+      };
+      reportPeriod = body.reportPeriod;
+      schemaVersion = body.schemaVersion;
+
+      if (body.storagePath) {
+        tempStoragePath = body.storagePath;
+        const supabase = getSupabaseAdmin();
+        const { data: file, error } = await supabase.storage
+          .from(DATA_BUCKET)
+          .download(body.storagePath);
+        if (error || !file) {
+          return NextResponse.json(
+            { message: `Failed to retrieve uploaded file: ${error?.message ?? "not found"}` },
+            { status: 400 },
+          );
+        }
+        const compressed = Buffer.from(await file.arrayBuffer());
+        const decompressed = gunzipSync(compressed);
+        // The client's gzipJson() compresses the *whole* wrapper object
+        // ({ reportPeriod, schemaVersion, data }), same as the
+        // Content-Encoding: gzip branch above — not just the `data`
+        // payload by itself. Unwrap `.data` here too, otherwise `data`
+        // ends up one level too deep (its actual `domains`/`social_media`/
+        // `keyword_stats` arrays are nested under `data.data.*`), which
+        // silently validates as an empty release (all three arrays fall
+        // back to their Zod `.default([])`) instead of erroring.
+        const parsed = JSON.parse(decompressed.toString("utf-8"));
+        data = parsed.data;
+      } else {
+        data = body.data;
+      }
     }
   } catch {
     return NextResponse.json({ message: "Invalid JSON body" }, { status: 400 });
+  } finally {
+    // Best-effort cleanup of the temp Storage object — it's already been
+    // fully read into memory above by this point either way.
+    if (tempStoragePath) {
+      void getSupabaseAdmin().storage.from(DATA_BUCKET).remove([tempStoragePath]);
+    }
   }
-
-  const { reportPeriod, schemaVersion, data } = (body ?? {}) as {
-    reportPeriod?: string;
-    schemaVersion?: string;
-    data?: unknown;
-  };
 
   if (!reportPeriod || !/^[a-zA-Z0-9-]+$/.test(reportPeriod)) {
     return NextResponse.json(

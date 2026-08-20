@@ -1,9 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { LogoNav } from "@/app/dashboard/components/logo-nav";
+import { supabaseBrowser } from "@/lib/supabase-browser";
+
+// Stay safely under Vercel's hard 4.5MB serverless-function request body
+// limit — payloads at or above this (post-gzip) size go via the direct-to-
+// Supabase-Storage signed-upload path instead of straight through the
+// function body. See `handleUpload` below and
+// app/api/admin/releases/upload-url/route.ts.
+const DIRECT_UPLOAD_THRESHOLD_BYTES = 3.5 * 1024 * 1024;
 
 /**
  * Gzip-compresses a JSON-serializable value in the browser before upload.
@@ -77,6 +85,26 @@ export default function DataReleasesClient() {
 
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  // Lightweight summary shown in place of the file's raw content — the full
+  // text is NEVER stored in React state (see `parsedFilePayloadRef` below).
+  const [fileSizeBytes, setFileSizeBytes] = useState<number | null>(null);
+  // Holds the already-parsed object for a file-based upload, so (a) the
+  // potentially tens-of-MB raw text never has to sit in a controlled
+  // <textarea>'s value (re-setting that on every unrelated re-render — e.g.
+  // `submitting`/`validationReport` changing during upload — was causing the
+  // sluggishness: browsers are slow to diff/reflow a huge textarea value on
+  // every render), and (b) JSON.parse only runs ONCE per file instead of
+  // once in handleFileChange (sanity check) and again in handleUpload.
+  // A ref (not state) because the parsed object itself never needs to
+  // trigger a re-render — only the lightweight fileName/fileSizeBytes
+  // summary above does.
+  const parsedFilePayloadRef = useRef<unknown>(null);
+
+  const clearFile = () => {
+    parsedFilePayloadRef.current = null;
+    setFileName(null);
+    setFileSizeBytes(null);
+  };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -84,12 +112,14 @@ export default function DataReleasesClient() {
     setSubmitError(null);
     try {
       const text = await file.text();
-      JSON.parse(text); // early sanity check
-      setJsonText(text);
+      const parsed = JSON.parse(text); // parsed ONCE, reused directly on submit
+      parsedFilePayloadRef.current = parsed;
+      setJsonText(""); // switch out of "paste" mode — file takes precedence
       setFileName(file.name);
+      setFileSizeBytes(file.size);
     } catch {
       setSubmitError(`File "${file.name}" is not valid JSON.`);
-      setFileName(null);
+      clearFile();
     }
     // Allow re-selecting the same file later.
     event.target.value = "";
@@ -131,12 +161,18 @@ export default function DataReleasesClient() {
     setSchemaErrors(null);
 
     let parsedData: unknown;
-    try {
-      parsedData = JSON.parse(jsonText);
-    } catch {
-      setSubmitError("Pasted content is not valid JSON.");
-      setSubmitting(false);
-      return;
+    if (fileName && parsedFilePayloadRef.current !== null) {
+      // File path: already parsed once in handleFileChange — reuse it
+      // instead of re-parsing a potentially tens-of-MB string.
+      parsedData = parsedFilePayloadRef.current;
+    } else {
+      try {
+        parsedData = JSON.parse(jsonText);
+      } catch {
+        setSubmitError("Pasted content is not valid JSON.");
+        setSubmitting(false);
+        return;
+      }
     }
 
     if (
@@ -152,11 +188,55 @@ export default function DataReleasesClient() {
       return;
     }
 
-    const res = await fetch("/api/admin/releases", {
-      method: "POST",
-      headers: { "Content-Type": "application/octet-stream", "Content-Encoding": "gzip" },
-      body: await gzipJson({ reportPeriod, schemaVersion, data: parsedData }),
-    });
+    const gzipped = await gzipJson({ reportPeriod, schemaVersion, data: parsedData });
+
+    let res: Response;
+    if (gzipped.size >= DIRECT_UPLOAD_THRESHOLD_BYTES) {
+      // Large payload: upload the gzip blob directly to Supabase Storage
+      // via a signed URL, bypassing Vercel's serverless-function body
+      // limit entirely, then hand the server just the storage path.
+      if (!supabaseBrowser) {
+        setSubmitError("Supabase browser client is not configured.");
+        setSubmitting(false);
+        return;
+      }
+
+      const urlRes = await fetch("/api/admin/releases/upload-url", { method: "POST" });
+      const urlBody = await urlRes.json();
+      if (!urlRes.ok) {
+        setSubmitError(urlBody.message ?? "Failed to prepare upload");
+        setSubmitting(false);
+        return;
+      }
+
+      // Use the bucket the server actually issued the signed token for —
+      // the token's signature is bound to a specific bucket+path pair, so
+      // uploading against a different (e.g. stale/default) bucket name
+      // fails with "Invalid signature" even though the token is valid.
+      const { error: uploadError } = await supabaseBrowser.storage
+        .from(urlBody.bucket)
+        .uploadToSignedUrl(urlBody.path, urlBody.token, gzipped, {
+          contentType: "application/gzip",
+        });
+
+      if (uploadError) {
+        setSubmitError(`Direct upload to storage failed: ${uploadError.message}`);
+        setSubmitting(false);
+        return;
+      }
+
+      res = await fetch("/api/admin/releases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportPeriod, schemaVersion, storagePath: urlBody.path }),
+      });
+    } else {
+      res = await fetch("/api/admin/releases", {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream", "Content-Encoding": "gzip" },
+        body: gzipped,
+      });
+    }
 
     const body = await res.json();
 
@@ -171,7 +251,7 @@ export default function DataReleasesClient() {
     setValidationReport(body.validation ?? null);
     setActionMessage(`Release "${body.manifest.releaseId}" created.`);
     setJsonText("");
-    setFileName(null);
+    clearFile();
     setSubmitting(false);
     refresh();
   };
@@ -326,22 +406,46 @@ export default function DataReleasesClient() {
               {fileName ? (
                 <span className="text-xs text-slate-500">
                   Loaded: <span className="font-mono">{fileName}</span>
+                  {fileSizeBytes != null ? (
+                    <span className="text-slate-400"> ({(fileSizeBytes / (1024 * 1024)).toFixed(1)} MB)</span>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={clearFile}
+                    className="ml-2 text-slate-400 hover:text-slate-700 underline"
+                  >
+                    Clear
+                  </button>
                 </span>
               ) : (
                 <span className="text-xs text-slate-400">or paste JSON below</span>
               )}
             </div>
-            <textarea
-              className="h-48 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-xs"
-              value={jsonText}
-              onChange={(e) => {
-                setJsonText(e.target.value);
-                setFileName(null);
-              }}
-              placeholder='{"domains": [], "social_media": [], "keyword_stats": []}'
-              required
-            />
+            {fileName ? (
+              // Deliberately NOT rendering the file's content into a
+              // <textarea> here: for large releases (tens of MB) that made
+              // every unrelated re-render during upload (submitting/
+              // validationReport/etc. changing) re-diff a huge controlled
+              // textarea value, which is what caused the browser to feel
+              // sluggish. The parsed object already lives in
+              // `parsedFilePayloadRef` and is used as-is on submit.
+              <div className="flex h-48 w-full items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-xs text-slate-400">
+                File loaded — content not displayed to keep the page responsive.
+                Click &quot;Clear&quot; above to paste JSON instead.
+              </div>
+            ) : (
+              <textarea
+                className="h-48 w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-xs"
+                value={jsonText}
+                onChange={(e) => {
+                  setJsonText(e.target.value);
+                }}
+                placeholder='{"domains": [], "social_media": [], "keyword_stats": []}'
+                required
+              />
+            )}
           </div>
+
 
           {submitError ? <p className="text-sm text-red-600">{submitError}</p> : null}
 
