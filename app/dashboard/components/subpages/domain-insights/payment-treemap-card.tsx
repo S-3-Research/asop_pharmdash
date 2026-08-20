@@ -5,6 +5,7 @@ import Highcharts from "highcharts";
 
 import { useMemo, useRef, useEffect } from "react";
 import { DashboardCard } from "../../ui/dashboard-card";
+import { KeyTakeaway } from "../../ui/key-takeaway";
 import { useWidgetData } from "../../copilot/copilot-context";
 import { buildPaymentTreemapOptions } from "./config";
 import type { Domain } from "../../types";
@@ -75,7 +76,15 @@ export function PaymentTreemapCard({ domains }: PaymentTreemapCardProps) {
   );
 
   return (
-    <DashboardCard title="Purported Payment Info" className="h-full overflow-hidden">
+    <DashboardCard
+      title="Purported Payment Info"
+      className="h-full overflow-hidden"
+      note={
+        <KeyTakeaway>
+          Crypto's share of purported payments has doubled since last period. (example data)
+        </KeyTakeaway>
+      }
+    >
       <div ref={chartWrapRef} className="relative h-full">
         <HighchartsReact
           ref={chartCompRef}

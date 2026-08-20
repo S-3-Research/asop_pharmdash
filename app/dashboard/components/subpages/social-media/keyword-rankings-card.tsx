@@ -6,6 +6,7 @@ import useSWR from "swr";
 
 import type { SocialKeywordCountPayload, SocialKeywordRanking } from "../../types";
 import { useWidgetData } from "../../copilot/copilot-context";
+import { KeyTakeaway } from "../../ui/key-takeaway";
 
 interface KeywordRankingsCardProps {
   rankings: SocialKeywordRanking[];
@@ -146,6 +147,12 @@ export function KeywordRankingsCard({ rankings, platform, categories }: KeywordR
             &gt;
           </button>
         </div>
+      </div>
+
+      <div className="mt-3 border-t border-gray-100 pt-2.5">
+        <KeyTakeaway>
+          3 keywords show a rising signal-to-raw ratio this period. (example data)
+        </KeyTakeaway>
       </div>
     </div>
   );

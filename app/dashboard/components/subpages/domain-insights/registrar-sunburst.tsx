@@ -5,6 +5,7 @@ import Highcharts from "highcharts";
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import { DashboardCard } from "../../ui/dashboard-card";
+import { KeyTakeaway } from "../../ui/key-takeaway";
 import { useWidgetData } from "../../copilot/copilot-context";
 import { buildRegistrarSunburstPoints } from "./config";
 import type { Domain } from "../../types";
@@ -136,6 +137,11 @@ export function RegistrarSunburst({ domains }: RegistrarSunburstProps) {
       title="Registrar"
       subtitle="Inner ring = registrar · outer ring = domain"
       className="h-full overflow-hidden"
+      note={
+        <KeyTakeaway>
+          3 registrars account for 57% of all flagged domains. (example data)
+        </KeyTakeaway>
+      }
     >
       <div className="flex items-center gap-2 mb-2 -mt-1">
         <button

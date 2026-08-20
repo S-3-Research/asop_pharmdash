@@ -6,6 +6,7 @@ import Highcharts from "highcharts";
 import { Plus, Minus, Search, Hand, Home, Menu } from "lucide-react";
 
 import { DashboardCard } from "../../ui/dashboard-card";
+import { KeyTakeaway } from "../../ui/key-takeaway";
 import { useWidgetData } from "../../copilot/copilot-context";
 import { buildTrafficDatasets, buildTrafficMonthlySeries, type TrafficRange } from "./config";
 import type { Domain } from "../../types";
@@ -85,7 +86,15 @@ export function TrafficChart({ domains }: TrafficChartProps) {
   );
 
   return (
-    <DashboardCard title="Average Traffic" className="h-full overflow-hidden">
+    <DashboardCard
+      title="Average Traffic"
+      className="h-full overflow-hidden"
+      note={
+        <KeyTakeaway>
+          Paid clicks account for a growing share of domain traffic. (example data)
+        </KeyTakeaway>
+      }
+    >
       <div className="flex h-full flex-col">
         {/* Toolbar */}
         <div className="flex items-center justify-between mb-2">

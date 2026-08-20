@@ -6,6 +6,7 @@ import Highcharts from "highcharts";
 
 import type { Domain } from "../../types";
 import { DashboardCard } from "../../ui/dashboard-card";
+import { KeyTakeaway } from "../../ui/key-takeaway";
 import { useWidgetData } from "../../copilot/copilot-context";
 import { buildTotalDomainChart } from "./config";
 
@@ -86,7 +87,11 @@ export function TotalDomainCard({ domains }: TotalDomainCardProps) {
       note={
         noPriorData ? (
           <span className="text-[10px] text-slate-400">Prior Rpt. Period data unavailable</span>
-        ) : undefined
+        ) : (
+          <KeyTakeaway>
+            Domain count is growing faster than the takedown rate. (example data)
+          </KeyTakeaway>
+        )
       }
     >
       <div className="flex h-full flex-col">

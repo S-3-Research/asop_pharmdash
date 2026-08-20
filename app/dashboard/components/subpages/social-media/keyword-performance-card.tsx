@@ -7,6 +7,7 @@ import useSWR from "swr";
 
 import type { SocialKeywordBubble, SocialKeywordCountPayload } from "../../types";
 import { useWidgetData } from "../../copilot/copilot-context";
+import { KeyTakeaway } from "../../ui/key-takeaway";
 
 // Load highcharts/more for bubble series (guards against double-init)
 if (typeof window !== "undefined") {
@@ -203,6 +204,11 @@ export function KeywordPerformanceCard({ bubbles, platform, categories }: Keywor
           options={options}
           containerProps={{ style: { position: "absolute", inset: 0 } }}
         />
+      </div>
+      <div className="mt-3 border-t border-gray-100 pt-2.5">
+        <KeyTakeaway>
+          Ratio, not bubble size, best predicts a keyword's signal quality. (example data)
+        </KeyTakeaway>
       </div>
     </div>
   );
