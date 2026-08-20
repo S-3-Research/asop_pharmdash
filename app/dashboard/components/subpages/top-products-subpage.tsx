@@ -12,6 +12,7 @@ import { MetricsRow } from "./top-products/metrics-row";
 import { TopProductsRanked } from "./top-products/ranked";
 import { ListingTrendChart } from "./top-products/trend-chart";
 import { ProductDistribution } from "./top-products/distribution";
+import { MethodologyCard } from "./top-products/methodology-card";
 import { formatRptPeriodLabel, parseRptPeriodKey } from "./top-products/config";
 
 // ── API response shape ────────────────────────────────────────────────────────
@@ -150,8 +151,11 @@ export function TopProductsSubpage() {
       <div className="mb-6">
         <div className="flex flex-col justify-between items-start gap-4 sm:flex-row sm:items-center">
           <div>
-            <h2 className="text-xl font-bold text-slate-800">{data.title}</h2>
-            <p className="mt-1 text-sm text-slate-500">{data.summary}</p>
+            <h2 className="text-xl font-bold text-slate-800">Overview</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Surveillance dashboard covering {realCategories.length || 2} categories of drugs monitored
+              for illegal online sale{realCategories.length > 0 ? `: ${realCategories.map((c) => c.name).join(", ")}` : ""}.
+            </p>
           </div>
           {data.categories.length > 0 && (
             <div className="w-full sm:w-auto min-w-xs">
@@ -173,9 +177,8 @@ export function TopProductsSubpage() {
             selectedPrimaryName={selectedPrimaryName}
             currentPeriodLabel={currentPeriodLabel}
           />
-          <div className="flex-1 grid">
+          <div className="grid">
             <SelectableCard
-              className="h-full"
               widget={{
                 widgetId: "top-products-ranked",
                 title: selectedPrimaryName ? `${selectedPrimaryName} — Top Products` : "Top Ranked Products",
@@ -190,6 +193,7 @@ export function TopProductsSubpage() {
               />
             </SelectableCard>
           </div>
+          <MethodologyCard />
         </div>
 
         {/* Right column */}
