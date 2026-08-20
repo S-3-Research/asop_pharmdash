@@ -152,7 +152,7 @@ const buildDonutOptions = (
 export const sidebarItems: SubPageNavItem[] = [
   {
     key: "top-products",
-    label: "Top Products",
+    label: "Overview",
     description: "Trending products and categories",
   },
   {

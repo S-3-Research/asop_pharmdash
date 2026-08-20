@@ -20,7 +20,7 @@ import type { SubPageKey } from "./types";
 const defaultSubPage: SubPageKey = "top-products";
 
 const subpageTitleMap: Record<SubPageKey, string> = {
-  "top-products": "Top Products",
+  "top-products": "Overview",
   "domain-insights": "Domain Insights",
   "social-media-insights": "Social Media Insights",
 };
