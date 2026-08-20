@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 
 /**
  * Shared dark "glass" backdrop for auth pages (login, forgot-password,
@@ -9,8 +9,18 @@ import type { ReactNode } from "react";
  * blurred card. Pass the form/content as children — this component only
  * owns the page chrome. The logo lives inside each page's card so it
  * scales with the card rather than floating separately above it.
+ *
+ * Wrapped in memo() because the parent (e.g. the login form) re-renders
+ * on every keystroke. Without memo, this whole tree — including the
+ * `<style>` tag and several stacked `filter: blur(...)` /
+ * `backdrop-filter: blur(...)` layers covering most of the viewport —
+ * was being reconciled on every keystroke. Re-touching those blur
+ * layers that often is expensive to composite on mobile GPUs and,
+ * combined with the viewport resize from the on-screen keyboard
+ * opening, was enough to crash the tab on mobile Chrome/Safari
+ * ("a problem occurred repeatedly").
  */
-export default function AuthBackground({ children }: { children: ReactNode }) {
+function AuthBackground({ children }: { children: ReactNode }) {
   return (
     <>
       <style
@@ -48,6 +58,24 @@ export default function AuthBackground({ children }: { children: ReactNode }) {
             linear-gradient(to right,  rgba(255,255,255,0.03) 1px, transparent 1px),
             linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
         }
+
+        /* Mobile browsers (particularly Chrome/Safari on iOS/Android) can
+         * crash the tab when several large, viewport-covering
+         * backdrop-filter/filter blur layers have to be recomposited in
+         * response to the on-screen keyboard resizing the viewport. Cut
+         * the blur cost substantially on small screens — visually close
+         * enough, and far cheaper for the GPU. */
+        @media (max-width: 768px) {
+          .auth-glass-card {
+            backdrop-filter: blur(8px);
+          }
+          .auth-beam-layer-1 {
+            filter: blur(24px) !important;
+          }
+          .auth-beam-layer-2 {
+            filter: blur(32px) !important;
+          }
+        }
       `,
         }}
       />
@@ -64,6 +92,7 @@ export default function AuthBackground({ children }: { children: ReactNode }) {
           style={{ width: "70vw", height: "80vh" }}
         >
           <div
+            className="auth-beam-layer-1"
             style={{
               position: "absolute",
               top: 0,
@@ -78,6 +107,7 @@ export default function AuthBackground({ children }: { children: ReactNode }) {
             }}
           />
           <div
+            className="auth-beam-layer-2"
             style={{
               position: "absolute",
               top: 0,
@@ -103,3 +133,6 @@ export default function AuthBackground({ children }: { children: ReactNode }) {
     </>
   );
 }
+
+export default memo(AuthBackground);
+

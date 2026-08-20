@@ -19,6 +19,24 @@ import type { FilterAction, PendingAction } from "./types";
 
 const B = "#64D6D8";
 
+// `crypto.randomUUID()` is only defined in secure contexts (HTTPS or
+// localhost). On mobile devices testing against the dev server over plain
+// HTTP (e.g. http://192.168.x.x:3000) `crypto.randomUUID` is `undefined`,
+// which throws "crypto.randomUUID is not a function" as soon as this panel
+// mounts. Fall back to a non-cryptographic UUID-shaped id in that case —
+// it's only used as a client-side chat session id, not for anything
+// security sensitive.
+function safeRandomUUID(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 // ── Panel ─────────────────────────────────────────────────────────────────────
 
 export function CopilotPanel() {
@@ -37,7 +55,7 @@ export function CopilotPanel() {
   } = useCopilot();
 
   // Stable session ID for this panel mount
-  const chatId = useMemo(() => crypto.randomUUID(), []);
+  const chatId = useMemo(() => safeRandomUUID(), []);
 
   const { messages, status, sendMessage, setMessages } = useChat({
     id: chatId,
