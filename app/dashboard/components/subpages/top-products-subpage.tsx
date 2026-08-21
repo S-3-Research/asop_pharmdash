@@ -13,6 +13,7 @@ import { TopProductsRanked } from "./top-products/ranked";
 import { ListingTrendChart } from "./top-products/trend-chart";
 import { ProductDistribution } from "./top-products/distribution";
 import { MethodologyCard } from "./top-products/methodology-card";
+import { OverallSummaryStrip } from "./top-products/overall-summary-strip";
 import { formatRptPeriodLabel, parseRptPeriodKey } from "./top-products/config";
 
 // ── API response shape ────────────────────────────────────────────────────────
@@ -23,6 +24,7 @@ interface TopProductsPayload {
   drillablePieData: PieChartNodeData[];
   /** From the published release's name (channel pointer); empty for mock data */
   reportingPeriodId?: string;
+  domainSummary: { total: number; aliveCount: number; socialCount: number };
   listings: ApiListing[];
 }
 
@@ -148,26 +150,37 @@ export function TopProductsSubpage() {
 
   return (
     <section>
-      <div className="mb-6">
-        <div className="flex flex-col justify-between items-start gap-4 sm:flex-row sm:items-center">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">Overview</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Surveillance dashboard covering {realCategories.length || 2} categories of drugs monitored
-              for illegal online sale{realCategories.length > 0 ? `: ${realCategories.map((c) => c.name).join(", ")}` : ""}.
-            </p>
-          </div>
-          {data.categories.length > 0 && (
-            <div className="w-full sm:w-auto min-w-xs">
-              <CategoryDropdown
-                categories={data.categories}
-                selectedId={selectedCategoryId}
-                onSelect={setSelectedCategoryId}
-              />
-            </div>
-          )}
-        </div>
+      <div className="mb-4">
+        <h2 className="text-xl font-bold text-slate-800">Overview</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Surveillance dashboard covering {realCategories.length || 2} categories of drugs monitored
+          for illegal online sale{realCategories.length > 0 ? `: ${realCategories.map((c) => c.name).join(", ")}` : ""}.
+        </p>
       </div>
+
+      {/* Persistent, all-category snapshot — deliberately independent of the
+          category filter below, so it always reflects the full dataset. */}
+      <div className="mb-4">
+        <OverallSummaryStrip allListings={data.listings} domainSummary={data.domainSummary} />
+      </div>
+
+      {/* Category filter is a chart-level control (scopes the ranked list /
+          trend chart / distribution chart below), kept visually close to
+          the grid it affects rather than up near the page title. */}
+      {data.categories.length > 0 && (
+        <div className="mb-4 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+            Chart Filter
+          </span>
+          <div className="w-full sm:w-auto sm:min-w-xs">
+            <CategoryDropdown
+              categories={data.categories}
+              selectedId={selectedCategoryId}
+              onSelect={setSelectedCategoryId}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-12 gap-6 items-stretch">
         {/* Left column */}

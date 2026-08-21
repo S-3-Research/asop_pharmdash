@@ -1,14 +1,27 @@
 import { NextResponse } from "next/server";
 
 import { requireAuthenticatedActor } from "@/app/api/admin/_auth";
-import { subPageDataMap } from "@/app/dashboard/components/mock-data";
+import { subPageDataMap, mockDomains } from "@/app/dashboard/components/mock-data";
 import { getActiveChannel } from "@/lib/channel";
 import { readChannel, fetchReleaseData, fetchTopProductsListings, isMockRelease } from "@/lib/releases";
 import {
   buildCategoryRegistry,
   buildDrillablePieData,
   convertReportPeriod,
+  mapReleaseDomain,
 } from "@/lib/release-mapping";
+import type { Domain } from "@/app/dashboard/components/types";
+
+/** Aggregate the domain-alive / social-presence counts the Overview page's
+ *  Overall Summary strip needs — always derived from the full domain set
+ *  for the release (or the mock domain set), never from the listings-only
+ *  payload, since "alive"/"has social profile" are Domain-level facts. */
+function buildDomainSummary(domains: Domain[]) {
+  const total = domains.length;
+  const aliveCount = domains.filter((d) => d.isLive).length;
+  const socialCount = domains.filter((d) => d.socialProfiles.length > 0).length;
+  return { total, aliveCount, socialCount };
+}
 
 export async function GET() {
   const auth = await requireAuthenticatedActor();
@@ -32,6 +45,7 @@ export async function GET() {
       categories,
       drillablePieData,
       reportingPeriodId: "",
+      domainSummary: buildDomainSummary(mockDomains),
       listings: (listings ?? []).map(
         ({ id, source, primaryCategory, secondaryCategory, reportingPeriodId }) => ({
           id,
@@ -46,6 +60,8 @@ export async function GET() {
 
   const release = await fetchReleaseData(pointer.current.releaseId);
   const listings = await fetchTopProductsListings(pointer.current.releaseId);
+  const reportingPeriodId = convertReportPeriod(pointer.current.reportPeriod);
+  const mappedDomains = release.domains.map((d) => mapReleaseDomain(d, reportingPeriodId));
   const categoryOptions = buildCategoryRegistry(release.domains);
   const categories = [{ id: "all", name: "All Categories" }, ...categoryOptions];
   const drillablePieData = buildDrillablePieData(listings);
@@ -56,7 +72,8 @@ export async function GET() {
     categories,
     drillablePieData,
     // Straight from the channel pointer's release name — not derived from rows
-    reportingPeriodId: convertReportPeriod(pointer.current.reportPeriod),
+    reportingPeriodId,
+    domainSummary: buildDomainSummary(mappedDomains),
     listings: listings.map(
       ({ id, source, primaryCategory, secondaryCategory, reportingPeriodId }) => ({
         id,
@@ -68,4 +85,5 @@ export async function GET() {
     ),
   });
 }
+
 
