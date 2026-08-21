@@ -1,4 +1,5 @@
 import type Highcharts from "highcharts";
+import { LayoutDashboard, Globe, Share2 } from "lucide-react";
 
 import { ALL_PRIMARY, CATEGORY_COLORS } from "./subpages/top-products/config";
 import type {
@@ -154,16 +155,19 @@ export const sidebarItems: SubPageNavItem[] = [
     key: "top-products",
     label: "Overview",
     description: "Trending products and categories",
+    icon: LayoutDashboard,
   },
   {
     key: "domain-insights",
     label: "Domain Insights",
     description: "Website traffic and domain trend",
+    icon: Globe,
   },
   {
     key: "social-media-insights",
     label: "Social Media Insights",
     description: "Platform-wise mention statistics",
+    icon: Share2,
   },
 ];
 

@@ -214,6 +214,7 @@ export function ListingTrendChart({
         subtitle: `rpt. period listing count · ${currentPeriodLabel}`,
         options,
       }}
+      subtitleClassName="py-1"
       note={
         isSingleRptPeriod ? (
           <p className="flex items-center gap-2 text-xs text-slate-400">

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 type DashboardCardProps = {
   title?: string;
   subtitle?: string;
+  subtitleClassName?: string;
   rightSlot?: ReactNode;
   variant?: "light" | "teal";
   className?: string;
@@ -13,6 +14,7 @@ type DashboardCardProps = {
 export function DashboardCard({
   title,
   subtitle,
+  subtitleClassName,
   rightSlot,
   variant = "light",
   className,
@@ -30,13 +32,17 @@ export function DashboardCard({
       } ${className ?? ""}`}
     >
       {title ? (
-        <header className="mb-4 flex items-start justify-between gap-3">
+        <header className="mb-1 flex items-start justify-between gap-3">
           <div>
             <h3 className={`text-sm font-semibold ${isTeal ? "text-white" : "text-slate-900"}`}>
               {title}
             </h3>
             {subtitle ? (
-              <p className={`mt-1 text-xs ${isTeal ? "text-[#9cd3e0]" : "text-slate-500"}`}>
+              <p
+                className={`text-xs ${isTeal ? "text-[#9cd3e0]" : "text-slate-500"} ${
+                  subtitleClassName ?? "mt-1"
+                }`}
+              >
                 {subtitle}
               </p>
             ) : null}
@@ -46,7 +52,7 @@ export function DashboardCard({
       ) : null}
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
       {note ? (
-        <div className={`mt-3 border-t pt-2.5 ${
+        <div className={`mt-0 border-t pt-2 ${
           isTeal ? "border-white/10" : "border-gray-100"
         }`}>
           {note}

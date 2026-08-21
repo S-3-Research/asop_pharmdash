@@ -4,6 +4,7 @@
 import type Highcharts from "highcharts";
 import type { CategoryOption, Domain } from "../../types";
 import { socialPlatformLabel } from "../../utils/platform-label";
+import { formatRptPeriodLabel } from "../top-products/config";
 
 const CHART_STYLE = { fontFamily: "var(--font-geist-sans)" };
 
@@ -98,6 +99,13 @@ export function buildTotalDomainChart(
 
   const noPriorData = prevKey == null;
 
+  // Labels aligned 1:1 with the (possibly ghost-baseline-prefixed) series
+  // data below, used by the tooltip formatter to show the real rpt. period
+  // name instead of a numeric point index.
+  const rptPeriodLabels: string[] = noPriorData
+    ? ["", formatRptPeriodLabel(currentRptPeriodId)]
+    : rptPeriodKeys.map(formatRptPeriodLabel);
+
   const areaSeries = rptPeriodKeys.map((k) => grouped[k] ?? 0);
   const liveSeries = rptPeriodKeys.map(
     (k) => allDomains.filter((d) => d.reportingPeriodId === k && d.isLive).length,
@@ -127,14 +135,40 @@ export function buildTotalDomainChart(
   ];
 
   const options: Highcharts.Options = {
-    chart: { height: 150, backgroundColor: "transparent", style: CHART_STYLE, margin: [0, 0, 0, 0], spacing: [0, 0, 0, 0] },
+    chart: { backgroundColor: "transparent", style: CHART_STYLE, margin: [0, 0, 0, 0], spacing: [0, 0, 0, 0] },
     title: { text: undefined },
+    // Kept as a plain numeric axis (no `categories`) — assigning `categories`
+    // switches Highcharts to a "category" axis type, which reserves half a
+    // category-width of padding on each end by default (its built-in
+    // behavior for bar/column-style spacing), and that padding can't be
+    // zeroed via chart.margin/spacing. That reserved padding was what made
+    // the chart's left/right edges suddenly inset after this was tried.
+    // The tooltip below instead looks up the real rpt. period label itself.
     xAxis: { visible: false },
     yAxis: { visible: false },
     legend: { enabled: false },
     credits: { enabled: false },
     accessibility: { enabled: false },
-    tooltip: { shared: true, outside: true, pointFormat: "{series.name}: <b>{point.y}</b><br/>" },
+    tooltip: {
+      shared: true,
+      outside: true,
+      // point.index in the (possibly ghost-baseline-prefixed) series lines
+      // up 1:1 with rptPeriodLabels above. `this` is cast to `any` because
+      // Highcharts' bundled formatter typing models the non-shared case
+      // (this: Point) and doesn't declare the shared-tooltip `this.points`
+      // shape, even though it's populated at runtime when `shared: true`.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      formatter(this: any) {
+        const points: { series: { name: string }; y: number; point: { index: number } }[] =
+          this.points ?? [this];
+        const idx = points[0]?.point?.index ?? 0;
+        const label = rptPeriodLabels[idx] ?? "";
+        const rows = points
+          .map((p) => `${p.series.name}: <b>${p.y}</b><br/>`)
+          .join("");
+        return `<b>${label}</b><br/>${rows}`;
+      },
+    },
     plotOptions: {
       area: {
         fillColor: { linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 }, stops: [[0, "rgba(56,189,248,0.55)"], [1, "rgba(56,189,248,0.02)"]] },
@@ -177,7 +211,7 @@ export function buildDomainStatusOptions(domains: Domain[]): Highcharts.Options 
   const online  = cats.map((c) => domains.filter((d) => d.isLive && d.categories.some((p) => p.secondary === c)).length);
   const offline = cats.map((c) => domains.filter((d) => !d.isLive && d.categories.some((p) => p.secondary === c)).length);
   return {
-    chart: { type: "column", backgroundColor: "transparent", style: CHART_STYLE },
+    chart: { type: "column", backgroundColor: "transparent", style: CHART_STYLE, spacingTop: 0,},
     title: { text: undefined },
     xAxis: {
       categories: cats.map((c) => (c.length > 11 ? c.slice(0, 11) + "..." : c)),
@@ -311,7 +345,7 @@ export function buildPaymentTreemapOptions(domains: Domain[]): Highcharts.Option
     });
   });
   return {
-    chart: { type: "treemap", backgroundColor: "transparent", style: CHART_STYLE },
+    chart: { type: "treemap", backgroundColor: "transparent", style: CHART_STYLE, spacingTop:2, },
     title: { text: undefined }, credits: { enabled: false }, accessibility: { enabled: false }, legend: { enabled: false },
     tooltip: { outside: true, pointFormat: "<b>{point.name}</b>: {point.value}" },
     series: [{
@@ -360,8 +394,8 @@ export function buildPaymentTreemapOptions(domains: Domain[]): Highcharts.Option
 // Blue → green gradient, ordered by descending domain count so the largest
 // registrar gets the deepest blue and later ones shade toward teal/green.
 // "Unknown" always stays a fixed neutral gray, outside the gradient.
-const REGISTRAR_GRADIENT = ["#60a5fa", "#38bdf8", "#2dd4bf", "#34d399", "#4ade80", "#86efac"];
-const REGISTRAR_UNKNOWN_COLOR = "#94a3b8";
+export const REGISTRAR_GRADIENT = ["#60a5fa", "#38bdf8", "#2dd4bf", "#34d399", "#4ade80", "#86efac"];
+export const REGISTRAR_UNKNOWN_COLOR = "#94a3b8";
 
 /** Darken a hex color by a fraction (0-1) toward black, used so a registrar's
  *  domain leaf nodes read as a deeper shade of their parent's gradient color. */
@@ -375,7 +409,7 @@ function darken(hex: string, amount: number): string {
 
 export function buildRegistrarSunburstPoints(
   domains: Domain[],
-  options?: { excludeUnknown?: boolean },
+  options?: { excludeUnknown?: boolean; excludeLabels?: string[] },
 ): { id: string; parent: string; name: string; fullName?: string; value?: number; color?: string }[] {
   // Use Map<registrar, Set<domain>> so both levels are deduplicated by
   // data-structure construction:
@@ -387,11 +421,13 @@ export function buildRegistrarSunburstPoints(
   // Registrars with missing/unresolved whois data are folded into a single
   // "Unknown" bucket rather than shown as their own segment.
   const excludeUnknown = options?.excludeUnknown ?? false;
+  const excludeSet = new Set(options?.excludeLabels ?? []);
   const byRegistrar = new Map<string, Set<string>>();
   for (const d of domains) {
     const raw = d.whois.registrar.trim();
     const r = raw === "" || raw === "Unknown" ? "Unknown" : raw;
     if (excludeUnknown && r === "Unknown") continue;
+    if (excludeSet.has(r)) continue;
     if (!byRegistrar.has(r)) byRegistrar.set(r, new Set());
     byRegistrar.get(r)!.add(d.domain); // Set.add is idempotent — no duplicates
   }

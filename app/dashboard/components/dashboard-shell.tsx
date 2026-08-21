@@ -67,7 +67,31 @@ function CopilotToggleButton() {
 
 function DashboardShellInner({ channel }: { channel: ChannelName }) {
   const [activeSubPage, setActiveSubPage] = useState<SubPageKey>(defaultSubPage);
-  const { setSelectedWidget } = useCopilot();
+  const { setSelectedWidget, isPanelOpen } = useCopilot();
+
+  // User's manually-chosen collapse preference, persisted across sessions.
+  // Kept separate from the Copilot-driven force-collapse below so opening/
+  // closing Copilot never overwrites what the user actually asked for.
+  const [userCollapsed, setUserCollapsed] = useState(false);
+  useEffect(() => {
+    const stored = window.localStorage.getItem("sidebar-collapsed");
+    if (stored === "1") setUserCollapsed(true);
+  }, []);
+
+  function toggleSidebarCollapsed() {
+    setUserCollapsed((prev) => {
+      const next = !prev;
+      window.localStorage.setItem("sidebar-collapsed", next ? "1" : "0");
+      return next;
+    });
+  }
+
+  // Effective collapsed state: the user's own preference OR a temporary
+  // override while the Copilot panel is open (there's limited horizontal
+  // room once Copilot's 380px panel is showing, so the sidebar auto-narrows
+  // — this does NOT touch/overwrite the user's stored preference, it just
+  // renders narrow for as long as the panel stays open).
+  const sidebarCollapsed = userCollapsed || isPanelOpen;
 
   // Clear selection when navigating between pages.
   // NOTE: page context (page/pageTitle/filters/stats) is owned and synced by
@@ -87,12 +111,21 @@ function DashboardShellInner({ channel }: { channel: ChannelName }) {
     <div className="flex h-screen flex-col overflow-hidden bg-[#0a1116] font-sans">
       <PreviewBanner channel={channel} />
       <div className="flex min-h-0 flex-1">
+        {/* Sidebar is a direct child of this row (not nested under TopNav),
+            so it naturally spans the row's full height — the Logo it
+            renders (in its own fixed-size, position-independent header
+            slot) is never squeezed/cut by TopNav's height. */}
         <Sidebar
           items={sidebarItems}
           activeKey={activeSubPage}
           onChange={setActiveSubPage}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={toggleSidebarCollapsed}
         />
 
+        {/* Right-hand column: TopNav sits above main+Copilot, confined to
+            this column's width (not the Sidebar's) — its total height
+            (56px + row) matches the Sidebar's full height exactly. */}
         <div className="flex min-w-0 flex-1 flex-col">
           <TopNav
             title={subpageTitleMap[activeSubPage]}
@@ -102,13 +135,15 @@ function DashboardShellInner({ channel }: { channel: ChannelName }) {
               </div>
             }
           />
-          <main className="flex-1 overflow-y-auto p-6 rounded-tl-3xl bg-[#f3f7f9]">
-            {subPageContent}
-          </main>
-        </div>
+          <div className="flex min-h-0 flex-1">
+            <main className="flex-1 overflow-y-auto p-6 rounded-tl-3xl bg-[#f3f7f9]">
+              {subPageContent}
+            </main>
 
-        {/* Right-side Copilot panel — full height, shows/hides via context */}
-        <CopilotPanel />
+            {/* Right-side Copilot panel — full height of this row, shows/hides via context */}
+            <CopilotPanel />
+          </div>
+        </div>
       </div>
     </div>
   );

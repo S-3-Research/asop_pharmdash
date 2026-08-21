@@ -102,7 +102,7 @@ export function TotalDomainCard({ domains }: TotalDomainCardProps) {
           </span>
         </div>
         <p className="text-xs text-slate-400 mb-2">vs prior rpt. period</p>
-        <div ref={chartWrapRef} className="-mx-4 -mb-4 min-h-0 flex-1 relative">
+        <div ref={chartWrapRef} className="-mx-4 min-h-0 flex-1 relative">
           <HighchartsReact
             ref={chartCompRef}
             highcharts={Highcharts}

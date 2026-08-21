@@ -14,13 +14,15 @@ const HighchartsReact = dynamic(() => import("highcharts-react-official"), {
 type HighchartsCardProps = {
   chart: ChartCardData;
   note?: ReactNode;
+  subtitleClassName?: string;
 };
 
-export function HighchartsCard({ chart, note }: HighchartsCardProps) {
+export function HighchartsCard({ chart, note, subtitleClassName }: HighchartsCardProps) {
   return (
     <DashboardCard
       title={chart.title}
       subtitle={chart.subtitle}
+      subtitleClassName={subtitleClassName}
       className="p-5"
       note={note}
     >

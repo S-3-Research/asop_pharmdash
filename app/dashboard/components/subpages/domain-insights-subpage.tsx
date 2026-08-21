@@ -15,6 +15,7 @@ import { PaymentTreemapCard } from "./domain-insights/payment-treemap-card";
 import { RegistrarSunburst }  from "./domain-insights/registrar-sunburst";
 import { TrafficChart }       from "./domain-insights/traffic-chart";
 import { HeatmapCard }        from "./domain-insights/heatmap-card";
+import { DomainExamplesCard } from "./domain-insights/domain-examples-card";
 import { SelectableCard }     from "../ui/selectable-card";
 
 const fetcher = (url: string) =>
@@ -137,92 +138,107 @@ export function DomainInsightsSubpage() {
         </div>
       )}
 
-      {/* ── Dashboard grid — mirrors dashboardlayout.tsx ── */}
+      {/* ── Dashboard grid — left: 3+3+1 chart grid, right: Domain Examples ── */}
       {!isLoading && !error && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 auto-rows-[350px]">
-
-          {/* Row 1 — four equal cards, all selectable */}
-          <SelectableCard
-            widget={{
-              widgetId: "domain-total",
-              title: "Total Domain",
-              type: "chart",
-              description: "Total rogue domains detected in current CBU with trend",
-            }}
-          >
-            <TotalDomainCard domains={filteredDomains} />
-          </SelectableCard>
-
-          <SelectableCard
-            widget={{
-              widgetId: "domain-status",
-              title: "Domain Status",
-              type: "chart",
-              description: "Live vs inactive domain breakdown",
-            }}
-          >
-            <DomainStatusCard domains={filteredDomains} />
-          </SelectableCard>
-
-          <SelectableCard
-            widget={{
-              widgetId: "domain-social-media",
-              title: "Social Media Platforms",
-              type: "distribution",
-              description: "Platform distribution of rogue domain signals",
-            }}
-          >
-            <SocialMediaCard domains={filteredDomains} />
-          </SelectableCard>
-
-          <SelectableCard
-            widget={{
-              widgetId: "domain-payment",
-              title: "Payment Methods",
-              type: "chart",
-              description: "Payment type distribution (Credit Card, Crypto, Bank Transfer)",
-            }}
-          >
-            <PaymentTreemapCard domains={filteredDomains} />
-          </SelectableCard>
-
-          {/* Row 2 — two single + one double-wide */}
-          <SelectableCard
-            widget={{
-              widgetId: "domain-registrar",
-              title: "Registrar Distribution",
-              type: "distribution",
-              description: "Sunburst chart of domain registrars",
-            }}
-          >
-            <RegistrarSunburst domains={filteredDomains} />
-          </SelectableCard>
-
-          <SelectableCard
-            widget={{
-              widgetId: "domain-traffic",
-              title: "Traffic Chart",
-              type: "chart",
-              description: "Domain traffic timeline within the CBU window",
-            }}
-          >
-            <TrafficChart domains={filteredDomains} />
-          </SelectableCard>
-
-          <div className="col-span-1 md:col-span-2 xl:col-span-2 flex flex-col">
+        <div className="grid grid-cols-12 gap-4 items-stretch">
+          {/* Left column — 7/12 width, charts in 3 rows (3, 3, 1) */}
+          <div className="col-span-12 xl:col-span-7 grid grid-cols-1 md:grid-cols-3 gap-4 auto-rows-[250px]">
+            {/* Row 1 */}
             <SelectableCard
-              className="h-full flex flex-col"
               widget={{
-                widgetId: "domain-heatmap",
-                title: "Geographic Heatmap",
-                type: "map",
-                description: "Geographic distribution of rogue domains by city",
+                widgetId: "domain-total",
+                title: "Total Domain",
+                type: "chart",
+                description: "Total rogue domains detected in current CBU with trend",
               }}
             >
-              <HeatmapCard domains={filteredDomains} selectedCategories={selectedCategories} />
+              <TotalDomainCard domains={filteredDomains} />
             </SelectableCard>
+
+            <SelectableCard
+              widget={{
+                widgetId: "domain-status",
+                title: "Domain Status",
+                type: "chart",
+                description: "Live vs inactive domain breakdown",
+              }}
+            >
+              <DomainStatusCard domains={filteredDomains} />
+            </SelectableCard>
+
+            <SelectableCard
+              widget={{
+                widgetId: "domain-social-media",
+                title: "Social Media Platforms",
+                type: "distribution",
+                description: "Platform distribution of rogue domain signals",
+              }}
+            >
+              <SocialMediaCard domains={filteredDomains} />
+            </SelectableCard>
+
+            {/* Row 2 */}
+            <SelectableCard
+              widget={{
+                widgetId: "domain-payment",
+                title: "Payment Methods",
+                type: "chart",
+                description: "Payment type distribution (Credit Card, Crypto, Bank Transfer)",
+              }}
+            >
+              <PaymentTreemapCard domains={filteredDomains} />
+            </SelectableCard>
+
+            <SelectableCard
+              widget={{
+                widgetId: "domain-registrar",
+                title: "Registrar Distribution",
+                type: "distribution",
+                description: "Sunburst chart of domain registrars",
+              }}
+            >
+              <RegistrarSunburst domains={filteredDomains} />
+            </SelectableCard>
+
+            <SelectableCard
+              widget={{
+                widgetId: "domain-traffic",
+                title: "Traffic Chart",
+                type: "chart",
+                description: "Domain traffic timeline within the CBU window",
+              }}
+            >
+              <TrafficChart domains={filteredDomains} />
+            </SelectableCard>
+
+            {/* Row 3 — map, full width of the left column */}
+            <div className="col-span-1 md:col-span-3 flex flex-col">
+              <SelectableCard
+                className="h-full flex flex-col"
+                widget={{
+                  widgetId: "domain-heatmap",
+                  title: "Geographic Heatmap",
+                  type: "map",
+                  description: "Geographic distribution of rogue domains by city",
+                }}
+              >
+                <HeatmapCard domains={filteredDomains} selectedCategories={selectedCategories} />
+              </SelectableCard>
+            </div>
           </div>
 
+          {/* Right column — 5/12 width, Domain Examples spans the full height.
+              max-h is pinned to the left column's intrinsic height (3 rows *
+              250px + 2 * 16px gaps = 782px) — without an explicit cap here,
+              this column has no height of its own, so when the grid computes
+              this row's auto height it uses DomainExamplesCard's full,
+              un-scrolled content height (all N sampled domains rendered),
+              which stretches the *whole* row (including the left column via
+              items-stretch) instead of being clipped to it. Keep this in
+              sync with the left grid's `auto-rows-[250px]` above. */}
+          <div className="col-span-12 xl:col-span-5 xl:max-h-[782px] overflow-hidden">
+            <DomainExamplesCard domains={filteredDomains} />
+          </div>
         </div>
       )}
     </section>

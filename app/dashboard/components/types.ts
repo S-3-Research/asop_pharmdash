@@ -40,6 +40,9 @@ export interface SubPageNavItem {
   key: SubPageKey;
   label: string;
   description: string;
+  /** Icon shown in the sidebar's collapsed (icon-only) state — a
+   *  lucide-react component reference, e.g. `LayoutDashboard`. */
+  icon: import("lucide-react").LucideIcon;
 }
 
 export interface CategoryOption {

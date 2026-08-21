@@ -7,7 +7,7 @@ import { useMemo, useState, useRef, useEffect } from "react";
 import { DashboardCard } from "../../ui/dashboard-card";
 import { KeyTakeaway } from "../../ui/key-takeaway";
 import { useWidgetData } from "../../copilot/copilot-context";
-import { buildRegistrarSunburstPoints } from "./config";
+import { buildRegistrarSunburstPoints, REGISTRAR_GRADIENT, REGISTRAR_UNKNOWN_COLOR } from "./config";
 import type { Domain } from "../../types";
 
 type HCWithModules = typeof Highcharts & { seriesTypes?: Record<string, unknown> };
@@ -33,10 +33,19 @@ interface RegistrarSunburstProps {
 }
 
 export function RegistrarSunburst({ domains }: RegistrarSunburstProps) {
-  // Default to showing "Unknown" registrars (unchanged prior behavior) —
-  // this toggle lets the user hide that bucket to focus on domains with
-  // resolvable WHOIS registrar data.
-  const [showUnknown, setShowUnknown] = useState(true);
+  // Set of legend labels currently hidden from the chart — any legend row
+  // (Unknown or a named top-2 registrar) can be toggled off to focus on the
+  // remaining segments; empty by default (everything shown).
+  const [hiddenLabels, setHiddenLabels] = useState<Set<string>>(new Set());
+
+  const toggleLabel = (label: string) => {
+    setHiddenLabels((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  };
 
   // See total-domain-card.tsx for why this ResizeObserver+reflow is needed.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,21 +66,49 @@ export function RegistrarSunburst({ domains }: RegistrarSunburstProps) {
     const byRegistrar = new Map<string, Set<string>>();
     for (const d of domains) {
       const r = d.whois.registrar.trim() || "Unknown";
-      if (!showUnknown && r === "Unknown") continue;
+      if (hiddenLabels.has(r)) continue;
       if (!byRegistrar.has(r)) byRegistrar.set(r, new Set());
       byRegistrar.get(r)!.add(d.domain);
     }
     return [...byRegistrar.entries()]
       .map(([label, set]) => ({ label, value: set.size }))
       .sort((a, b) => (b.value as number) - (a.value as number));
-  }, [domains, showUnknown]);
+  }, [domains, hiddenLabels]);
   useWidgetData(
     "domain-registrar",
     registrarCounts,
     "Sunburst chart of the registrars used by the rogue domains; each value is the number of unique domains registered with that registrar. " +
       "Data source: WHOIS registrar field of each domain record in the published data release (deduplicated by domain name). " +
-      `Counts reflect the page's current category filter${showUnknown ? "" : ", with domains lacking a resolvable registrar (\"Unknown\") excluded via the card's toggle"}.`,
+      `Counts reflect the page's current category filter${hiddenLabels.size === 0 ? "" : `, with ${[...hiddenLabels].join(", ")} hidden via the legend`}.`,
   );
+
+  // ── Legend model — always computed from the FULL/unfiltered-by-hiding
+  //    set so each row's share always reflects its true (unhidden) count,
+  //    and every row remains clickable regardless of its current visibility.
+  //    Shows Unknown + the top 2 named registrars only (no "Others" bucket). ──
+  const legendItems = useMemo(() => {
+    const byRegistrar = new Map<string, Set<string>>();
+    for (const d of domains) {
+      const r = d.whois.registrar.trim() || "Unknown";
+      if (!byRegistrar.has(r)) byRegistrar.set(r, new Set());
+      byRegistrar.get(r)!.add(d.domain);
+    }
+    const total = domains.length;
+    const unknown = byRegistrar.get("Unknown");
+    const named = [...byRegistrar.entries()]
+      .filter(([label]) => label !== "Unknown")
+      .sort((a, b) => b[1].size - a[1].size);
+    const top2 = named.slice(0, 2);
+
+    const rows: { label: string; count: number; color: string }[] = [];
+    if (unknown && unknown.size > 0) {
+      rows.push({ label: "Unknown", count: unknown.size, color: REGISTRAR_UNKNOWN_COLOR });
+    }
+    top2.forEach(([label, set], i) => {
+      rows.push({ label, count: set.size, color: REGISTRAR_GRADIENT[i % REGISTRAR_GRADIENT.length] });
+    });
+    return rows.map((r) => ({ ...r, pct: total > 0 ? Math.round((r.count / total) * 100) : 0 }));
+  }, [domains]);
 
   const options = useMemo<Highcharts.Options>(
     () => ({
@@ -80,6 +117,7 @@ export function RegistrarSunburst({ domains }: RegistrarSunburstProps) {
         backgroundColor: "transparent",
         style: { fontFamily: "var(--font-geist-sans)" },
         margin: [0, 0, 0, 0],
+        spacing: [0, 0, 0, 0],
       },
       title: { text: undefined },
       credits: { enabled: false },
@@ -125,11 +163,11 @@ export function RegistrarSunburst({ domains }: RegistrarSunburstProps) {
         {
           type: "sunburst" as any, // eslint-disable-line @typescript-eslint/no-explicit-any
           name: "Registrars",
-          data: buildRegistrarSunburstPoints(domains, { excludeUnknown: !showUnknown }) as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+          data: buildRegistrarSunburstPoints(domains, { excludeLabels: [...hiddenLabels] }) as any, // eslint-disable-line @typescript-eslint/no-explicit-any
         },
       ],
     }),
-    [domains, showUnknown],
+    [domains, hiddenLabels],
   );
 
   return (
@@ -143,35 +181,55 @@ export function RegistrarSunburst({ domains }: RegistrarSunburstProps) {
         </KeyTakeaway>
       }
     >
-      <div className="flex items-center gap-2 mb-2 -mt-1">
-        <button
-          type="button"
-          role="switch"
-          aria-checked={showUnknown}
-          onClick={() => setShowUnknown((v) => !v)}
-          className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
-            showUnknown ? "bg-slate-300" : "bg-blue-500"
-          }`}
-          title={showUnknown ? "Hide domains with an unresolved registrar" : "Show domains with an unresolved registrar"}
-        >
-          <span
-            className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${
-              showUnknown ? "translate-x-0.5" : "translate-x-3.5"
-            }`}
+      <div className="flex h-full gap-3">
+        {/* Legend — Unknown + top 2 registrars, each independently clickable to show/hide */}
+        <ul className="flex w-24 shrink-0 flex-col justify-center gap-2.5">
+          {legendItems.map((item) => {
+            const dimmed = hiddenLabels.has(item.label);
+            return (
+              <li key={item.label}>
+                <button
+                  type="button"
+                  onClick={() => toggleLabel(item.label)}
+                  title={dimmed ? `Show ${item.label}` : `Hide ${item.label}`}
+                  aria-pressed={!dimmed}
+                  className="flex w-full cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-slate-50"
+                >
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={
+                      dimmed
+                        ? { border: `1.5px solid ${item.color}`, backgroundColor: "transparent" }
+                        : { backgroundColor: item.color }
+                    }
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className={`block truncate text-[10px] font-medium leading-tight ${
+                        dimmed ? "text-slate-300" : "text-slate-600"
+                      }`}
+                    >
+                      {item.label}
+                    </span>
+                    <span className={`block text-[10px] leading-tight ${dimmed ? "text-slate-300" : "text-slate-400"}`}>
+                      {item.pct}%
+                    </span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+
+        <div ref={chartWrapRef} className="relative flex-1 min-w-0">
+          <HighchartsReact
+            ref={chartCompRef}
+            highcharts={Highcharts}
+            options={options}
+            immutable
+            containerProps={{ style: { position: "absolute", inset: 0 } }}
           />
-        </button>
-        <span className="text-[11px] text-slate-500">
-          {showUnknown ? "Showing Unknown" : "Hiding Unknown"}
-        </span>
-      </div>
-      <div ref={chartWrapRef} className="relative h-full">
-        <HighchartsReact
-          ref={chartCompRef}
-          highcharts={Highcharts}
-          options={options}
-          immutable
-          containerProps={{ style: { position: "absolute", inset: 0 } }}
-        />
+        </div>
       </div>
     </DashboardCard>
   );

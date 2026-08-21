@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 
 type Me = { email: string; role: "admin" | "manager" | "viewer" } | null;
 
-export function UserMenu() {
+export function UserMenu({ collapsed = false }: { collapsed?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [me, setMe] = useState<Me>(null);
@@ -41,6 +42,65 @@ export function UserMenu() {
   const isAdmin = me?.role === "admin";
   const isManager = me?.role === "manager";
 
+  const menu = open ? (
+    <div
+      className={`absolute z-30 overflow-hidden rounded-lg border border-[#1f2a31] bg-[#0f1a20] shadow-xl ${
+        collapsed
+          ? "bottom-0 left-full ml-2 w-48"
+          : "bottom-full left-4 right-4 mb-2"
+      }`}
+    >
+      {isAdmin ? (
+        <Link
+          href="/admin/data-releases"
+          onClick={() => setOpen(false)}
+          className="block px-4 py-2.5 text-sm text-gray-200 transition-colors hover:bg-[#1a252c]"
+        >
+          Data Releases
+        </Link>
+      ) : null}
+      {isAdmin || isManager ? (
+        <Link
+          href="/admin/users"
+          onClick={() => setOpen(false)}
+          className="block px-4 py-2.5 text-sm text-gray-200 transition-colors hover:bg-[#1a252c]"
+        >
+          Users
+        </Link>
+      ) : null}
+      <Link
+        href="/dashboard/settings"
+        onClick={() => setOpen(false)}
+        className="block px-4 py-2.5 text-sm text-gray-200 transition-colors hover:bg-[#1a252c]"
+      >
+        Settings
+      </Link>
+      <button
+        type="button"
+        onClick={onLogout}
+        className="block w-full px-4 py-2.5 text-left text-sm text-gray-200 transition-colors hover:bg-[#1a252c]"
+      >
+        Logout
+      </button>
+    </div>
+  ) : null;
+
+  if (collapsed) {
+    return (
+      <div ref={containerRef} className="relative mb-2 flex justify-center p-3">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          title={email}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-600 text-sm font-bold transition-transform active:scale-95"
+        >
+          {initial}
+        </button>
+        {menu}
+      </div>
+    );
+  }
+
   return (
     <div ref={containerRef} className="relative mb-2 p-4">
       <button
@@ -57,44 +117,15 @@ export function UserMenu() {
             <div className="truncate text-xs capitalize text-gray-500">{me.role}</div>
           ) : null}
         </div>
+        {/* Explicit affordance that this button opens a menu — previously
+            there was no visual cue distinguishing it from plain info text. */}
+        <ChevronDown
+          size={15}
+          className={`shrink-0 text-gray-500 transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
-      {open ? (
-        <div className="absolute bottom-full left-4 right-4 mb-2 overflow-hidden rounded-lg border border-[#1f2a31] bg-[#0f1a20] shadow-xl">
-          {isAdmin ? (
-            <Link
-              href="/admin/data-releases"
-              onClick={() => setOpen(false)}
-              className="block px-4 py-2.5 text-sm text-gray-200 transition-colors hover:bg-[#1a252c]"
-            >
-              Data Releases
-            </Link>
-          ) : null}
-          {isAdmin || isManager ? (
-            <Link
-              href="/admin/users"
-              onClick={() => setOpen(false)}
-              className="block px-4 py-2.5 text-sm text-gray-200 transition-colors hover:bg-[#1a252c]"
-            >
-              Users
-            </Link>
-          ) : null}
-          <Link
-            href="/dashboard/settings"
-            onClick={() => setOpen(false)}
-            className="block px-4 py-2.5 text-sm text-gray-200 transition-colors hover:bg-[#1a252c]"
-          >
-            Settings
-          </Link>
-          <button
-            type="button"
-            onClick={onLogout}
-            className="block w-full px-4 py-2.5 text-left text-sm text-gray-200 transition-colors hover:bg-[#1a252c]"
-          >
-            Logout
-          </button>
-        </div>
-      ) : null}
+      {menu}
     </div>
   );
 }

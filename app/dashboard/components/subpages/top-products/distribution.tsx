@@ -76,7 +76,7 @@ export function ProductDistribution({
         </KeyTakeaway>
       }
     >
-      <div className="mb-4 -mt-3 flex items-center justify-between gap-3">
+      <div className="mb-4 flex items-center justify-between gap-3 py-1">
         <p className="text-xs text-slate-500">
           Inner ring = category · outer ring = product · click to filter
         </p>

@@ -97,7 +97,7 @@ export function TrafficChart({ domains }: TrafficChartProps) {
     >
       <div className="flex h-full flex-col">
         {/* Toolbar */}
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-0">
           {/* Time-range selector */}
           <div className="flex divide-x divide-slate-200 border border-slate-200 rounded bg-white shadow-sm text-xs text-slate-600">
             {RANGES.map((r) => (

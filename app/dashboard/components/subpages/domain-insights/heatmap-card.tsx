@@ -57,7 +57,7 @@ export function HeatmapCard({ domains, selectedCategories }: HeatmapCardProps) {
         </KeyTakeaway>
       }
     >
-      <div className="flex-1 min-h-0 relative -mx-4 -mb-4 rounded-b-xl overflow-hidden">
+      <div className="flex-1 min-h-0 relative -mx-4 rounded-xl overflow-hidden">
         <HeatmapMapClient domains={domains} selectedCategories={selectedCategories} />
       </div>
     </DashboardCard>
