@@ -139,5 +139,6 @@ export interface CopilotContextValue {
   // ── Panel visibility ──
   isPanelOpen: boolean;
   openPanel: () => void;
+  closePanel: () => void;
   togglePanel: () => void;
 }

@@ -47,7 +47,7 @@ export function Sidebar({ items, activeKey, onChange, collapsed, onToggleCollaps
             alt="ASOP Global x S3"
             width={176}
             height={28}
-            className="absolute left-3 top-1/2 z-10 h-10 w-auto max-w-none -translate-y-1/2"
+            className="absolute left-6 top-1/2 z-10 h-10 w-auto max-w-none -translate-y-1/2"
             priority
           />
         </div>

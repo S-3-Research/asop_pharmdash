@@ -67,7 +67,7 @@ function CopilotToggleButton() {
 
 function DashboardShellInner({ channel }: { channel: ChannelName }) {
   const [activeSubPage, setActiveSubPage] = useState<SubPageKey>(defaultSubPage);
-  const { setSelectedWidget, isPanelOpen } = useCopilot();
+  const { setSelectedWidget, isPanelOpen, closePanel } = useCopilot();
 
   // User's manually-chosen collapse preference, persisted across sessions.
   // Kept separate from the Copilot-driven force-collapse below so opening/
@@ -79,11 +79,24 @@ function DashboardShellInner({ channel }: { channel: ChannelName }) {
   }, []);
 
   function toggleSidebarCollapsed() {
+    // If the sidebar is currently narrow *only* because Copilot forced it
+    // (isPanelOpen) and the user hasn't manually collapsed it, clicking the
+    // toggle clearly means "expand" — just close Copilot and leave
+    // userCollapsed untouched (flipping it to true here would leave the
+    // sidebar collapsed for the wrong reason once Copilot closes).
+    if (isPanelOpen && !userCollapsed) {
+      closePanel();
+      return;
+    }
     setUserCollapsed((prev) => {
       const next = !prev;
       window.localStorage.setItem("sidebar-collapsed", next ? "1" : "0");
       return next;
     });
+    // Otherwise (userCollapsed was true), the user is expanding manually —
+    // also close Copilot if it's open, since sidebarCollapsed = userCollapsed
+    // || isPanelOpen would otherwise keep it collapsed regardless.
+    if (isPanelOpen) closePanel();
   }
 
   // Effective collapsed state: the user's own preference OR a temporary

@@ -112,6 +112,10 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
   );
 
   const openPanel = useCallback(() => setIsPanelOpen(true), []);
+  const closePanel = useCallback(() => {
+    setIsPanelOpen(false);
+    setSelectedWidget(null);
+  }, []);
   const togglePanel = useCallback(() => {
     setIsPanelOpen((p) => {
       // Closing the panel also deselects any selected card.
@@ -137,6 +141,7 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
         registerFilterHandler,
         isPanelOpen,
         openPanel,
+        closePanel,
         togglePanel,
       }}
     >
