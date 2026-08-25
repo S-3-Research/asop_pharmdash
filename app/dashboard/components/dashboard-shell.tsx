@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
 
+import "@/lib/highcharts-theme";
 import type { ChannelName } from "@/lib/releases";
 import { CopilotPanel } from "./copilot/copilot-panel";
 import { CopilotProvider, useCopilot } from "./copilot/copilot-context";
