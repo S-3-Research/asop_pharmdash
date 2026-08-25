@@ -46,7 +46,7 @@ const openaiClient = createOpenAI({
 
 function buildSystemPrompt(
   ctx: PageContext,
-  widget: SelectedWidget | null,
+  widget: (SelectedWidget & { dataNote?: string }) | null,
   widgetsSnapshot?: WidgetSnapshot[],
 ): string {
   const lines: string[] = [
@@ -172,7 +172,11 @@ export async function POST(req: Request) {
     messages: UIMessage[];
     id?: string;
     pageContext?: PageContext;
-    selectedWidget?: SelectedWidget | null;
+    /** SelectedWidget plus a wire-only `dataNote` field — the client
+     *  (copilot-panel.tsx) attaches the widget's live useWidgetData prompt
+     *  under this name when sending a message; it is intentionally not part
+     *  of the shared SelectedWidget type (which only describes UI state). */
+    selectedWidget?: (SelectedWidget & { dataNote?: string }) | null;
     widgetsSnapshot?: WidgetSnapshot[];
     /** When true (Suggest filters / Suggest a filter buttons), the model MUST
      *  call propose_filter_action on its first step instead of just chatting

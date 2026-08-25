@@ -88,11 +88,10 @@ export interface SelectedWidget {
   widgetId: string;
   title: string;
   type: WidgetType;
-  /** Short, customer-facing summary (max ~3 sentences) shown in the hover
-   *  Info tooltip — what the widget shows and how to read it, in plain
-   *  language (no data-source/pipeline detail). */
   description?: string;
   dataPoints?: WidgetDataPoint[];
+  /** Card-provided prompt fragment describing content & data provenance */
+  dataNote?: string;
 }
 
 // ── Filter Actions ────────────────────────────────────────────────────────────
@@ -146,6 +145,8 @@ export interface CopilotContextValue {
   // ── Panel visibility ──
   isPanelOpen: boolean;
   openPanel: () => void;
+  /** Explicitly closes the panel and clears any selected widget — distinct
+   *  from togglePanel, which flips based on current state. */
   closePanel: () => void;
   togglePanel: () => void;
 }
