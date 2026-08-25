@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import useSWR from "swr";
 import { CheckCircle2 } from "lucide-react";
 
@@ -10,7 +10,7 @@ import { HoverTextTooltip } from "../../ui/hover-text-tooltip";
 import { platformColor } from "./config";
 import { socialPlatformLabel } from "../../utils/platform-label";
 
-const PAGE_SIZE = 8;
+const MAX_SAMPLES = 50;
 
 const fetcher = (url: string) =>
   fetch(url).then((r) => {
@@ -25,16 +25,9 @@ interface SignalSamplesCardProps {
 }
 
 export function SignalSamplesCard({ categories, platform }: SignalSamplesCardProps) {
-  const [loadedPages, setLoadedPages] = useState(1);
-
-  // Reset pagination whenever filters change
-  useEffect(() => {
-    setLoadedPages(1);
-  }, [categories.join(","), platform]);
-
   const params = new URLSearchParams({
     page: "1",
-    pageSize: String(PAGE_SIZE * loadedPages),
+    pageSize: String(MAX_SAMPLES),
   });
   if (categories.length > 0) params.set("categories", categories.join(","));
   if (platform !== "all") params.set("platform", platform);
@@ -47,7 +40,6 @@ export function SignalSamplesCard({ categories, platform }: SignalSamplesCardPro
 
   const samples = data?.samples ?? [];
   const total   = data?.total ?? 0;
-  const hasMore = samples.length < total;
 
   useWidgetData(
     "social-signal-samples",
@@ -59,7 +51,7 @@ export function SignalSamplesCard({ categories, platform }: SignalSamplesCardPro
         value: s.text,
       })),
     ],
-    "Feed of sample social media posts/comments flagged as pharmaceutical signals, with platform badges; paginated via a 'load more' button. " +
+    "Feed of sample social media posts/comments flagged as illegal selling posts/comments, with platform badges; paginated via a 'load more' button. " +
       "Data points include the total matching count and the full text of every currently loaded sample. " +
       "Data source: live samples API backed by the published data release, after the page's category/platform filter selection.",
   );
@@ -68,9 +60,11 @@ export function SignalSamplesCard({ categories, platform }: SignalSamplesCardPro
     <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col h-full">
       <div className="flex justify-between items-center mb-4">
         <h3 className="font-semibold text-gray-800 text-sm">
-          Signal Samples
+          Selling Posts/Comments Samples
           {total > 0 && (
-            <span className="ml-2 text-[11px] text-gray-400 font-normal">{total} total</span>
+            <span className="ml-2 text-[11px] text-gray-400 font-normal">
+              {Math.min(total, MAX_SAMPLES)} shown (50 max)
+            </span>
           )}
         </h3>
       </div>
@@ -171,16 +165,6 @@ export function SignalSamplesCard({ categories, platform }: SignalSamplesCardPro
             </div>
           );
         })}
-
-        {hasMore && (
-          <button
-            onClick={() => setLoadedPages((p) => p + 1)}
-            disabled={isLoading}
-            className="text-xs text-blue-500 font-medium py-2 text-center hover:underline flex-shrink-0 disabled:opacity-50"
-          >
-            {isLoading ? "Loading…" : `Load more (${total - samples.length} remaining)`}
-          </button>
-        )}
 
         {!isLoading && samples.length === 0 && (
           <div className="text-xs text-gray-400 text-center py-8">No samples found.</div>

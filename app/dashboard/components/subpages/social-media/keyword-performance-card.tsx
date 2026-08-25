@@ -7,7 +7,7 @@ import useSWR from "swr";
 
 import type { SocialKeywordBubble, SocialKeywordCountPayload } from "../../types";
 import { useWidgetData } from "../../copilot/copilot-context";
-import { KeyTakeaway } from "../../ui/key-takeaway";
+import { KeyTakeaway, KEY_TAKEAWAY_SUPPRESSED } from "../../ui/key-takeaway";
 
 // Load highcharts/more for bubble series (guards against double-init)
 if (typeof window !== "undefined") {
@@ -84,19 +84,19 @@ export function KeywordPerformanceCard({ bubbles, platform, categories }: Keywor
           : rawCount === 0
             ? " (raw hits: 0)"
             : "";
-      return { label: b.keyword, value: `${b.signalCount} signals${ratioPart}` };
+      return { label: b.keyword, value: `${b.signalCount} selling posts/comments${ratioPart}` };
     }),
-    "Bubble chart of keyword performance: bubble size = signal count per monitored keyword, plus a live raw-mention count per keyword (x-axis = raw count). " +
-      "Meaning: for each keyword, we search that platform using the keyword and retrieve a set of 'raw' results/mentions (rawCount); " +
-      "'signalCount' is the number of those raw results that were detected/classified as illegal-selling signals (e.g. rogue pharmacy listings or solicitations). " +
-      "So rawCount is the total search hits for the keyword, and signalCount is the subset flagged as actual illegal-selling signals within that raw data. " +
-      "IMPORTANT for prioritization: what matters most is the RELATIVE SIZE of signalCount vs rawCount (i.e. the signal-to-raw ratio/'hit rate'), not the absolute numbers alone. " +
-      "A keyword with a small rawCount but a high signalCount/rawCount ratio is a concentrated, high-confidence signal and deserves attention even if its raw volume is low; " +
-      "a keyword with a huge rawCount but a low ratio (mostly noise/false positives) is lower priority despite a large signalCount or large bubble. " +
-      "When asked which keywords are worth watching, compare signalCount against rawCount (not signalCount/bubble size in isolation) and call out keywords with an unusually high ratio. " +
+    "Bubble chart of keyword performance: bubble size = selling posts/comments count per monitored keyword, plus a live raw-mention count per keyword (x-axis = raw count). " +
+      "Meaning: for each keyword, we search that platform using the keyword and retrieve a set of 'raw' search results (rawCount); " +
+      "'signalCount' is the number of those raw results that were detected/classified as illegal selling posts/comments. " +
+      "Keyword Performance is essentially a SEARCH-YIELD metric: it shows how likely a search for a particular keyword is to surface content associated with illicit selling activity (signalCount / rawCount, the 'hit rate'). " +
+      "A keyword with a relatively high hit rate can represent a higher-value surveillance or enforcement target, even if that keyword generates fewer overall posts (a small rawCount) — a small, concentrated, high-confidence set of hits deserves attention. " +
+      "Conversely, a keyword with a huge rawCount but a low hit rate is mostly noise/false positives and is lower priority despite a large signalCount or large bubble. " +
+      "As additional reporting periods accumulate, changes in these hit/signal rates can also help observe how illicit sellers shift their language and tactics over time, potentially in response to platform enforcement, policy changes, or broader market trends — so hit-rate trends across periods are as informative as any single period's snapshot. " +
+      "When asked which keywords are worth watching, compare signalCount against rawCount (not signalCount or bubble size in isolation) and call out keywords with an unusually high hit rate. " +
       "NOTE: rawCount/ratio above is only available for keywords among the top 12 (fetched live from the keyword-count API) — for other keywords the raw count simply hasn't been fetched, not that it's zero. " +
-      "The data points here contain ALL keywords with their signal counts; the on-screen chart shows only the top 12. " +
-      "Data source: keyword signal aggregates from the published data release, after the page's category/platform filter selection; raw counts come from the live keyword-count API.",
+      "The data points here contain ALL keywords with their selling posts/comments counts; the on-screen chart shows only the top 12. " +
+      "Data source: keyword aggregates from the published data release, after the page's category/platform filter selection; raw counts come from the live keyword-count API.",
   );
 
   // Build Highcharts bubble series data: x=rawCount, y=signalCount, z=rawCount (bubble size)
@@ -129,7 +129,7 @@ export function KeywordPerformanceCard({ bubbles, platform, categories }: Keywor
       labels: { style: { fontSize: "10px", color: "#9ca3af" } },
     },
     yAxis: {
-      title: { text: "Signal Count", style: { fontSize: "10px", color: "#9ca3af" } },
+      title: { text: "Selling Posts/Comments", style: { fontSize: "10px", color: "#9ca3af" } },
       gridLineColor: "#f3f4f6",
       labels: { style: { fontSize: "10px", color: "#9ca3af" } },
     },
@@ -152,7 +152,7 @@ export function KeywordPerformanceCard({ bubbles, platform, categories }: Keywor
         return `
           <div style="font-size:12px;font-weight:700;color:${ctx.color};margin-bottom:6px">${pt.name}</div>
           <table style="font-size:11px;border-collapse:collapse">
-            <tr><td style="color:#9ca3af;padding-right:12px">Signal</td><td style="font-weight:600;color:#374151">${pt.y}</td></tr>
+            <tr><td style="color:#9ca3af;padding-right:12px">Selling Posts/Comments</td><td style="font-weight:600;color:#374151">${pt.y}</td></tr>
             <tr><td style="color:#9ca3af;padding-right:12px">Raw count</td><td style="font-weight:600;color:#374151">${pt.x > 0 ? (pt.x as number).toLocaleString() : "—"}</td></tr>
             <tr style="border-top:1px solid #f3f4f6"><td style="color:#9ca3af;padding-right:12px;padding-top:4px">Penetration</td><td style="font-weight:600;color:#059669;padding-top:4px">${penetration}</td></tr>
           </table>`;
@@ -194,7 +194,7 @@ export function KeywordPerformanceCard({ bubbles, platform, categories }: Keywor
       <div className="flex justify-between items-center mb-1">
         <div>
           <h3 className="font-semibold text-gray-800 text-sm">Keyword Performance</h3>
-          <p className="text-[10px] text-gray-400 mt-0.5">X: raw count · Y: signal count · size: raw count</p>
+          <p className="text-[10px] text-gray-400 mt-0.5">X: raw count · Y: selling posts/comments · size: raw count</p>
         </div>
       </div>
       <div ref={chartWrapRef} className="relative flex-1 min-h-0">
@@ -205,11 +205,13 @@ export function KeywordPerformanceCard({ bubbles, platform, categories }: Keywor
           containerProps={{ style: { position: "absolute", inset: 0 } }}
         />
       </div>
-      <div className="mt-3 border-t border-gray-100 pt-2.5">
-        <KeyTakeaway>
-          Ratio, not bubble size, best predicts a keyword's signal quality. (example data)
-        </KeyTakeaway>
-      </div>
+      {!KEY_TAKEAWAY_SUPPRESSED && (
+        <div className="mt-3 border-t border-gray-100 pt-2.5">
+          <KeyTakeaway>
+            Ratio, not bubble size, best predicts a keyword's selling-posts quality. (example data)
+          </KeyTakeaway>
+        </div>
+      )}
     </div>
   );
 }

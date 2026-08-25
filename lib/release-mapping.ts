@@ -266,6 +266,34 @@ function safeDate(value: string | null | undefined, fallback: string): string {
   return parsed.toISOString().slice(0, 10);
 }
 
+/**
+ * Release data's `domain` field routinely arrives as a full URL (e.g.
+ * "https://www.example.com/" or "http://example.com") rather than a bare
+ * hostname. Every consumer of `Domain.domain` (display text, the "Visit"
+ * link in domain-examples-card.tsx which prepends "https://", dedup keys in
+ * registrar-sunburst.tsx, etc.) expects a bare hostname — leaving the raw
+ * URL in place caused broken links like "https://https://example.com".
+ * Normalizing once here, at the source, means every downstream usage is
+ * automatically correct without each component having to defend against it.
+ */
+function normalizeDomainHost(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return trimmed;
+  try {
+    // Prepend a scheme if missing so the URL constructor can parse bare
+    // hostnames too (e.g. "example.com" has no "://" for URL to anchor on).
+    const withScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed) ? trimmed : `https://${trimmed}`;
+    return new URL(withScheme).hostname.replace(/^www\./, "");
+  } catch {
+    // Not a parseable URL at all — fall back to a best-effort strip of any
+    // protocol prefix and trailing path/slash.
+    return trimmed
+      .replace(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//, "")
+      .replace(/^www\./, "")
+      .split(/[/?#]/)[0];
+  }
+}
+
 export function mapReleaseDomain(
   d: DomainData,
   reportingPeriodId: string,
@@ -280,7 +308,7 @@ export function mapReleaseDomain(
   );
 
   return {
-    domain: d.domain,
+    domain: normalizeDomainHost(d.domain),
     platforms: mapPlatforms(d.platforms),
     resource: d.resources ?? "search_result",
     createDate,
@@ -791,6 +819,32 @@ export interface SocialAggregates {
   platformTabs: SocialPlatformTab[];
   metrics: { totalPosts: number; uniqueAccounts: number; activeCount: number };
   mentionsByApp: SocialMentionByApp[];
+  productSignalCounts: { name: string; count: number }[];
+}
+
+/**
+ * Groups a set of (already category/platform-filtered) lightweight posts by
+ * secondary category (product name), counting selling posts/comments per
+ * product. When `selectedCategories` is non-empty, only category pairs
+ * whose primaryCategory is in the selection are counted (so a post matching
+ * multiple primary categories doesn't inflate unrelated product buckets);
+ * when empty ("all"), every pair on every post counts.
+ */
+function buildProductSignalCounts(
+  posts: SocialPostLite[],
+  selectedCategories: string[],
+): { name: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const post of posts) {
+    for (const pair of post.categories) {
+      if (selectedCategories.length > 0 && !selectedCategories.includes(pair.primaryCategory)) continue;
+      if (pair.secondaryCategory === "Unknown") continue;
+      counts.set(pair.secondaryCategory, (counts.get(pair.secondaryCategory) ?? 0) + 1);
+    }
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count]) => ({ name, count }));
 }
 
 /**
@@ -831,10 +885,13 @@ export function buildSocialAggregates(
     .sort((a, b) => b[1] - a[1])
     .map(([app, count]) => ({ app, count }));
 
+  const productSignalCounts = buildProductSignalCounts(filtered, selectedCategories);
+
   return {
     platformTabs,
     metrics: { totalPosts: filtered.length, uniqueAccounts, activeCount },
     mentionsByApp,
+    productSignalCounts,
   };
 }
 
@@ -895,12 +952,16 @@ export interface SocialAggregateEntry {
   platformTabs: SocialPlatformTab[];
   metrics: { totalPosts: number; uniqueAccounts: number; activeCount: number };
   mentionsByApp: SocialMentionByApp[];
+  productSignalCounts: { name: string; count: number }[];
 }
 
 export interface SocialKeywordAggregateEntry {
   uniqueKeywordCount: number;
   keywordRankings: SocialKeywordRanking[];
   keywordBubbles: SocialKeywordBubble[];
+  /** Sum of raw_num across matching keyword_stats rows — total raw search-hit
+   *  volume for this category/platform combination. */
+  totalRawCount: number;
 }
 
 export interface SocialAggregateTable {
@@ -928,7 +989,11 @@ export interface SocialAggregateTable {
   categoryOptions: CategoryOption[];
 }
 
-function aggregateSubset(subset: SocialPostLite[], platform: string): SocialAggregateEntry {
+function aggregateSubset(
+  subset: SocialPostLite[],
+  platform: string,
+  category: string,
+): SocialAggregateEntry {
   const platformCountMap = new Map<string, number>();
   for (const post of subset) {
     platformCountMap.set(post.platform, (platformCountMap.get(post.platform) ?? 0) + 1);
@@ -952,10 +1017,16 @@ function aggregateSubset(subset: SocialPostLite[], platform: string): SocialAggr
     .sort((a, b) => b[1] - a[1])
     .map(([app, count]) => ({ app, count }));
 
+  const productSignalCounts = buildProductSignalCounts(
+    filtered,
+    category === CATEGORY_ALL_KEY ? [] : [category],
+  );
+
   return {
     platformTabs,
     metrics: { totalPosts: filtered.length, uniqueAccounts, activeCount },
     mentionsByApp,
+    productSignalCounts,
   };
 }
 
@@ -1031,7 +1102,7 @@ export function buildSocialAggregateTable(
 
     const perPlatform: Record<string, SocialAggregateEntry> = {};
     for (const platform of platformLabels) {
-      perPlatform[platform] = aggregateSubset(subset, platform);
+      perPlatform[platform] = aggregateSubset(subset, platform, category);
     }
     byCategory[category] = perPlatform;
   }
@@ -1046,6 +1117,7 @@ export function buildSocialAggregateTable(
         uniqueKeywordCount: new Set(relevantStats.map((s) => s.keyword)).size,
         keywordRankings: buildKeywordRankingsFromStats(keywordStats, selectedCategories, platform, 25, AGGREGATE_KEYWORD_COLORS),
         keywordBubbles: buildKeywordBubblesFromStats(keywordStats, selectedCategories, platform, 15, AGGREGATE_KEYWORD_COLORS),
+        totalRawCount: relevantStats.reduce((sum, s) => sum + (s.raw_num ?? 0), 0),
       };
     }
     byCategoryKeywords[category] = perPlatform;

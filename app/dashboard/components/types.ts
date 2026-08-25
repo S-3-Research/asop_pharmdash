@@ -188,6 +188,12 @@ export interface DomainApiPayload {
   /** Reporting-period id taken from the published release's name (channel pointer),
    *  e.g. "2026-RPT-02". Empty when serving mock data. */
   reportingPeriodId?: string;
+  /** Admin-configured, end-user-facing label for reportingPeriodId (see
+   *  lib/releases.ts `setReleaseDisplayName`). Empty when serving mock data. */
+  reportingPeriodDisplayName?: string;
+  /** Display-name map covering every known reporting period (internal code
+   *  -> display name), for charts/details that show multiple periods. */
+  reportingPeriodLabels?: Record<string, string>;
 }
 
 // ── Social Media types ────────────────────────────────────────────────────────
@@ -220,6 +226,17 @@ export interface SocialMetrics {
   uniqueAccounts: number;
   activeKeywords: number;
   activeCount: number;
+  /** Sum of keyword_stats[].raw_num across the current category/platform
+   *  filter selection — total raw search-hit volume collected, regardless
+   *  of whether each hit was ultimately flagged as a selling signal. */
+  totalRawCount: number;
+}
+
+export interface SocialProductSignalCount {
+  /** Secondary category / product name (e.g. "Tirzepatide") */
+  name: string;
+  /** Selling posts/comments count for this product name */
+  count: number;
 }
 
 export interface SocialKeywordRanking {
@@ -248,6 +265,9 @@ export interface SocialMediaPayload {
   keywordRankings: SocialKeywordRanking[];
   mentionsByApp: SocialMentionByApp[];
   keywordBubbles: SocialKeywordBubble[];
+  /** Selling posts/comments grouped by product name (secondaryCategory),
+   *  sorted descending — powers the Row 2 "By Product" bar chart. */
+  productSignalCounts: SocialProductSignalCount[];
   /** Dynamically derived from the underlying release data's product categories
    *  (same taxonomy as Domain Insights / Top Products — built via
    *  buildCategoryRegistry(domains), since social posts carry no category

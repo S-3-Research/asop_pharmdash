@@ -83,7 +83,13 @@ export interface TotalDomainChartResult {
 export function buildTotalDomainChart(
   allDomains: Domain[],
   currentRptPeriodId: string,
+  periodLabels: Record<string, string> = {},
 ): TotalDomainChartResult {
+  // Prefer the admin-configured display name; fall back to the formatted
+  // internal code for any period not present in the map (see
+  // lib/releases.ts `getReportPeriodDisplayMap`).
+  const labelFor = (key: string) => periodLabels[key] || formatRptPeriodLabel(key);
+
   const grouped: Record<string, number> = {};
   for (const d of allDomains) {
     grouped[d.reportingPeriodId] = (grouped[d.reportingPeriodId] ?? 0) + 1;
@@ -99,52 +105,21 @@ export function buildTotalDomainChart(
 
   const noPriorData = prevKey == null;
 
-  // Labels aligned 1:1 with the (possibly ghost-baseline-prefixed) series
-  // data below, used by the tooltip formatter to show the real rpt. period
-  // name instead of a numeric point index.
-  const rptPeriodLabels: string[] = noPriorData
-    ? ["", formatRptPeriodLabel(currentRptPeriodId)]
-    : rptPeriodKeys.map(formatRptPeriodLabel);
+  // Real rpt. period labels, 1:1 with each x-axis category below — no more
+  // ghost baseline padding for a non-existent prior period (production
+  // releases only ever have the one currently-published period; a fake
+  // zero-value prior bar would be misleading, not informative).
+  const rptPeriodLabels: string[] = rptPeriodKeys.map(labelFor);
 
-  const areaSeries = rptPeriodKeys.map((k) => grouped[k] ?? 0);
+  const totalSeries = rptPeriodKeys.map((k) => grouped[k] ?? 0);
   const liveSeries = rptPeriodKeys.map(
     (k) => allDomains.filter((d) => d.reportingPeriodId === k && d.isLive).length,
   );
 
-  // When no prior rpt. period: prepend ghost baseline (0) and mark segment as dashed+faded
-  const areaData: Highcharts.SeriesAreaOptions["data"] = noPriorData
-    ? [0, currentCount]
-    : areaSeries;
-  const liveData: Highcharts.SeriesLineOptions["data"] = noPriorData
-    ? [0, liveSeries[0] ?? 0]
-    : liveSeries;
-
-  const ghostAreaZone: Highcharts.SeriesZonesOptionsObject[] = [
-    {
-      value: 1,
-      dashStyle: "Dash" as Highcharts.DashStyleValue,
-      color: "rgba(56,189,248,0.30)",
-      fillColor: {
-        linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
-        stops: [[0, "rgba(56,189,248,0.10)"], [1, "rgba(56,189,248,0)"]],
-      } as Highcharts.GradientColorObject,
-    },
-  ];
-  const ghostLineZone: Highcharts.SeriesZonesOptionsObject[] = [
-    { value: 1, dashStyle: "Dash" as Highcharts.DashStyleValue, color: "rgba(239,68,68,0.30)" },
-  ];
-
   const options: Highcharts.Options = {
-    chart: { backgroundColor: "transparent", style: CHART_STYLE, margin: [0, 0, 0, 0], spacing: [0, 0, 0, 0] },
+    chart: { type: "column", backgroundColor: "transparent", style: CHART_STYLE, margin: [0, 0, 0, 0], spacing: [0, 0, 0, 0] },
     title: { text: undefined },
-    // Kept as a plain numeric axis (no `categories`) — assigning `categories`
-    // switches Highcharts to a "category" axis type, which reserves half a
-    // category-width of padding on each end by default (its built-in
-    // behavior for bar/column-style spacing), and that padding can't be
-    // zeroed via chart.margin/spacing. That reserved padding was what made
-    // the chart's left/right edges suddenly inset after this was tried.
-    // The tooltip below instead looks up the real rpt. period label itself.
-    xAxis: { visible: false },
+    xAxis: { visible: false, categories: rptPeriodLabels },
     yAxis: { visible: false },
     legend: { enabled: false },
     credits: { enabled: false },
@@ -152,11 +127,6 @@ export function buildTotalDomainChart(
     tooltip: {
       shared: true,
       outside: true,
-      // point.index in the (possibly ghost-baseline-prefixed) series lines
-      // up 1:1 with rptPeriodLabels above. `this` is cast to `any` because
-      // Highcharts' bundled formatter typing models the non-shared case
-      // (this: Point) and doesn't declare the shared-tooltip `this.points`
-      // shape, even though it's populated at runtime when `shared: true`.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       formatter(this: any) {
         const points: { series: { name: string }; y: number; point: { index: number } }[] =
@@ -170,21 +140,11 @@ export function buildTotalDomainChart(
       },
     },
     plotOptions: {
-      area: {
-        fillColor: { linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 }, stops: [[0, "rgba(56,189,248,0.55)"], [1, "rgba(56,189,248,0.02)"]] },
-        lineColor: "#38bdf8", lineWidth: 2, marker: { enabled: false },
-      },
-      line: { color: "#ef4444", lineWidth: 2, marker: { enabled: false } },
+      column: { borderRadius: 3, borderWidth: 0, groupPadding: 0.15, pointPadding: 0.05 },
     },
     series: [
-      {
-        type: "area", name: "Total Domains", data: areaData,
-        ...(noPriorData ? { zoneAxis: "x", zones: ghostAreaZone } : {}),
-      },
-      {
-        type: "line", name: "Live", data: liveData,
-        ...(noPriorData ? { zoneAxis: "x", zones: ghostLineZone } : {}),
-      },
+      { type: "column", name: "Total Domains", color: "#38bdf8", data: totalSeries },
+      { type: "column", name: "Live", color: "#ef4444", data: liveSeries },
     ],
   };
   return { count: currentCount, pctChange, noPriorData, options };

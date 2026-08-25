@@ -28,6 +28,7 @@ const defaultPageContext: PageContext = {
   pageTitle: "Top Products",
   // Filled in by each subpage once its release data loads — never hardcoded.
   reportingPeriod: "",
+  reportingPeriodDisplayName: "",
   filters: { categories: [] },
   availableFilters: { categories: [], categorySelectionMode: "single" },
   stats: [],

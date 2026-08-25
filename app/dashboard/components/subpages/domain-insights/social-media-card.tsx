@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import Highcharts from "highcharts";
 
 import { DashboardCard } from "../../ui/dashboard-card";
-import { KeyTakeaway } from "../../ui/key-takeaway";
+import { KeyTakeaway, KEY_TAKEAWAY_SUPPRESSED } from "../../ui/key-takeaway";
 import { useWidgetData } from "../../copilot/copilot-context";
 import { buildSocialBubbleOptions } from "./config";
 import type { Domain } from "../../types";
@@ -57,9 +57,9 @@ export function SocialMediaCard({ domains }: SocialMediaCardProps) {
     Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
       .map(([label, value]) => ({ label, value })),
-    "Packed-bubble chart of social media platforms where the rogue domains maintain profiles. " +
-      "Data source: each domain record's socialProfiles array from the published data release; the value is the number of domain-profile links per platform (one domain can appear on multiple platforms). " +
-      "Counts reflect the page's current category filter.",
+    "Packed-bubble chart titled 'Social Media Outlet': shows which social media platforms the ROGUE DOMAINS THEMSELVES maintain outreach/storefront profiles on (e.g. a rogue domain's own Facebook or Instagram page used to advertise or sell), NOT where selling posts about them were detected. " +
+      "Bubble size = number of rogue-domain-to-platform profile links (one domain can maintain profiles on multiple platforms, so the total can exceed the domain count). " +
+      "Data source: each domain record's socialProfiles array from the published data release. Counts reflect the page's current category filter.",
   );
 
   return (
@@ -67,9 +67,11 @@ export function SocialMediaCard({ domains }: SocialMediaCardProps) {
       title="Social Media Outlet"
       className="h-full overflow-hidden"
       note={
-        <KeyTakeaway>
-          2 platforms account for most domain-linked social profiles. (example data)
-        </KeyTakeaway>
+        KEY_TAKEAWAY_SUPPRESSED ? undefined : (
+          <KeyTakeaway>
+            2 platforms account for most domain-linked social profiles. (example data)
+          </KeyTakeaway>
+        )
       }
     >
       <div ref={chartWrapRef} className="relative h-full">

@@ -21,11 +21,11 @@ export function MentionsChartCard({ mentionsByApp }: MentionsChartCardProps) {
   const [view, setView] = useState<"chart" | "table">("table");
 
   useWidgetData(
-    "social-mentions-by-app",
+    "social-communication-channels",
     mentionsByApp.map((m) => ({ label: m.app, value: m.count })),
-    "Bar chart / table of external app names mentioned inside flagged social media posts (e.g. messaging or payment apps used to move the transaction off-platform). " +
-      "The data points here contain ALL mentioned apps; the on-screen chart shows only the top 7. " +
-      "Data source: text analysis of flagged post content in the published data release, after the page's category/platform filter selection.",
+    "Bar chart / table of communication channels (e.g. email, phone, or other messaging/payment apps such as WhatsApp, Telegram, Venmo) found in the contact info of flagged social media selling posts/comments \u2014 i.e. how buyers are being told to reach the seller off-platform. " +
+      "The data points here contain ALL channels found; the on-screen chart shows only the top 7. " +
+      "Data source: contact_info entries on flagged selling posts/comments in the published data release, after the page's category/platform filter selection.",
   );
 
   const top      = mentionsByApp.slice(0, MAX_ITEMS);
@@ -35,7 +35,7 @@ export function MentionsChartCard({ mentionsByApp }: MentionsChartCardProps) {
   return (
     <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col h-full">
       <div className="flex justify-between items-center mb-3">
-        <h3 className="font-semibold text-gray-800 text-sm">Mentions by App</h3>
+        <h3 className="font-semibold text-gray-800 text-sm">Communication Channels</h3>
       </div>
 
       {/* Toggle */}
@@ -87,7 +87,7 @@ export function MentionsChartCard({ mentionsByApp }: MentionsChartCardProps) {
             <thead className="text-gray-500 border-b border-gray-100">
               <tr>
                 <th className="pb-2 font-medium">App</th>
-                <th className="pb-2 font-medium text-right">Mentions</th>
+                <th className="pb-2 font-medium text-right">Channel Mentions</th>
                 <th className="pb-2 font-medium text-right">Share</th>
               </tr>
             </thead>

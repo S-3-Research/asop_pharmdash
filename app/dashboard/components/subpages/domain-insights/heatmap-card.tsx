@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { DashboardCard } from "../../ui/dashboard-card";
-import { KeyTakeaway } from "../../ui/key-takeaway";
+import { KeyTakeaway, KEY_TAKEAWAY_SUPPRESSED } from "../../ui/key-takeaway";
 import { useWidgetData } from "../../copilot/copilot-context";
 import type { Domain, DomainWithMatch } from "../../types";
 
@@ -52,9 +52,11 @@ export function HeatmapCard({ domains, selectedCategories }: HeatmapCardProps) {
       title="Domain Heatmap"
       className="h-full flex flex-col overflow-hidden"
       note={
-        <KeyTakeaway>
-          3 metro areas account for most geolocated domains. (example data)
-        </KeyTakeaway>
+        KEY_TAKEAWAY_SUPPRESSED ? undefined : (
+          <KeyTakeaway>
+            3 metro areas account for most geolocated domains. (example data)
+          </KeyTakeaway>
+        )
       }
     >
       <div className="flex-1 min-h-0 relative -mx-4 rounded-xl overflow-hidden">

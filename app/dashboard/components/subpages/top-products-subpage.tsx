@@ -24,6 +24,14 @@ interface TopProductsPayload {
   drillablePieData: PieChartNodeData[];
   /** From the published release's name (channel pointer); empty for mock data */
   reportingPeriodId?: string;
+  /** Admin-configured, end-user-facing label for reportingPeriodId (see
+   *  lib/releases.ts `setReleaseDisplayName`) — this is what should be
+   *  shown to end users; reportingPeriodId is the internal code and is
+   *  only used for data grouping / copilot context. */
+  reportingPeriodDisplayName?: string;
+  /** Display-name map covering every known reporting period (internal code
+   *  -> display name), for charts that show multiple periods at once. */
+  reportingPeriodLabels?: Record<string, string>;
   domainSummary: { total: number; aliveCount: number; socialCount: number };
   listings: ApiListing[];
 }
@@ -64,13 +72,16 @@ export function TopProductsSubpage() {
     return keys.sort((a, b) => parseRptPeriodKey(a).getTime() - parseRptPeriodKey(b).getTime());
   }, [data?.listings]);
 
-  // The most recent rpt. period actually present in the data — derived from
-  // the release name itself rather than a hardcoded constant, so card labels
-  // automatically track whatever release is published.
+  // The most recent rpt. period actually present in the data — prefers the
+  // admin-configured display name (see lib/releases.ts
+  // `setReleaseDisplayName`); falls back to formatting the internal
+  // reportPeriod code when no display name has been configured, so card
+  // labels always show something sensible regardless of release age.
   const currentPeriodLabel = useMemo(() => {
+    if (data?.reportingPeriodDisplayName) return data.reportingPeriodDisplayName;
     const latest = allRptPeriodKeys[allRptPeriodKeys.length - 1];
     return latest ? formatRptPeriodLabel(latest) : "";
-  }, [allRptPeriodKeys]);
+  }, [allRptPeriodKeys, data?.reportingPeriodDisplayName]);
 
   // Real, dynamically-derived category list (excludes the "all" pseudo-option
   // used only by the dropdown filter).
@@ -106,6 +117,7 @@ export function TopProductsSubpage() {
       // Reporting period straight from the release name (channel pointer).
       // Mock data carries no release — label it as such, no derivation.
       reportingPeriod: data?.reportingPeriodId || "mock-data",
+      reportingPeriodDisplayName: currentPeriodLabel || undefined,
       filters: {
         categories: selectedPrimaryName ? [selectedPrimaryName] : [],
       },
@@ -130,7 +142,7 @@ export function TopProductsSubpage() {
         },
       ],
     });
-  }, [updatePageContext, selectedPrimaryName, filteredListings, data?.reportingPeriodId, realCategories]);
+  }, [updatePageContext, selectedPrimaryName, filteredListings, data?.reportingPeriodId, currentPeriodLabel, realCategories]);
 
   if (isLoading) {
     return (
@@ -194,9 +206,9 @@ export function TopProductsSubpage() {
             <SelectableCard
               widget={{
                 widgetId: "top-products-ranked",
-                title: selectedPrimaryName ? `${selectedPrimaryName} — Top Products` : "Top Ranked Products",
+                title: selectedPrimaryName ? `${selectedPrimaryName} — Top Products` : "Top 5 Ranked Products",
                 type: "ranked-list",
-                description: "Products ranked by listing count in the current rpt. period",
+                description: "Ranks products by how many illegal listings were found for them this reporting period — use it to see which specific drugs are most commonly sold illegally.",
               }}
             >
               <TopProductsRanked
@@ -216,7 +228,7 @@ export function TopProductsSubpage() {
               widgetId: "top-products-trend",
               title: selectedPrimaryName ? `${selectedPrimaryName} — Listing Trend` : "Listing Trend",
               type: "chart",
-              description: "Listing volume trend across rpt. periods by category",
+              description: "Bar chart of illegal listing volume, one bar per reporting period, broken down by drug category. Use it to spot categories that are growing or declining over time.",
             }}
           >
             <ListingTrendChart
@@ -225,6 +237,7 @@ export function TopProductsSubpage() {
               selectedPrimaryName={selectedPrimaryName}
               categories={realCategories}
               currentPeriodLabel={currentPeriodLabel}
+              periodLabels={data.reportingPeriodLabels ?? {}}
             />
           </SelectableCard>
           <SelectableCard
@@ -232,7 +245,7 @@ export function TopProductsSubpage() {
               widgetId: "top-products-distribution",
               title: "Product Distribution",
               type: "distribution",
-              description: "Sunburst chart showing category and product breakdown",
+              description: "Shows how illegal listings break down by drug category and then by specific product within each category. The inner ring is each category's share; the outer ring is individual products.",
             }}
           >
             <ProductDistribution

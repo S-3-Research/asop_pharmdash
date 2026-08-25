@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 
 import type { CategoryOption, PieChartNodeData } from "../../types";
 import { DashboardCard } from "../../ui/dashboard-card";
-import { KeyTakeaway } from "../../ui/key-takeaway";
+import { KeyTakeaway, KEY_TAKEAWAY_SUPPRESSED } from "../../ui/key-takeaway";
 import { SunburstCard } from "../../charts/sunburst-card";
 import { useWidgetData } from "../../copilot/copilot-context";
 
@@ -71,9 +71,11 @@ export function ProductDistribution({
       title="Product Distribution"
       className="p-5"
       note={
-        <KeyTakeaway>
-          One product accounts for nearly half of category listings. (example data)
-        </KeyTakeaway>
+        KEY_TAKEAWAY_SUPPRESSED ? undefined : (
+          <KeyTakeaway>
+            One product accounts for nearly half of category listings. (example data)
+          </KeyTakeaway>
+        )
       }
     >
       <div className="mb-4 flex items-center justify-between gap-3 py-1">

@@ -6,7 +6,7 @@ import Highcharts from "highcharts";
 
 import type { Domain } from "../../types";
 import { DashboardCard } from "../../ui/dashboard-card";
-import { KeyTakeaway } from "../../ui/key-takeaway";
+import { KeyTakeaway, KEY_TAKEAWAY_SUPPRESSED } from "../../ui/key-takeaway";
 import { useWidgetData } from "../../copilot/copilot-context";
 import { buildDomainStatusOptions } from "./config";
 
@@ -88,9 +88,11 @@ export function DomainStatusCard({ domains }: DomainStatusCardProps) {
       title="Status"
       className="h-full overflow-hidden"
       note={
-        <KeyTakeaway>
-          62% of flagged domains remain live 30 days post-detection. (example data)
-        </KeyTakeaway>
+        KEY_TAKEAWAY_SUPPRESSED ? undefined : (
+          <KeyTakeaway>
+            62% of flagged domains remain live 30 days post-detection. (example data)
+          </KeyTakeaway>
+        )
       }
     >
       <div ref={chartWrapRef} className="relative h-full">

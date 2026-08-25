@@ -9,12 +9,14 @@ import { useCopilot } from "../copilot/copilot-context";
 import type { FilterAction } from "../copilot/types";
 import { SelectableCard } from "../ui/selectable-card";
 import { SOCIAL_PRIMARY_CATEGORIES } from "./social-media/config";
+import { SocialSummaryStrip }     from "./social-media/social-summary-strip";
 import { StatsRow }               from "./social-media/stats-row";
 import { PlatformTabs }           from "./social-media/platform-tabs";
 import { KeywordRankingsCard }    from "./social-media/keyword-rankings-card";
 import { MentionsChartCard }      from "./social-media/mentions-chart-card";
 import { SignalSamplesCard }      from "./social-media/signal-samples-card";
 import { KeywordPerformanceCard } from "./social-media/keyword-performance-card";
+import { ProductSignalChartCard }  from "./social-media/product-signal-chart-card";
 
 const fetcher = (url: string) =>
   fetch(url).then((r) => {
@@ -37,6 +39,15 @@ export function SocialMediaInsightsSubpage() {
     `/api/social-media?${params}`,
     fetcher,
     { revalidateOnFocus: false, keepPreviousData: true },
+  );
+
+  // Unfiltered snapshot (no categories/platform params) — powers the
+  // SocialSummaryStrip, which must always reflect all-category/all-platform
+  // totals regardless of the page's current filter selection.
+  const { data: allData } = useSWR<SocialMediaPayload>(
+    "/api/social-media",
+    fetcher,
+    { revalidateOnFocus: false },
   );
 
   // Dynamically derived from the real release's product categories (same
@@ -95,10 +106,9 @@ export function SocialMediaInsightsSubpage() {
       },
       stats: m
         ? [
-            { label: "Posts / Comments", value: m.totalPosts },
-            { label: "Unique Accounts", value: m.uniqueAccounts },
-            { label: "Active Signals", value: m.activeCount },
-            { label: "Active Keywords", value: m.activeKeywords },
+            { label: "Total Data Collected", value: m.totalRawCount },
+            { label: "Unique Social Media Accounts", value: m.uniqueAccounts },
+            { label: "Total Selling Posts/Comments", value: m.totalPosts },
           ]
         : [],
     });
@@ -107,14 +117,28 @@ export function SocialMediaInsightsSubpage() {
   return (
     <section>
       {/* ── Header ── */}
+      <div className="mb-4">
+        <h2 className="text-xl font-bold text-slate-800">Social Media Insights</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Platform trends, keyword tracking, and mention activity across drug categories.
+        </p>
+      </div>
+
+      {/* ── Summary Strip — always unfiltered, does not react to category/platform selection ── */}
+      <div className="mb-5">
+        <SocialSummaryStrip metrics={allData?.metrics} productSignalCounts={allData?.productSignalCounts} />
+      </div>
+
+      {/* ── Filters row: category dropdown + platform tabs together ── */}
       <div className="mb-5 flex flex-col justify-between items-start gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800">Social Media Insights</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Platform trends, keyword signals, and mention activity across drug categories.
-          </p>
+        <div className="w-full sm:w-auto">
+          <PlatformTabs
+            tabs={data?.platformTabs ?? []}
+            selected={selectedPlatform}
+            onSelect={setSelectedPlatform}
+          />
         </div>
-        <div className="w-full sm:w-auto min-w-[200px]">
+        <div className="w-full sm:w-auto sm:min-w-xs">
           <MultiCategoryDropdown
             categories={categoryOptions}
             selectedIds={selectedIds}
@@ -122,15 +146,6 @@ export function SocialMediaInsightsSubpage() {
             onClear={handleClear}
           />
         </div>
-      </div>
-
-      {/* ── Platform Tab Bar ── */}
-      <div className="mb-5">
-        <PlatformTabs
-          tabs={data?.platformTabs ?? []}
-          selected={selectedPlatform}
-          onSelect={setSelectedPlatform}
-        />
       </div>
 
       {/* ── Error ── */}
@@ -167,9 +182,9 @@ export function SocialMediaInsightsSubpage() {
                     className="h-full"
                     widget={{
                       widgetId: "social-signal-samples",
-                      title: "Signal Samples",
+                      title: "Selling Posts/Comments Samples",
                       type: "table",
-                      description: "Sample posts flagged as pharmaceutical signals",
+                      description: "A scrollable feed of real posts and comments flagged as illegal drug-selling activity. Use it to see actual examples behind the summary numbers.",
                     }}
                   >
                     <SignalSamplesCard categories={selectedIds} platform={selectedPlatform} />
@@ -177,46 +192,59 @@ export function SocialMediaInsightsSubpage() {
                 </div>
               </div>
 
-              {/* Row 2: Mentions (4) + Keyword Rankings (4) + Performance (4) —
-                  height is set once on this flex row container; all three
-                  cards stretch to fill it via h-full, so changing the row
-                  height here is the only place needed to resize the whole
-                  row. */}
+              {/* Row 2: Mentions (3) + Keyword Rankings (3) + Performance (3)
+                  + By Product (3) — height is set once on this flex row
+                  container; all four cards stretch to fill it via h-full,
+                  so changing the row height here is the only place needed
+                  to resize the whole row. */}
               <div className="flex flex-col lg:flex-row gap-4 h-auto lg:h-[330px]">
-                <div className="w-full lg:basis-1/3 lg:min-w-0 h-[380px] lg:h-full">
+                <div className="w-full lg:basis-1/4 lg:min-w-0 h-[380px] lg:h-full">
                   <SelectableCard
                     className="h-full"
                     widget={{
-                      widgetId: "social-mentions-by-app",
-                      title: "Mentions by App",
+                      widgetId: "social-product-signal-chart",
+                      title: "Selling Posts/Comments by Product",
                       type: "chart",
-                      description: "External app mention counts derived from post text analysis",
+                      description: "Ranks specific products/drugs by how many flagged selling posts mention them. Taller bars mean that product appears in more illicit posts.",
+                    }}
+                  >
+                    <ProductSignalChartCard productSignalCounts={data.productSignalCounts} />
+                  </SelectableCard>
+                </div>
+                <div className="w-full lg:basis-1/4 lg:min-w-0 h-[380px] lg:h-full">
+                  <SelectableCard
+                    className="h-full"
+                    widget={{
+                      widgetId: "social-communication-channels",
+                      title: "Communication Channels",
+                      type: "chart",
+                      description: "Shows how sellers tell buyers to reach them off-platform — email, phone, WhatsApp, Telegram, etc. — based on contact info in flagged posts. Higher counts mean that channel is more commonly used to move conversations off the social platform.",
                     }}
                   >
                     <MentionsChartCard mentionsByApp={data.mentionsByApp} />
                   </SelectableCard>
                 </div>
-                <div className="w-full lg:basis-1/3 lg:min-w-0 h-[380px] lg:h-full">
+                <div className="w-full lg:basis-1/4 lg:min-w-0 h-[380px] lg:h-full">
                   <SelectableCard
                     className="h-full"
                     widget={{
                       widgetId: "social-keyword-rankings",
                       title: "Keyword Rankings",
                       type: "ranked-list",
-                      description: "Top keywords ranked by signal count and growth rate",
+                      description: "Ranks monitored keywords by how many flagged selling posts they appear in, along with growth versus the prior reporting period. Rising keywords can signal emerging illicit seller activity.",
                     }}
                   >
                     <KeywordRankingsCard rankings={data.keywordRankings} platform={selectedPlatform} categories={selectedIds} />
                   </SelectableCard>
                 </div>
-                <div className="w-full lg:basis-1/3 lg:min-w-0 h-[380px] lg:h-full">
+                <div className="w-full lg:basis-1/4 lg:min-w-0 h-[380px] lg:h-full">
                   <SelectableCard
                     className="h-full"
                     widget={{
                       widgetId: "social-keyword-performance",
                       title: "Keyword Performance",
                       type: "chart",
-                      description: "Bubble chart of keyword signal volume and distribution",
+                      description: "Shows how effective each keyword is at surfacing illicit selling content, not just how much volume it generates. A keyword with a high hit rate is a valuable enforcement target even with fewer overall posts, and shifts in hit rate over time can reveal how sellers are changing their language or tactics.",
                     }}
                   >
                     <KeywordPerformanceCard bubbles={data.keywordBubbles} platform={selectedPlatform} categories={selectedIds} />
@@ -230,3 +258,4 @@ export function SocialMediaInsightsSubpage() {
     </section>
   );
 }
+

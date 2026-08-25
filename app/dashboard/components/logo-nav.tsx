@@ -10,7 +10,7 @@ export function LogoNav() {
   return (
     <header className="flex h-14 shrink-0 items-center bg-[#0a1116] px-6 shadow-md">
       <Image
-        src="/ASOP Global x S3.png"
+        src="/ASOP Global wht x S3.png"
         alt="ASOP Global x S3"
         width={176}
         height={28}

@@ -11,18 +11,30 @@ interface StatsRowProps {
 
 const METRIC_PROMPTS: Record<string, string> = {
   "total-posts":
-    "Single metric: total number of social media posts and comments flagged as pharmaceutical signals in the current reporting period. " +
-    "Data source: social media signal records in the published data release, after the page's category/platform filter selection.",
+    "Single metric: total number of social media posts and comments flagged as illegal selling posts/comments in the current reporting period. " +
+    "Data source: social media selling-post records in the published data release, after the page's category/platform filter selection.",
   "unique-accounts":
-    "Single metric: number of distinct social media accounts that produced flagged signals. " +
-    "Data source: deduplicated account IDs from the signal records in the published data release, after the page's category/platform filter selection.",
+    "Single metric: number of distinct social media accounts that produced flagged selling posts/comments. " +
+    "Data source: deduplicated account IDs from the selling-post records in the published data release, after the page's category/platform filter selection.",
   "active-signals":
-    "Single metric: number of signals currently classified as active (still live/visible on the platform). " +
-    "Data source: the active flag on signal records in the published data release, after the page's category/platform filter selection.",
-  "active-keywords":
-    "Single metric: number of distinct monitored keywords with signal data matching the current filter selection — " +
-    "NOT the number of keywords appearing specifically in 'active' (still-live) posts; this count is independent of each post's active/inactive status. " +
+    "Single metric: total raw search-hit volume collected across all monitored keywords (sum of keyword_stats[].raw_num), regardless of whether each hit was ultimately flagged as a selling post/comment. " +
     "Data source: keyword_stats aggregates from the published data release, after the page's category/platform filter selection.",
+  "active-keywords":
+    "Single metric: placeholder \u2014 data not yet available. Intended to eventually report the number of user interactions (e.g. replies/reactions) on flagged selling posts/comments.",
+};
+
+/** Short, customer-facing summary shown in the hover Info tooltip \u2014 kept
+ *  separate from METRIC_PROMPTS (the technical text sent to Copilot) so
+ *  each can be tuned for its own audience without drifting. */
+const METRIC_DESCRIPTIONS: Record<string, string> = {
+  "total-posts":
+    "Total number of individual posts and comments flagged as illegal drug-selling activity this reporting period \u2014 the core measure of detected illicit selling volume.",
+  "unique-accounts":
+    "Number of distinct social media accounts that posted flagged illegal selling content. Helps gauge how many different sellers are active, not just how many posts exist.",
+  "active-signals":
+    "Total raw search hits collected across all monitored keywords this period, before filtering for actual illicit content \u2014 the overall volume of data being scanned.",
+  "active-keywords":
+    "Placeholder metric \u2014 not yet available. Will eventually show interactions (replies/reactions) on flagged selling posts.",
 };
 
 function SelectableStat({ item }: { item: MetricCardData }) {
@@ -38,7 +50,7 @@ function SelectableStat({ item }: { item: MetricCardData }) {
         widgetId: `social-${item.id}`,
         title: item.label,
         type: "metric-card",
-        description: `Social media signal metric for the current rpt. period`,
+        description: METRIC_DESCRIPTIONS[item.id],
       }}
     >
       <MetricCard item={item} />
@@ -49,34 +61,38 @@ function SelectableStat({ item }: { item: MetricCardData }) {
 export function StatsRow({ metrics }: StatsRowProps) {
   const cards: MetricCardData[] = [
     {
-      id: "total-posts",
-      label: "Posts / Comments",
-      value: metrics.totalPosts.toLocaleString(),
+      id: "active-signals",
+      label: "Total Data Collected",
+      // `totalRawCount` may be missing from older cached API responses
+      // (added after some releases' aggregate tables were precomputed) —
+      // fall back to 0 instead of crashing on `.toLocaleString()`.
+      value: (metrics.totalRawCount ?? 0).toLocaleString(),
       change: null,
       direction: null,
     },
     {
       id: "unique-accounts",
-      label: "Unique Accounts",
-      value: metrics.uniqueAccounts.toLocaleString(),
+      label: "Unique Social Media Accounts",
+      value: (metrics.uniqueAccounts ?? 0).toLocaleString(),
       change: null,
       direction: null,
     },
     {
-      id: "active-signals",
-      label: "Active Signals",
-      value: metrics.activeCount.toLocaleString(),
+      id: "total-posts",
+      label: "Total Selling Posts/Comments",
+      value: (metrics.totalPosts ?? 0).toLocaleString(),
       change: null,
       direction: null,
     },
     {
       id: "active-keywords",
-      label: "Active Keywords",
-      value: metrics.activeKeywords.toLocaleString(),
+      label: "Number of Interactions",
+      value: "\u2014",
       change: null,
       direction: null,
     },
   ];
+
 
   return (
     <div className="grid grid-cols-2 gap-4 h-full">

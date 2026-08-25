@@ -6,16 +6,11 @@ import type Highcharts from "highcharts";
 import type { ApiListing, CategoryOption } from "../../types";
 import { HighchartsCard } from "../../charts/highcharts-card";
 import { useWidgetData } from "../../copilot/copilot-context";
-import { formatRptPeriodLabel, prevRptPeriodKey } from "./config";
+import { formatRptPeriodLabel } from "./config";
 
 const FALLBACK_COLOR = "#94a3b8";
 
 const CHART_STYLE = { fontFamily: "var(--font-geist-sans)" };
-
-/** Append 2-digit hex alpha to a #rrggbb string (alpha 0–1) */
-function withOpacity(hex: string, alpha: number): string {
-  return hex + Math.round(alpha * 255).toString(16).padStart(2, "0");
-}
 
 interface ListingTrendChartProps {
   filteredListings: ApiListing[];
@@ -27,6 +22,12 @@ interface ListingTrendChartProps {
   /** Label for the most recent rpt. period present in the dataset — derived
    *  from the release's own name/reportPeriod, not hardcoded. */
   currentPeriodLabel: string;
+  /** Admin-configured display name per internal reporting-period code (see
+   *  lib/releases.ts `getReportPeriodDisplayMap`) — used for every period
+   *  shown on this chart's axis/tooltip, not just the current one. Falls
+   *  back to `formatRptPeriodLabel` for any key missing from the map (e.g.
+   *  releases created before display names existed). */
+  periodLabels: Record<string, string>;
 }
 
 export function ListingTrendChart({
@@ -35,9 +36,14 @@ export function ListingTrendChart({
   selectedPrimaryName,
   categories,
   currentPeriodLabel,
+  periodLabels,
 }: ListingTrendChartProps) {
-  // Needed outside memo to conditionally render the prior-data note in JSX
-  const isSingleRptPeriod = allRptPeriodKeys.length === 1;
+  // Prefer the admin-configured display name; fall back to the formatted
+  // internal code for any period not present in the map.
+  const labelFor = useMemo(
+    () => (key: string) => periodLabels[key] || formatRptPeriodLabel(key),
+    [periodLabels],
+  );
 
   const periodCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -45,75 +51,33 @@ export function ListingTrendChart({
       counts[l.reportingPeriodId] = (counts[l.reportingPeriodId] ?? 0) + 1;
     return allRptPeriodKeys
       .filter(Boolean)
-      .map((k) => ({ label: formatRptPeriodLabel(k), value: counts[k] ?? 0 }));
-  }, [filteredListings, allRptPeriodKeys]);
+      .map((k) => ({ label: labelFor(k), value: counts[k] ?? 0 }));
+  }, [filteredListings, allRptPeriodKeys, labelFor]);
   useWidgetData(
     "top-products-trend",
     periodCounts,
-    "Line chart of illegal listing volume per reporting period, one line per drug category. " +
+    "Bar chart of illegal listing volume per reporting period, one bar series per drug category. " +
       "The data points here are the total listing counts per reporting period (all categories combined) after the page's category filter. " +
-      "Data source: listing records in the published data release, grouped by reporting period. " +
-      "When only one reporting period exists, the chart pads a dashed 'ghost' prior period for visual context — that ghost point is not real data.",
+      "Data source: listing records in the published data release, grouped by reporting period.",
   );
 
   const options = useMemo((): Highcharts.Options => {
     // Filter out any undefined/empty keys that may arrive before data is ready
     const validKeys = allRptPeriodKeys.filter(Boolean);
-    const singleQ = validKeys.length === 1;
+    const xLabels = validKeys.map(labelFor);
 
-    // x-axis: when only one rpt. period exists, prepend a ghost "prior period" label
-    const xLabels = singleQ
-      ? [
-          formatRptPeriodLabel(prevRptPeriodKey(validKeys[0])),
-          formatRptPeriodLabel(validKeys[0]),
-        ]
-      : validKeys.map(formatRptPeriodLabel);
-
-    /** Build one series line, applying dashed-zone styling when prior data is absent */
     function makeSeries(
       name: string,
       color: string,
       counts: number[],
-    ): Highcharts.SeriesLineOptions {
-      if (singleQ) {
-        const actual = counts[0] ?? 0;
-        return {
-          type: "line",
-          name,
-          color,
-          // Segment from ghost-point (index 0) to real point (index 1) → dashed + faded
-          zoneAxis: "x",
-          zones: [
-            {
-              value: 1,
-              dashStyle: "Dash" as Highcharts.DashStyleValue,
-              color: withOpacity(color, 0.35),
-            },
-          ],
-          data: [
-            // Ghost baseline point — hollow marker signals "no real data here"
-            {
-              y: 0,
-              marker: {
-                symbol: "circle",
-                fillColor: "white",
-                lineWidth: 1.5,
-                lineColor: withOpacity(color, 0.5),
-                radius: 4,
-              },
-            } as Highcharts.PointOptionsObject,
-            actual,
-          ],
-        };
-      }
-
-      return { type: "line", name, color, data: counts };
+    ): Highcharts.SeriesColumnOptions {
+      return { type: "column", name, color, data: counts };
     }
 
     const colorByName = new Map(categories.map((c) => [c.name, c.color ?? FALLBACK_COLOR]));
 
-    const series: Highcharts.SeriesLineOptions[] = selectedPrimaryName
-      ? // Specific category → one line per secondary product
+    const series: Highcharts.SeriesColumnOptions[] = selectedPrimaryName
+      ? // Specific category → one series per secondary product
         [...new Set(filteredListings.map((l) => l.secondaryCategory))].map((prod) => {
           const color = colorByName.get(selectedPrimaryName) ?? FALLBACK_COLOR;
           const counts = validKeys.map(
@@ -124,7 +88,7 @@ export function ListingTrendChart({
           );
           return makeSeries(prod, color, counts);
         })
-      : // All categories → one line per primary (dynamically derived from data)
+      : // All categories → one series per primary (dynamically derived from data)
         categories.map((cat) => {
           const color = cat.color ?? FALLBACK_COLOR;
           const counts = validKeys.map(
@@ -138,7 +102,7 @@ export function ListingTrendChart({
 
     return {
       chart: {
-        type: "line",
+        type: "column",
         height: 230,
         backgroundColor: "transparent",
         style: CHART_STYLE,
@@ -164,7 +128,7 @@ export function ListingTrendChart({
       credits: { enabled: false },
       accessibility: { enabled: false },
       plotOptions: {
-        line: { marker: { enabled: true, radius: 3 }, lineWidth: 2.2 },
+        column: { borderRadius: 3, borderWidth: 0, groupPadding: 0.12, pointPadding: 0.05 },
       },
       tooltip: {
         shared: true,
@@ -202,7 +166,7 @@ export function ListingTrendChart({
       },
       series,
     };
-  }, [filteredListings, allRptPeriodKeys, selectedPrimaryName, categories]);
+  }, [filteredListings, allRptPeriodKeys, selectedPrimaryName, categories, labelFor]);
 
   return (
     <HighchartsCard
@@ -215,17 +179,6 @@ export function ListingTrendChart({
         options,
       }}
       subtitleClassName="py-1"
-      note={
-        isSingleRptPeriod ? (
-          <p className="flex items-center gap-2 text-xs text-slate-400">
-            <span
-              aria-hidden
-              className="inline-block h-px w-6 shrink-0 border-b-2 border-dashed border-slate-300"
-            />
-            Prior Rpt. Period data unavailable — dashed segment shows estimated baseline (0).
-          </p>
-        ) : undefined
-      }
     />
   );
 }

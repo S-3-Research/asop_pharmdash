@@ -6,7 +6,7 @@ import Highcharts from "highcharts";
 import { Plus, Minus, Search, Hand, Home, Menu } from "lucide-react";
 
 import { DashboardCard } from "../../ui/dashboard-card";
-import { KeyTakeaway } from "../../ui/key-takeaway";
+import { KeyTakeaway, KEY_TAKEAWAY_SUPPRESSED } from "../../ui/key-takeaway";
 import { useWidgetData } from "../../copilot/copilot-context";
 import { buildTrafficDatasets, buildTrafficMonthlySeries, type TrafficRange } from "./config";
 import type { Domain } from "../../types";
@@ -81,7 +81,7 @@ export function TrafficChart({ domains }: TrafficChartProps) {
     "Line chart of monthly AVERAGE SEO traffic (organic + paid search clicks) per domain, with a 6M / YTD / MAX range toggle. " +
       "Each month's value is the average across only the domains that had click data that month (missing months are not counted as 0). " +
       "The 'Avg Clicks/Domain — <month>' data points above ARE the actual monthly series for the currently selected range (same numbers the chart is plotting) — use THESE to describe whether traffic is rising, falling, or flat month-over-month, comparing the most recent months against earlier ones. " +
-      "IMPORTANT: the underlying click history can extend further back than the current reporting period (CBU) — do NOT sum/aggregate all months into one grand total figure, as that number is not meaningful; always talk in terms of the monthly trend instead. " +
+      "IMPORTANT: the underlying click history can extend further back than the current reporting period — do NOT sum/aggregate all months into one grand total figure, as that number is not meaningful; always talk in terms of the monthly trend instead. " +
       "Data source: each domain record's seoClickHistory (monthly organicClicks and paidClicks from upstream SEO analytics) in the published data release; counts reflect the page's current category filter.",
   );
 
@@ -90,9 +90,11 @@ export function TrafficChart({ domains }: TrafficChartProps) {
       title="Average Traffic"
       className="h-full overflow-hidden"
       note={
-        <KeyTakeaway>
-          Paid clicks account for a growing share of domain traffic. (example data)
-        </KeyTakeaway>
+        KEY_TAKEAWAY_SUPPRESSED ? undefined : (
+          <KeyTakeaway>
+            Paid clicks account for a growing share of domain traffic. (example data)
+          </KeyTakeaway>
+        )
       }
     >
       <div className="flex h-full flex-col">

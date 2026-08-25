@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Globe, Share2, Sparkles } from "lucide-react";
 
+import { SummaryStrip, type SummaryStripTile } from "../../ui/summary-strip";
 import type { ApiListing } from "../../types";
 
 interface OverallSummaryStripProps {
@@ -16,16 +17,8 @@ interface OverallSummaryStripProps {
   domainSummary: { total: number; aliveCount: number; socialCount: number };
 }
 
-interface Tile {
-  id: string;
-  icon: typeof Globe;
-  accent: string; // tailwind text/bg accent classes
-  headline: string;
-  label: string;
-}
-
 export function OverallSummaryStrip({ allListings, domainSummary }: OverallSummaryStripProps) {
-  const tiles = useMemo((): Tile[] => {
+  const tiles = useMemo((): SummaryStripTile[] => {
     const alivePct =
       domainSummary.total > 0
         ? Math.round((domainSummary.aliveCount / domainSummary.total) * 100)
@@ -70,36 +63,5 @@ export function OverallSummaryStrip({ allListings, domainSummary }: OverallSumma
     ];
   }, [allListings, domainSummary]);
 
-  return (
-    <div className="relative mt-3 overflow-visible rounded-xl border border-slate-200 bg-gradient-to-br from-white via-white to-slate-50 px-5 py-4 shadow-sm">
-      {/* Raised tab, attached to the top-right edge — echoes the container's
-          background/border/corner language so it reads as a continuation
-          of the same surface (a page-level "Summary" callout), not a
-          separate floating label. Positioned to overlap the container's
-          top edge by half its own height so it visually emerges from the
-          boundary rather than sitting flush on top of it. */}
-      <div className="absolute -top-6 right-0 rounded-t-lg border border-b-0 border-slate-200 bg-gradient-to-br from-white via-white to-slate-50 px-3 py-1">
-        <span className="text-xs font-semibold tracking-wide text-slate-500">Summary</span>
-      </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {tiles.map((tile) => {
-          const Icon = tile.icon;
-          return (
-            <div
-              key={tile.id}
-              className="flex items-center gap-3 rounded-lg bg-white/70 px-3 py-2.5 shadow-sm ring-1 ring-slate-100"
-            >
-              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${tile.accent}`}>
-                <Icon size={17} strokeWidth={2.25} />
-              </div>
-              <div className="min-w-0">
-                <div className="truncate text-sm font-bold text-slate-800">{tile.headline}</div>
-                <div className="truncate text-xs text-slate-500">{tile.label}</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+  return <SummaryStrip tiles={tiles} className="mt-3" />;
 }

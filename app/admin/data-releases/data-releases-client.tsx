@@ -37,6 +37,11 @@ type ReleaseManifest = {
   schemaVersion: string;
   generatedAt: string;
   recordCounts: { domains: number; socialMedia: number; socialMediaSummary: number };
+  /** Admin-configured, end-user-facing label for this release's reporting
+   *  period (e.g. "Q1 2026") — shown across the dashboard instead of the
+   *  internal reportPeriod code. Optional; falls back to the formatted
+   *  code when unset. */
+  displayName?: string;
 };
 
 type ValidationIssue = { level: "error" | "warning"; code: string; message: string; path?: string };
@@ -84,6 +89,35 @@ export default function DataReleasesClient() {
   );
 
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  // Draft display-name text per releaseId, keyed so each row's input is
+  // independent and only diverges from the saved manifest value while the
+  // admin is actively editing it.
+  const [displayNameDrafts, setDisplayNameDrafts] = useState<Record<string, string>>({});
+  const [savingDisplayNameId, setSavingDisplayNameId] = useState<string | null>(null);
+
+  const saveDisplayName = async (releaseId: string) => {
+    const draft = displayNameDrafts[releaseId] ?? "";
+    setSavingDisplayNameId(releaseId);
+    setSubmitError(null);
+    try {
+      const res = await fetch(`/api/admin/releases/${encodeURIComponent(releaseId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName: draft.trim() || null }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(body?.message ?? "Failed to save display name");
+      }
+      const body = (await res.json()) as { manifest: ReleaseManifest };
+      setReleases((prev) => prev.map((r) => (r.releaseId === releaseId ? body.manifest : r)));
+      setActionMessage(`Display name updated for "${releaseId}".`);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Failed to save display name");
+    } finally {
+      setSavingDisplayNameId(null);
+    }
+  };
   const [fileName, setFileName] = useState<string | null>(null);
   // Lightweight summary shown in place of the file's raw content — the full
   // text is NEVER stored in React state (see `parsedFilePayloadRef` below).
@@ -504,6 +538,7 @@ export default function DataReleasesClient() {
               <tr className="border-b border-slate-200 text-slate-500">
                 <th className="py-2">Release ID</th>
                 <th>Report period</th>
+                <th>Display name</th>
                 <th>Generated</th>
                 <th>Records</th>
                 <th className="text-right">Actions</th>
@@ -523,6 +558,30 @@ export default function DataReleasesClient() {
                       ) : null}
                     </td>
                     <td>{isMock ? "—" : r.reportPeriod}</td>
+                    <td>
+                      {isMock ? (
+                        "—"
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            placeholder={r.reportPeriod}
+                            value={displayNameDrafts[r.releaseId] ?? r.displayName ?? ""}
+                            onChange={(e) =>
+                              setDisplayNameDrafts((prev) => ({ ...prev, [r.releaseId]: e.target.value }))
+                            }
+                            className="w-32 rounded border border-slate-200 px-1.5 py-1 text-xs"
+                          />
+                          <button
+                            className="rounded bg-slate-100 px-2 py-1 text-xs hover:bg-slate-200 disabled:opacity-50"
+                            disabled={savingDisplayNameId === r.releaseId}
+                            onClick={() => saveDisplayName(r.releaseId)}
+                          >
+                            {savingDisplayNameId === r.releaseId ? "Saving…" : "Save"}
+                          </button>
+                        </div>
+                      )}
+                    </td>
                     <td>{isMock ? "built-in" : new Date(r.generatedAt).toLocaleString()}</td>
                     <td>
                       {isMock
@@ -558,7 +617,7 @@ export default function DataReleasesClient() {
               })}
               {releases.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-4 text-center text-slate-400">
+                  <td colSpan={6} className="py-4 text-center text-slate-400">
                     No releases yet.
                   </td>
                 </tr>

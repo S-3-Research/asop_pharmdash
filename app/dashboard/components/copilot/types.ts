@@ -40,6 +40,12 @@ export interface PageContext {
    *  e.g. "2026-RPT-02" (2nd reporting period of 2026). Empty until data loads.
    *  No concrete dates are exposed. */
   reportingPeriod: string;
+  /** Admin-configured, end-user-facing display name for `reportingPeriod`
+   *  (see lib/releases.ts `setReleaseDisplayName`). Falls back to
+   *  `reportingPeriod` itself when no display name has been configured, or
+   *  empty when serving mock data. Shown in widget-info tooltips so users
+   *  see a real label instead of an internal code. */
+  reportingPeriodDisplayName?: string;
   filters: PageFilters;
   /** Real, live-derived filter options for this page — see AvailableFilters doc */
   availableFilters: AvailableFilters;
@@ -82,10 +88,11 @@ export interface SelectedWidget {
   widgetId: string;
   title: string;
   type: WidgetType;
+  /** Short, customer-facing summary (max ~3 sentences) shown in the hover
+   *  Info tooltip — what the widget shows and how to read it, in plain
+   *  language (no data-source/pipeline detail). */
   description?: string;
   dataPoints?: WidgetDataPoint[];
-  /** Card-provided prompt fragment describing content & data provenance */
-  dataNote?: string;
 }
 
 // ── Filter Actions ────────────────────────────────────────────────────────────

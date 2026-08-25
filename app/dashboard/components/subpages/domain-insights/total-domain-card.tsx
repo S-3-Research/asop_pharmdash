@@ -6,7 +6,7 @@ import Highcharts from "highcharts";
 
 import type { Domain } from "../../types";
 import { DashboardCard } from "../../ui/dashboard-card";
-import { KeyTakeaway } from "../../ui/key-takeaway";
+import { KeyTakeaway, KEY_TAKEAWAY_SUPPRESSED } from "../../ui/key-takeaway";
 import { useWidgetData } from "../../copilot/copilot-context";
 import { buildTotalDomainChart } from "./config";
 
@@ -17,9 +17,13 @@ const HighchartsReact = dynamic(() => import("highcharts-react-official"), {
 
 interface TotalDomainCardProps {
   domains: Domain[];
+  /** Admin-configured display name per internal reporting-period code (see
+   *  lib/releases.ts `getReportPeriodDisplayMap`) — covers every period, not
+   *  just the current one, so historical bars/tooltips are labeled too. */
+  periodLabels?: Record<string, string>;
 }
 
-export function TotalDomainCard({ domains }: TotalDomainCardProps) {
+export function TotalDomainCard({ domains, periodLabels = {} }: TotalDomainCardProps) {
   // Chart instance ref + ResizeObserver: highcharts-react-official only
   // sizes the chart once at mount time from the container's clientHeight,
   // which can be 0/stale if the flex/grid layout hasn't finished resolving
@@ -51,8 +55,8 @@ export function TotalDomainCard({ domains }: TotalDomainCardProps) {
   }, [domains]);
 
   const { count, pctChange, noPriorData, options } = useMemo(
-    () => buildTotalDomainChart(domains, currentRptPeriod),
-    [domains, currentRptPeriod],
+    () => buildTotalDomainChart(domains, currentRptPeriod, periodLabels),
+    [domains, currentRptPeriod, periodLabels],
   );
 
   useWidgetData(
@@ -65,9 +69,9 @@ export function TotalDomainCard({ domains }: TotalDomainCardProps) {
         value: pctChange !== null ? `${pctChange}%` : "n/a",
       },
     ],
-    "Shows the total number of rogue pharmacy domains detected in the current reporting period, with a mini trend chart across periods. " +
+    "Bar chart of total rogue pharmacy domains detected, one bar per reporting period (x-axis), with a second 'Live' bar series showing how many of those were still active. " +
       "Data source: the published data release's domain records, counted by reportingPeriodId after applying the page's category filter. " +
-      "The % change compares the current period count against the immediately prior period; 'n/a' means no prior-period data exists in this release.",
+      "The % change compares the current period's bar against the immediately prior period's bar; 'n/a' means no prior-period data exists in this release.",
   );
 
   const isUp = pctChange !== null && pctChange >= 0;
@@ -87,7 +91,7 @@ export function TotalDomainCard({ domains }: TotalDomainCardProps) {
       note={
         noPriorData ? (
           <span className="text-[10px] text-slate-400">Prior Rpt. Period data unavailable</span>
-        ) : (
+        ) : KEY_TAKEAWAY_SUPPRESSED ? undefined : (
           <KeyTakeaway>
             Domain count is growing faster than the takedown rate. (example data)
           </KeyTakeaway>

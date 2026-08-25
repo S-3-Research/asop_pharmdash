@@ -191,7 +191,7 @@ export function CopilotPanel() {
         ? {
             ...selectedWidget,
             dataPoints: entry?.dataPoints ?? selectedWidget.dataPoints,
-            dataNote: entry?.prompt ?? selectedWidget.dataNote,
+            dataNote: entry?.prompt,
           }
         : null;
       // Page-level suggested prompts (no widget selected) attach ALL mounted

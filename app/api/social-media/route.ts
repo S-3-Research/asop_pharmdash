@@ -6,9 +6,10 @@ import type {
   SocialKeywordBubble,
   SocialKeywordRanking,
   SocialMediaPayload,
+  SocialProductSignalCount,
 } from "@/app/dashboard/components/types";
 import { getActiveChannel } from "@/lib/channel";
-import { readChannel, fetchSocialIndex, fetchSocialAggregateTable, fetchReleaseData, isMockRelease } from "@/lib/releases";
+import { fetchSocialIndex, fetchSocialAggregateTable, fetchReleaseData, getActiveReleaseContext } from "@/lib/releases";
 import { buildSocialAggregates, buildKeywordRankingsFromStats, buildKeywordBubblesFromStats } from "@/lib/release-mapping";
 import { SOCIAL_PRIMARY_CATEGORIES } from "@/app/dashboard/components/subpages/social-media/config";
 
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
 
   // ── Source data: real published release, or built-in mock ────────────────
   const channel = getActiveChannel();
-  const pointer = await readChannel(channel);
+  const ctx = await getActiveReleaseContext(channel);
 
   let platformTabs: SocialMediaPayload["platformTabs"];
   let metrics: SocialMediaPayload["metrics"];
@@ -43,8 +44,10 @@ export async function GET(request: NextRequest) {
   let keywordRankings: SocialKeywordRanking[];
   let keywordBubbles: SocialKeywordBubble[];
   let categoryOptions: SocialMediaPayload["categoryOptions"];
+  let productSignalCounts: SocialProductSignalCount[];
+  let totalRawCount = 0;
 
-  if (!pointer.current || isMockRelease(pointer.current.releaseId)) {
+  if (ctx.isMock) {
     // ── Mock data path (unchanged) ──────────────────────────────────────────
     const catFiltered =
       selectedCategories.length > 0
@@ -70,7 +73,7 @@ export async function GET(request: NextRequest) {
     const allKeywords    = filtered.flatMap((p) => p.keywords ?? []);
     const uniqueKeywords = new Set(allKeywords).size;
     const activeCount    = filtered.filter((p) => p.status === "active").length;
-    metrics = { totalPosts: filtered.length, uniqueAccounts, activeKeywords: uniqueKeywords, activeCount };
+    metrics = { totalPosts: filtered.length, uniqueAccounts, activeKeywords: uniqueKeywords, activeCount, totalRawCount: 0 };
 
     const kwCountMap = new Map<string, number>();
     for (const kw of allKeywords) {
@@ -104,6 +107,23 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b[1] - a[1])
       .map(([app, count]) => ({ app, count }));
 
+    // Mock posts already carry {primaryCategory, secondaryCategory} pairs
+    // (same shape as the real-release path) — group selling posts/comments
+    // by product name (secondaryCategory), respecting the category filter.
+    const productCountMap = new Map<string, number>();
+    for (const post of filtered) {
+      for (const pair of post.categories) {
+        if (selectedCategories.length > 0 && !selectedCategories.includes(pair.primaryCategory)) continue;
+        if (pair.secondaryCategory === "Unknown") continue;
+        productCountMap.set(pair.secondaryCategory, (productCountMap.get(pair.secondaryCategory) ?? 0) + 1);
+      }
+    }
+    productSignalCounts = [...productCountMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({ name, count }));
+    // No keyword_stats[] on the built-in mock release, so there's no raw
+    // search-hit volume to sum — leave at 0 (declared above).
+
     // Mock release has no product_info-derived category registry — fall
     // back to the fixed list.
     categoryOptions = SOCIAL_PRIMARY_CATEGORIES;
@@ -117,11 +137,11 @@ export async function GET(request: NextRequest) {
     // multi-select OR filter, and precomputing every subset (2^N) isn't
     // practical, so this rare case filters the cached text-free index
     // on demand instead (still no `text`/`link` fields touched).
-    const releaseId = pointer.current.releaseId;
+    const releaseId = ctx.releaseId;
     const table = await fetchSocialAggregateTable(releaseId);
     const platformKey = platformParam && platformParam !== PLATFORM_ALL_KEY ? platformParam : PLATFORM_ALL_KEY;
 
-    let aggregates: { platformTabs: SocialMediaPayload["platformTabs"]; metrics: { totalPosts: number; uniqueAccounts: number; activeCount: number }; mentionsByApp: SocialMediaPayload["mentionsByApp"] };
+    let aggregates: { platformTabs: SocialMediaPayload["platformTabs"]; metrics: { totalPosts: number; uniqueAccounts: number; activeCount: number }; mentionsByApp: SocialMediaPayload["mentionsByApp"]; productSignalCounts: SocialProductSignalCount[] };
 
     if (selectedCategories.length <= 1) {
       const categoryKey = selectedCategories.length === 0 ? CATEGORY_ALL_KEY : selectedCategories[0];
@@ -134,6 +154,9 @@ export async function GET(request: NextRequest) {
 
     platformTabs = aggregates.platformTabs;
     mentionsByApp = aggregates.mentionsByApp;
+    // Same backward-compat concern as totalRawCount above — older
+    // precomputed aggregate tables predate this field.
+    productSignalCounts = aggregates.productSignalCounts ?? [];
 
     // Keyword rankings/bubbles: as of the 2026-08-12 schema, KeywordStat
     // carries `product_category` directly, so these now respect the same
@@ -141,7 +164,7 @@ export async function GET(request: NextRequest) {
     // selections hit the precomputed table below; 2+ selected categories
     // (rare multi-select case) fall back to filtering keyword_stats on
     // demand, mirroring the platformTabs/metrics fallback above.
-    let keywordAgg: { uniqueKeywordCount: number; keywordRankings: SocialKeywordRanking[]; keywordBubbles: SocialKeywordBubble[] };
+    let keywordAgg: { uniqueKeywordCount: number; keywordRankings: SocialKeywordRanking[]; keywordBubbles: SocialKeywordBubble[]; totalRawCount: number };
     if (selectedCategories.length <= 1) {
       const categoryKey = selectedCategories.length === 0 ? CATEGORY_ALL_KEY : selectedCategories[0];
       keywordAgg =
@@ -161,6 +184,7 @@ export async function GET(request: NextRequest) {
         uniqueKeywordCount: new Set(relevantStats.map((s) => s.keyword)).size,
         keywordRankings,
         keywordBubbles,
+        totalRawCount: relevantStats.reduce((sum, s) => sum + (s.raw_num ?? 0), 0),
       };
     }
 
@@ -169,6 +193,12 @@ export async function GET(request: NextRequest) {
       uniqueAccounts: aggregates.metrics.uniqueAccounts,
       activeKeywords: keywordAgg.uniqueKeywordCount,
       activeCount: aggregates.metrics.activeCount,
+      // `totalRawCount` was added after some releases' aggregate tables were
+      // precomputed and persisted to Storage (see buildSocialAggregateTable
+      // in lib/release-mapping.ts) — older cached tables won't have this
+      // field, so fall back to 0 instead of crashing StatsRow's
+      // `.toLocaleString()` call.
+      totalRawCount: keywordAgg.totalRawCount ?? 0,
     };
     keywordRankings = keywordAgg.keywordRankings;
     keywordBubbles = keywordAgg.keywordBubbles;
@@ -181,6 +211,7 @@ export async function GET(request: NextRequest) {
     keywordRankings,
     mentionsByApp,
     keywordBubbles,
+    productSignalCounts,
     categoryOptions,
   };
 

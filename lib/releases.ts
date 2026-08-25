@@ -40,6 +40,7 @@ import {
   buildSocialAggregateTable,
   mapReleaseDomainsToListings,
   mapReleaseSocialToListings,
+  convertReportPeriod,
   type SocialPostLite,
   type SocialAggregateTable,
 } from "@/lib/release-mapping";
@@ -97,6 +98,12 @@ export interface ReleaseManifest {
     socialMedia: number;
     socialMediaSummary: number;
   };
+  /** Human-facing label shown to end users instead of the internal
+   *  `reportPeriod` code (e.g. "2026-RPT-01"). Manually set by an admin via
+   *  the Data Releases admin page (`setReleaseDisplayName`) — optional, so
+   *  releases created before this field existed simply fall back to the
+   *  formatted `reportPeriod` code wherever it's consumed. */
+  displayName?: string;
 }
 
 export interface AuditLogEntry {
@@ -236,6 +243,129 @@ function releasePrefix(releaseId: string): string {
 export async function getManifest(releaseId: string): Promise<ReleaseManifest | null> {
   if (isMockRelease(releaseId)) return MOCK_RELEASE_MANIFEST;
   return downloadJson<ReleaseManifest>(`${releasePrefix(releaseId)}/manifest.json`);
+}
+
+// ---------------------------------------------------------------------------
+// Shared "active release" resolution — every data API route (top-products,
+// domains, social-media, keyword-count, ...) needs the same handful of
+// facts about whatever release is currently published to a channel:
+// whether it's the mock release, the internal reportingPeriodId code, and
+// the admin-configured display name for that period. Centralizing this
+// here means each route no longer has to hand-roll its own
+// readChannel → getManifest → convertReportPeriod → fallback chain, and
+// any future field added to that resolution (e.g. more manifest metadata)
+// only needs to be threaded through once.
+// ---------------------------------------------------------------------------
+
+export interface ActiveReleaseContext {
+  /** Raw channel pointer, in case a caller still needs `previous` etc. */
+  pointer: ChannelPointer;
+  /** True when no release is published, or the built-in mock release is —
+   *  callers should serve mock data in either case. */
+  isMock: boolean;
+  /** Empty string when `isMock` is true. */
+  releaseId: string;
+  /** Internal reporting-period code, e.g. "2026-RPT-01". Empty string when
+   *  `isMock` is true. Used for grouping/filtering data — never shown to
+   *  end users directly. */
+  reportingPeriodId: string;
+  /** Admin-configured, end-user-facing label for `reportingPeriodId` (see
+   *  `setReleaseDisplayName`) — falls back to a formatted version of the
+   *  code itself when unset. Empty string when `isMock` is true. */
+  reportingPeriodDisplayName: string;
+  /** Full manifest for the active release, or null when `isMock` is true. */
+  manifest: ReleaseManifest | null;
+}
+
+/** "2026-RPT-01" -> "2026 RPT-01" — same formatting used by the dashboard's
+ *  `formatRptPeriodLabel` (app/dashboard/components/subpages/top-products/
+ *  config.ts), duplicated here (server-only lib) to avoid a cross-boundary
+ *  import; both must be kept in sync if the label format ever changes. */
+function formatReportingPeriodId(id: string): string {
+  return id.replace("-", " ");
+}
+
+/**
+ * Resolves everything a data API route needs to know about the release
+ * currently published to `channel`, in one call — see `ActiveReleaseContext`.
+ */
+export async function getActiveReleaseContext(channel: ChannelName): Promise<ActiveReleaseContext> {
+  const pointer = await readChannel(channel);
+
+  if (!pointer.current || isMockRelease(pointer.current.releaseId)) {
+    return {
+      pointer,
+      isMock: true,
+      releaseId: "",
+      reportingPeriodId: "",
+      reportingPeriodDisplayName: "",
+      manifest: null,
+    };
+  }
+
+  const reportingPeriodId = convertReportPeriod(pointer.current.reportPeriod);
+  const manifest = await getManifest(pointer.current.releaseId);
+  const reportingPeriodDisplayName =
+    manifest?.displayName || formatReportingPeriodId(reportingPeriodId);
+
+  return {
+    pointer,
+    isMock: false,
+    releaseId: pointer.current.releaseId,
+    reportingPeriodId,
+    reportingPeriodDisplayName,
+    manifest,
+  };
+}
+
+/**
+ * Builds a map of every known release's internal reportingPeriodId code to
+ * its display name (admin-configured `displayName`, falling back to the
+ * formatted code) — used wherever multiple reporting periods must be
+ * labeled at once (e.g. a multi-period trend chart's axis/tooltip), unlike
+ * `getActiveReleaseContext` which only resolves the single currently-active
+ * one. When a reportPeriod has multiple release versions (v1, v2, ...), the
+ * most-recently-generated one wins.
+ */
+export async function getReportPeriodDisplayMap(): Promise<Record<string, string>> {
+  const releases = await listReleases();
+  const map: Record<string, string> = {};
+  // `listReleases` is already sorted newest-first by generatedAt, and the
+  // mock release is always last — so the first manifest seen per
+  // reportingPeriodId is the most recent one; skip the mock entry (it has
+  // no meaningful reportPeriod of its own).
+  for (const m of releases) {
+    if (isMockRelease(m.releaseId)) continue;
+    const id = convertReportPeriod(m.reportPeriod);
+    if (id in map) continue;
+    map[id] = m.displayName || formatReportingPeriodId(id);
+  }
+  return map;
+}
+
+/**
+ * Sets (or clears, via `displayName: null`) the admin-configured, end-user-
+ * facing display name for a release's reporting period — e.g. showing
+ * "Q1 2026" instead of the internal "2026-RPT-01" code everywhere the
+ * dashboard surfaces that release's reporting period label.
+ */
+export async function setReleaseDisplayName(
+  releaseId: string,
+  displayName: string | null,
+): Promise<ReleaseManifest> {
+  if (isMockRelease(releaseId)) {
+    throw new Error("Cannot set a display name on the built-in mock release");
+  }
+  const manifest = await getManifest(releaseId);
+  if (!manifest) {
+    throw new Error(`Release "${releaseId}" not found`);
+  }
+  const next: ReleaseManifest = {
+    ...manifest,
+    displayName: displayName?.trim() ? displayName.trim() : undefined,
+  };
+  await uploadJson(`${releasePrefix(releaseId)}/manifest.json`, next);
+  return next;
 }
 
 /**

@@ -2,74 +2,40 @@
 
 import { useState } from "react";
 import { ArrowUp } from "lucide-react";
-import useSWR from "swr";
 
-import type { SocialKeywordCountPayload, SocialKeywordRanking } from "../../types";
+import type { SocialKeywordRanking } from "../../types";
 import { useWidgetData } from "../../copilot/copilot-context";
-import { KeyTakeaway } from "../../ui/key-takeaway";
+import { KeyTakeaway, KEY_TAKEAWAY_SUPPRESSED } from "../../ui/key-takeaway";
 
 interface KeywordRankingsCardProps {
   rankings: SocialKeywordRanking[];
   platform: string;
-  /** Selected category ids (e.g. ["GLP-1"]) — forwarded to the raw-count
-   *  lookup so it matches the same category filter used to build `rankings`. */
+  /** Selected category ids (e.g. ["GLP-1"]) — kept for widget-context parity
+   *  with the rest of the page, even though this card no longer fetches a
+   *  separate raw-count lookup itself. */
   categories: string[];
 }
 
 const PAGE_SIZE = 4;
 
-const countFetcher = (url: string) =>
-  fetch(url).then((r) => r.json() as Promise<SocialKeywordCountPayload>);
-
-export function KeywordRankingsCard({ rankings, platform, categories }: KeywordRankingsCardProps) {
+export function KeywordRankingsCard({ rankings }: KeywordRankingsCardProps) {
   const [page, setPage] = useState(1);
 
   const totalPages = Math.max(1, Math.ceil(rankings.length / PAGE_SIZE));
   const start   = (page - 1) * PAGE_SIZE;
   const visible = rankings.slice(start, start + PAGE_SIZE);
 
-  // Fetch rawCount for the keywords visible on the current page
-  const pageKeywords = visible.map((r) => r.keyword).join(",");
-  const kwParams = new URLSearchParams({ keywords: pageKeywords });
-  if (platform !== "all") kwParams.set("platform", platform);
-  if (categories.length > 0) kwParams.set("categories", categories.join(","));
-
-  const { data: countData } = useSWR<SocialKeywordCountPayload>(
-    pageKeywords ? `/api/social-media/keyword-count?${kwParams}` : null,
-    countFetcher,
-    { revalidateOnFocus: false },
-  );
-
-  const rawCountMap = new Map(
-    (countData?.results ?? []).map((r) => [r.keyword, r.rawCount]),
-  );
-
   useWidgetData(
     "social-keyword-rankings",
-    rankings.map((r) => {
-      const rawCount = rawCountMap.get(r.keyword);
-      const ratioPart =
-        rawCount != null && rawCount > 0
-          ? `, ratio ${((r.signalCount / rawCount) * 100).toFixed(1)}% of ${rawCount} raw hits`
-          : rawCount === 0
-            ? ", raw hits: 0"
-            : "";
-      return {
-        label: r.keyword,
-        value: `${r.signalCount} signals${ratioPart}${r.growthRate != null ? ` (growth ${r.growthRate}%)` : ""}`,
-      };
-    }),
-    "Paginated table ranking monitored keywords by signal count, with growth rate vs the prior period and a raw-mention count fetched per keyword. " +
-      "Meaning: for each keyword, we search that platform using the keyword and retrieve a set of 'raw' results/mentions (rawCount); " +
-      "'signalCount' is the number of those raw results that were detected/classified as illegal-selling signals (e.g. rogue pharmacy listings or solicitations). " +
-      "So rawCount is the total search hits for the keyword, and signalCount is the subset flagged as actual illegal-selling signals within that raw data. " +
-      "IMPORTANT for prioritization: what matters most is the RELATIVE SIZE of signalCount vs rawCount (i.e. the signal-to-raw ratio/'hit rate'), not the absolute numbers alone. " +
-      "A keyword with a small rawCount but a high signalCount/rawCount ratio is a concentrated, high-confidence signal and deserves attention even if its raw volume is low; " +
-      "a keyword with a huge rawCount but a low ratio (mostly noise) is lower priority despite a large signalCount. " +
-      "When asked which keywords are worth watching, compare signalCount against rawCount (not signalCount in isolation) and call out keywords with an unusually high or rising ratio. " +
-      "NOTE: rawCount/ratio is only shown above for keywords on the currently-viewed table page (fetched live from the keyword-count API) — for keywords without a ratio shown, the raw count simply hasn't been fetched yet, not that it's zero or unavailable. " +
+    rankings.map((r) => ({
+      label: r.keyword,
+      value: `${r.signalCount} selling posts/comments${r.growthRate != null ? ` (growth ${r.growthRate}%)` : ""}`,
+    })),
+    "Paginated table ranking monitored keywords by RAW VOLUME — total selling posts/comments count — with growth rate vs the prior reporting period. " +
+      "This ranks keywords by absolute output volume, which is different from the Keyword Performance chart on this page (which ranks by hit rate / search yield, i.e. signal share of raw search results) — a keyword can rank high here on volume alone while having a low hit rate, or vice versa. " +
+      "Growth rate shows how a keyword's volume is trending period over period, which can signal emerging or declining illicit-seller activity/language for that term. " +
       "The data points here contain the COMPLETE keyword ranking (all pages), not just the visible page. " +
-      "Data source: keyword signal aggregates from the published data release, after the page's category/platform filter selection; raw counts come from the live keyword-count API.",
+      "Data source: keyword aggregates from the published data release, after the page's category/platform filter selection.",
   );
 
   return (
@@ -83,44 +49,33 @@ export function KeywordRankingsCard({ rankings, platform, categories }: KeywordR
           <thead className="text-gray-500 border-b border-gray-100">
             <tr>
               <th className="pb-3 font-medium">Keyword</th>
-              <th className="pb-3 font-medium text-right">Signal</th>
-              <th className="pb-3 font-medium text-right">Raw Count</th>
+              <th className="pb-3 font-medium text-right">Selling Posts/Comments</th>
               <th className="pb-3 font-medium text-right">Growth</th>
             </tr>
           </thead>
           <tbody>
-            {visible.map((row) => {
-              const rawCount = rawCountMap.get(row.keyword);
-              return (
-                <tr key={row.keyword} className="border-b border-gray-50 last:border-0">
-                  <td className="py-2.5">
-                    <span
-                      className="px-2 py-1 rounded-md text-xs font-semibold"
-                      style={{ backgroundColor: row.color + "22", color: row.color }}
-                    >
-                      {row.keyword}
+            {visible.map((row) => (
+              <tr key={row.keyword} className="border-b border-gray-50 last:border-0">
+                <td className="py-2.5">
+                  <span
+                    className="px-2 py-1 rounded-md text-xs font-semibold"
+                    style={{ backgroundColor: row.color + "22", color: row.color }}
+                  >
+                    {row.keyword}
+                  </span>
+                </td>
+                <td className="py-2.5 text-right text-gray-700 font-medium text-xs">{row.signalCount}</td>
+                <td className="py-2.5 text-right">
+                  {row.growthRate !== null ? (
+                    <span className="flex items-center justify-end gap-0.5 text-emerald-500 font-medium text-xs">
+                      <ArrowUp size={11} /> {row.growthRate}%
                     </span>
-                  </td>
-                  <td className="py-2.5 text-right text-gray-700 font-medium text-xs">{row.signalCount}</td>
-                  <td className="py-2.5 text-right text-gray-500 text-xs">
-                    {rawCount !== undefined ? (
-                      rawCount.toLocaleString()
-                    ) : (
-                      <span className="text-gray-300">…</span>
-                    )}
-                  </td>
-                  <td className="py-2.5 text-right">
-                    {row.growthRate !== null ? (
-                      <span className="flex items-center justify-end gap-0.5 text-emerald-500 font-medium text-xs">
-                        <ArrowUp size={11} /> {row.growthRate}%
-                      </span>
-                    ) : (
-                      <span className="text-gray-400 text-xs">—</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
+                  ) : (
+                    <span className="text-gray-400 text-xs">—</span>
+                  )}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -149,11 +104,14 @@ export function KeywordRankingsCard({ rankings, platform, categories }: KeywordR
         </div>
       </div>
 
-      <div className="mt-3 border-t border-gray-100 pt-2.5">
-        <KeyTakeaway>
-          3 keywords show a rising signal-to-raw ratio this period. (example data)
-        </KeyTakeaway>
-      </div>
+      {!KEY_TAKEAWAY_SUPPRESSED && (
+        <div className="mt-3 border-t border-gray-100 pt-2.5">
+          <KeyTakeaway>
+            3 keywords show rising selling posts/comments this period. (example data)
+          </KeyTakeaway>
+        </div>
+      )}
     </div>
   );
 }
+

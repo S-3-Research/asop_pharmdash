@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ExternalLink, MapPin, Building2, ChevronDown } from "lucide-react";
 import type { Domain, DomainType, DomainWithMatch } from "../../types";
+import { useWidgetData } from "../../copilot/copilot-context";
 
 // ── Color helpers (mirrors heatmap-map-client.tsx's category palette) ────────
 const CAT_COLORS: Record<string, string> = {
@@ -45,9 +46,13 @@ function stableHash(s: string): number {
 interface DomainExamplesCardProps {
   domains: (Domain | DomainWithMatch)[];
   sampleSize?: number;
+  /** Admin-configured display name per internal reporting-period code (see
+   *  lib/releases.ts `getReportPeriodDisplayMap`) — used instead of the raw
+   *  internal code (e.g. "2026-RPT-01") in the expanded detail view. */
+  periodLabels?: Record<string, string>;
 }
 
-export function DomainExamplesCard({ domains, sampleSize = 10 }: DomainExamplesCardProps) {
+export function DomainExamplesCard({ domains, sampleSize = 10, periodLabels = {} }: DomainExamplesCardProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   // Deterministic random sample: sort by hash(domain name) instead of
@@ -60,6 +65,17 @@ export function DomainExamplesCard({ domains, sampleSize = 10 }: DomainExamplesC
       .slice(0, sampleSize);
   }, [domains, sampleSize]);
 
+  useWidgetData(
+    "domain-samples",
+    samples.map((d) => ({
+      label: d.domain,
+      value: `${DOMAIN_TYPE_LABEL[d.domainType]} · ${d.isLive ? "Live" : "Inactive"} · ${[d.geoLocation.city, d.geoLocation.country].filter(Boolean).join(", ") || "unknown location"}`,
+    })),
+    "Card of individual sampled rogue domain records (a deterministic random subset, not the full dataset) — each entry expands to show registrar, WHOIS dates, payment info, ad spend, social profiles, and reporting period. " +
+      "Use this to look at concrete example domains behind the aggregate charts on this page, rather than aggregate counts. " +
+      "Data source: individual domain records from the published data release, after the page's category filter; the sample is capped at a fixed size and does not represent every matching domain.",
+  );
+
   function toggle(domain: string) {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -70,10 +86,10 @@ export function DomainExamplesCard({ domains, sampleSize = 10 }: DomainExamplesC
   }
 
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col h-full">
+    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex flex-col h-full">
       <div className="flex justify-between items-center mb-4">
         <h3 className="font-semibold text-gray-800 text-sm">
-          Domain Examples
+          Domain Samples
           <span className="ml-2 text-[11px] text-gray-400 font-normal">{samples.length} shown</span>
         </h3>
       </div>
@@ -225,7 +241,9 @@ export function DomainExamplesCard({ domains, sampleSize = 10 }: DomainExamplesC
                           : "—"}
                       </dd>
                       <dt className="text-gray-400">Rpt. Period</dt>
-                      <dd className="text-gray-700 text-right">{d.reportingPeriodId}</dd>
+                      <dd className="text-gray-700 text-right">
+                        {periodLabels[d.reportingPeriodId] || d.reportingPeriodId}
+                      </dd>
                     </dl>
 
                     <div className="flex justify-end">

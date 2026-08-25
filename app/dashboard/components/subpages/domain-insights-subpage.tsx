@@ -8,6 +8,7 @@ import { MultiCategoryDropdown } from "../ui/multi-category-dropdown";
 import { useCopilot } from "../copilot/copilot-context";
 import type { FilterAction } from "../copilot/types";
 import { buildDomainCategoryOptions } from "./domain-insights/config";
+import { DomainSummaryStrip }  from "./domain-insights/domain-summary-strip";
 import { TotalDomainCard }    from "./domain-insights/total-domain-card";
 import { DomainStatusCard }   from "./domain-insights/domain-status-card";
 import { SocialMediaCard }    from "./domain-insights/social-media-card";
@@ -90,6 +91,7 @@ export function DomainInsightsSubpage() {
       // Reporting period straight from the release name (channel pointer).
       // Mock data carries no release — label it as such, no derivation.
       reportingPeriod: data?.reportingPeriodId || "mock-data",
+      reportingPeriodDisplayName: data?.reportingPeriodDisplayName || undefined,
       filters: { categories: selectedCategories },
       availableFilters: {
         categories: categoryOptions.map((c) => c.name),
@@ -103,28 +105,44 @@ export function DomainInsightsSubpage() {
         { label: "Inactive", value: filteredDomains.length - live },
       ],
     });
-  }, [updatePageContext, selectedCategories, filteredDomains, data?.reportingPeriodId, categoryOptions]);
+  }, [updatePageContext, selectedCategories, filteredDomains, data?.reportingPeriodId, data?.reportingPeriodDisplayName, categoryOptions]);
 
   return (
     <section>
       {/* ── Header ── */}
-      <div className="mb-6 flex flex-col justify-between items-start gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800">Domain Insights</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Monitoring and analysis of rogue pharmacy domains across registrars,
-            platforms, and geographies.
-          </p>
-        </div>
-        <div className="w-full sm:w-auto min-w-[200px]">
-          <MultiCategoryDropdown
-            categories={categoryOptions}
-            selectedIds={selectedCategories}
-            onToggle={handleToggle}
-            onClear={() => setSelectedCategories([])}
-          />
-        </div>
+      <div className="mb-4">
+        <h2 className="text-xl font-bold text-slate-800">Domain Insights</h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Monitoring and analysis of rogue pharmacy domains across registrars,
+          platforms, and geographies.
+        </p>
       </div>
+
+      {/* Persistent, all-category snapshot — deliberately independent of the
+          category filter below, so it always reflects the full dataset
+          (mirrors OverallSummaryStrip on the Top Products page). */}
+      <div className="mb-4">
+        <DomainSummaryStrip allDomains={data?.domains ?? []} />
+      </div>
+
+      {/* Category filter is a chart-level control (scopes every card below),
+          kept visually close to the grid it affects rather than up near the
+          page title — same placement/style as the Top Products page. */}
+      {categoryOptions.length > 0 && (
+        <div className="mb-4 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+            Chart Filter
+          </span>
+          <div className="w-full sm:w-auto sm:min-w-xs">
+            <MultiCategoryDropdown
+              categories={categoryOptions}
+              selectedIds={selectedCategories}
+              onToggle={handleToggle}
+              onClear={() => setSelectedCategories([])}
+            />
+          </div>
+        </div>
+      )}
 
       {/* ── Loading state ── */}
       {isLoading && (
@@ -149,10 +167,10 @@ export function DomainInsightsSubpage() {
                 widgetId: "domain-total",
                 title: "Total Domain",
                 type: "chart",
-                description: "Total rogue domains detected in current CBU with trend",
+                description: "Bar chart comparing total rogue domains detected against how many are still live, one bar pair per reporting period. Use it to see whether rogue-domain activity is growing or shrinking period over period.",
               }}
             >
-              <TotalDomainCard domains={filteredDomains} />
+              <TotalDomainCard domains={filteredDomains} periodLabels={data?.reportingPeriodLabels ?? {}} />
             </SelectableCard>
 
             <SelectableCard
@@ -160,7 +178,7 @@ export function DomainInsightsSubpage() {
                 widgetId: "domain-status",
                 title: "Domain Status",
                 type: "chart",
-                description: "Live vs inactive domain breakdown",
+                description: "Shows how many detected rogue domains are still live versus already taken down, broken down by drug type. A quick read on how much of what's been found is still active.",
               }}
             >
               <DomainStatusCard domains={filteredDomains} />
@@ -171,7 +189,7 @@ export function DomainInsightsSubpage() {
                 widgetId: "domain-social-media",
                 title: "Social Media Platforms",
                 type: "distribution",
-                description: "Platform distribution of rogue domain signals",
+                description: "Shows which social media platforms the rogue domains themselves use to promote or sell — their own outreach/storefront profiles, not where selling posts were detected. Larger bubbles mean more domains maintain a presence on that platform.",
               }}
             >
               <SocialMediaCard domains={filteredDomains} />
@@ -183,7 +201,7 @@ export function DomainInsightsSubpage() {
                 widgetId: "domain-payment",
                 title: "Payment Methods",
                 type: "chart",
-                description: "Payment type distribution (Credit Card, Crypto, Bank Transfer)",
+                description: "Breaks down the payment methods rogue domains claim to accept, such as credit card, crypto, or bank transfer. Larger blocks indicate payment types offered more frequently across domains.",
               }}
             >
               <PaymentTreemapCard domains={filteredDomains} />
@@ -194,7 +212,7 @@ export function DomainInsightsSubpage() {
                 widgetId: "domain-registrar",
                 title: "Registrar Distribution",
                 type: "distribution",
-                description: "Sunburst chart of domain registrars",
+                description: "Shows which domain registrars host the most rogue pharmacy domains. Helps identify registrars that may warrant closer scrutiny or outreach.",
               }}
             >
               <RegistrarSunburst domains={filteredDomains} />
@@ -205,7 +223,7 @@ export function DomainInsightsSubpage() {
                 widgetId: "domain-traffic",
                 title: "Traffic Chart",
                 type: "chart",
-                description: "Domain traffic timeline within the CBU window",
+                description: "Tracks average website traffic (organic plus paid search clicks) per domain over time. Use the range toggle to see whether traffic is trending up or down.",
               }}
             >
               <TrafficChart domains={filteredDomains} />
@@ -219,7 +237,7 @@ export function DomainInsightsSubpage() {
                   widgetId: "domain-heatmap",
                   title: "Geographic Heatmap",
                   type: "map",
-                  description: "Geographic distribution of rogue domains by city",
+                  description: "Maps where rogue domains are physically located, based on business address, domain registration info, or other available signals. Denser clusters indicate geographic hotspots of rogue domain activity.",
                 }}
               >
                 <HeatmapCard domains={filteredDomains} selectedCategories={selectedCategories} />
@@ -227,7 +245,7 @@ export function DomainInsightsSubpage() {
             </div>
           </div>
 
-          {/* Right column — 5/12 width, Domain Examples spans the full height.
+          {/* Right column — 5/12 width, Domain Samples spans the full height.
               max-h is pinned to the left column's intrinsic height (3 rows *
               250px + 2 * 16px gaps = 782px) — without an explicit cap here,
               this column has no height of its own, so when the grid computes
@@ -237,7 +255,17 @@ export function DomainInsightsSubpage() {
               items-stretch) instead of being clipped to it. Keep this in
               sync with the left grid's `auto-rows-[250px]` above. */}
           <div className="col-span-12 xl:col-span-5 xl:max-h-[782px] overflow-hidden">
-            <DomainExamplesCard domains={filteredDomains} />
+            <SelectableCard
+              className="h-full"
+              widget={{
+                widgetId: "domain-samples",
+                title: "Domain Samples",
+                type: "table",
+                description: "A sample list of individual rogue domains \u2014 expand any entry to see registrar, payment, ad spend, and social details. Use it to see concrete examples behind the aggregate charts on this page.",
+              }}
+            >
+              <DomainExamplesCard domains={filteredDomains} periodLabels={data?.reportingPeriodLabels ?? {}} />
+            </SelectableCard>
           </div>
         </div>
       )}

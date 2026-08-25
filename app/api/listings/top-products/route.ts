@@ -3,13 +3,8 @@ import { NextResponse } from "next/server";
 import { requireAuthenticatedActor } from "@/app/api/admin/_auth";
 import { subPageDataMap, mockDomains } from "@/app/dashboard/components/mock-data";
 import { getActiveChannel } from "@/lib/channel";
-import { readChannel, fetchReleaseData, fetchTopProductsListings, isMockRelease } from "@/lib/releases";
-import {
-  buildCategoryRegistry,
-  buildDrillablePieData,
-  convertReportPeriod,
-  mapReleaseDomain,
-} from "@/lib/release-mapping";
+import { fetchReleaseData, fetchTopProductsListings, getActiveReleaseContext, getReportPeriodDisplayMap } from "@/lib/releases";
+import { buildCategoryRegistry, buildDrillablePieData, mapReleaseDomain } from "@/lib/release-mapping";
 import type { Domain } from "@/app/dashboard/components/types";
 
 /** Aggregate the domain-alive / social-presence counts the Overview page's
@@ -31,11 +26,11 @@ export async function GET() {
   }
 
   const channel = getActiveChannel();
-  const pointer = await readChannel(channel);
+  const ctx = await getActiveReleaseContext(channel);
 
-  if (!pointer.current || isMockRelease(pointer.current.releaseId)) {
-    // No release published yet, or the built-in mock release is published
-    // — serve mock data.
+  if (ctx.isMock) {
+    // No release has been published yet, or the built-in mock release is
+    // published — serve mock data.
     const { title, summary, categories, drillablePieData, listings } =
       subPageDataMap["top-products"];
 
@@ -45,6 +40,8 @@ export async function GET() {
       categories,
       drillablePieData,
       reportingPeriodId: "",
+      reportingPeriodDisplayName: "",
+      reportingPeriodLabels: {},
       domainSummary: buildDomainSummary(mockDomains),
       listings: (listings ?? []).map(
         ({ id, source, primaryCategory, secondaryCategory, reportingPeriodId }) => ({
@@ -58,9 +55,18 @@ export async function GET() {
     });
   }
 
-  const release = await fetchReleaseData(pointer.current.releaseId);
-  const listings = await fetchTopProductsListings(pointer.current.releaseId);
-  const reportingPeriodId = convertReportPeriod(pointer.current.reportPeriod);
+  const release = await fetchReleaseData(ctx.releaseId);
+  const listings = await fetchTopProductsListings(ctx.releaseId);
+  const reportingPeriodId = ctx.reportingPeriodId;
+  // Admin-configured, end-user-facing label (see lib/releases.ts
+  // `setReleaseDisplayName`) — falls back to the formatted internal code
+  // when unset, so older releases keep working unchanged.
+  const reportingPeriodDisplayName = ctx.reportingPeriodDisplayName;
+  // Full internal-code -> display-name map across ALL known releases —
+  // needed because the trend chart can show multiple reporting periods at
+  // once (each historical period needs its own display label, not just the
+  // currently-active one that reportingPeriodDisplayName covers).
+  const reportingPeriodLabels = await getReportPeriodDisplayMap();
   const mappedDomains = release.domains.map((d) => mapReleaseDomain(d, reportingPeriodId));
   const categoryOptions = buildCategoryRegistry(release.domains);
   const categories = [{ id: "all", name: "All Categories" }, ...categoryOptions];
@@ -73,6 +79,11 @@ export async function GET() {
     drillablePieData,
     // Straight from the channel pointer's release name — not derived from rows
     reportingPeriodId,
+    // Human-facing label to display instead of reportingPeriodId
+    reportingPeriodDisplayName,
+    // Human-facing labels for every known reporting period (for multi-period
+    // charts) — keyed by internal reportingPeriodId code.
+    reportingPeriodLabels,
     domainSummary: buildDomainSummary(mappedDomains),
     listings: listings.map(
       ({ id, source, primaryCategory, secondaryCategory, reportingPeriodId }) => ({

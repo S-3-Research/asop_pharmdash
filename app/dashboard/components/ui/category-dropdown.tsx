@@ -21,7 +21,7 @@ export function CategoryDropdown({
     <div className="relative inline-block w-full max-w-xs">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-2 text-left bg-white border border-slate-200 rounded-lg hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-400 flex items-center justify-between"
+        className="w-full px-4 py-2 text-left bg-white border border-slate-200 rounded-lg shadow-sm hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-400 flex items-center justify-between"
       >
         <span className="text-sm font-medium text-slate-700">
           {selectedCategory?.name || "All Categories"}
@@ -38,7 +38,7 @@ export function CategoryDropdown({
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={2}
-            d="M19 14l-7 7m0 0l-7-7m7 7V3"
+            d="M19 9l-7 7-7-7"
           />
         </svg>
       </button>

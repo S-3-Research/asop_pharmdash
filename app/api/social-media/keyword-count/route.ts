@@ -4,8 +4,8 @@ import { requireAuthenticatedActor } from "@/app/api/admin/_auth";
 import { mockKwRawCounts } from "@/app/dashboard/components/mock-data";
 import type { SocialKeywordCountPayload } from "@/app/dashboard/components/types";
 import { getActiveChannel } from "@/lib/channel";
-import { readChannel, fetchReleaseData, isMockRelease } from "@/lib/releases";
-import { lookupKeywordRawCounts, convertReportPeriod } from "@/lib/release-mapping";
+import { fetchReleaseData, getActiveReleaseContext } from "@/lib/releases";
+import { lookupKeywordRawCounts } from "@/lib/release-mapping";
 
 export async function GET(request: NextRequest) {
   const auth = await requireAuthenticatedActor();
@@ -22,9 +22,9 @@ export async function GET(request: NextRequest) {
   const selectedCategories = categoriesParam ? categoriesParam.split(",").filter(Boolean) : [];
 
   const channel = getActiveChannel();
-  const pointer = await readChannel(channel);
+  const ctx = await getActiveReleaseContext(channel);
 
-  if (!pointer.current || isMockRelease(pointer.current.releaseId)) {
+  if (ctx.isMock) {
     const platformKey = platform === "all" ? "all" : platform;
     const results = keywords.map((keyword) => ({
       keyword,
@@ -41,12 +41,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(payload);
   }
 
-  const release = await fetchReleaseData(pointer.current.releaseId);
+  const release = await fetchReleaseData(ctx.releaseId);
   const results = lookupKeywordRawCounts(release.keyword_stats, keywords, selectedCategories, platform);
 
   const payload: SocialKeywordCountPayload = {
     platform,
-    reportingPeriod: convertReportPeriod(pointer.current.reportPeriod),
+    reportingPeriod: ctx.reportingPeriodId,
     results,
   };
 

@@ -18,9 +18,11 @@ interface MetricsRowProps {
 function SelectableMetric({
   item,
   prompt,
+  description,
 }: {
   item: MetricCardData;
   prompt: string;
+  description: string;
 }) {
   useWidgetData(
     `top-products-${item.id}`,
@@ -34,7 +36,7 @@ function SelectableMetric({
         widgetId: `top-products-${item.id}`,
         title: item.label,
         type: "metric-card",
-        description: `Listing count metric for the current rpt. period`,
+        description,
       }}
     >
       <MetricCard item={item} />
@@ -57,9 +59,16 @@ export function MetricsRow({ filteredListings, selectedPrimaryName, currentPerio
         direction: null,
       },
       {
-        id: "online-vs-social",
-        label: "Total Product Listings (Online vs. Social)",
-        value: `${online} / ${social}`,
+        id: "online-listings",
+        label: "Online Listings",
+        value: online.toLocaleString(),
+        change: null,
+        direction: null,
+      },
+      {
+        id: "social-listings",
+        label: "Social Listings",
+        value: social.toLocaleString(),
         change: null,
         direction: null,
       },
@@ -67,7 +76,7 @@ export function MetricsRow({ filteredListings, selectedPrimaryName, currentPerio
   }, [filteredListings, selectedPrimaryName, currentPeriodLabel]);
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <SelectableMetric
         item={metrics[0]}
         prompt={
@@ -75,13 +84,25 @@ export function MetricsRow({ filteredListings, selectedPrimaryName, currentPerio
           (selectedPrimaryName ? ` for the '${selectedPrimaryName}' category` : "") +
           ". Data source: listing records in the published data release (online marketplaces + social platforms), after the page's category filter."
         }
+        description="Total number of illegal pharmaceutical listings detected this reporting period, across both online marketplaces and social media."
       />
       <SelectableMetric
         item={metrics[1]}
         prompt={
-          "Single metric: split of listings by source — 'online' (e-commerce/marketplace sites) vs 'social' (social media platforms), shown as online / social. " +
-          "Data source: the source field of each listing record in the published data release, after the page's category filter."
+          "Single metric: illegal pharmaceutical listings detected on online marketplaces/e-commerce sites in the current reporting period" +
+          (selectedPrimaryName ? ` for the '${selectedPrimaryName}' category` : "") +
+          ". Data source: listing records with source = 'online' in the published data release, after the page's category filter."
         }
+        description="Number of illegal pharmaceutical listings detected on online marketplaces and e-commerce sites this reporting period."
+      />
+      <SelectableMetric
+        item={metrics[2]}
+        prompt={
+          "Single metric: illegal pharmaceutical listings detected on social media platforms in the current reporting period" +
+          (selectedPrimaryName ? ` for the '${selectedPrimaryName}' category` : "") +
+          ". Data source: listing records with source = 'social' in the published data release, after the page's category filter."
+        }
+        description="Number of illegal pharmaceutical listings detected on social media platforms this reporting period."
       />
     </div>
   );

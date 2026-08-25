@@ -62,7 +62,7 @@ export function TopProductsRanked({
       title={
         selectedPrimaryName
           ? `${selectedPrimaryName} — Top Products`
-          : "Top Ranked Products"
+          : "Top 5 Ranked Products"
       }
       subtitle={`Listings by product · ${currentPeriodLabel}`}
       items={rankedItems}
