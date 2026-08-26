@@ -73,7 +73,7 @@ export function StatsRow({ metrics }: StatsRowProps) {
     },
     {
       id: "unique-accounts",
-      label: "Unique Social Media Accounts",
+      label: "Unique Social Media Sellers",
       value: (metrics.uniqueAccounts ?? 0).toLocaleString(),
       change: null,
       direction: null,

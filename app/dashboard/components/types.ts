@@ -170,6 +170,14 @@ export interface Domain {
   secondaryCategory: string;   // representative value (first product) — e.g. "Ozempic"
   /** Full set of primary/secondary category pairs across all of this domain's products/listings */
   categories: DomainCategoryPair[];
+  /** Deduplicated union of primary categories derived from this domain's
+   *  product_info entries (categories[].primary, excluding "Uncategorized")
+   *  plus its domain-level product_label tags, normalized. Single source of
+   *  truth for "what categories is this domain associated with" (filter
+   *  matching, Domain Samples fallback labeling) — independent from
+   *  `categories`, which stays strictly product-level (secondary/Listing
+   *  detail). */
+  domainProductCategories: string[];
   domainType: DomainType;
   paymentInfo: DomainPaymentInfo[];
   /** Social media presence for this domain, per whatever the release

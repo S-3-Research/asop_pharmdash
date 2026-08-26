@@ -4,7 +4,7 @@ import { requireAuthenticatedActor } from "@/app/api/admin/_auth";
 import { mockDomains } from "@/app/dashboard/components/mock-data";
 import { getActiveChannel } from "@/lib/channel";
 import { fetchReleaseData, getActiveReleaseContext, getReportPeriodDisplayMap } from "@/lib/releases";
-import { mapReleaseDomains, buildCategoryRegistry } from "@/lib/release-mapping";
+import { mapReleaseDomains, buildDomainCategoryRegistry } from "@/lib/release-mapping";
 
 export async function GET() {
   const auth = await requireAuthenticatedActor();
@@ -29,7 +29,7 @@ export async function GET() {
 
   const release = await fetchReleaseData(ctx.releaseId);
   const domains = mapReleaseDomains(release.domains, ctx.pointer.current!.reportPeriod);
-  const categoryOptions = buildCategoryRegistry(release.domains);
+  const categoryOptions = buildDomainCategoryRegistry(release.domains);
   // Full internal-code -> display-name map across ALL known releases — the
   // Total Domain trend chart and Domain Examples' expanded detail both need
   // to label historical reporting periods, not just the currently-active one.

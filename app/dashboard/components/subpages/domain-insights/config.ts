@@ -117,11 +117,11 @@ export function buildTotalDomainChart(
   );
 
   const options: Highcharts.Options = {
-    chart: { type: "column", backgroundColor: "transparent", style: CHART_STYLE, margin: [0, 0, 0, 0], spacing: [0, 0, 0, 0] },
+    chart: { type: "column", backgroundColor: "transparent", style: CHART_STYLE, margin: [20, 0, 0, 0], spacing: [0, 0, 0, 0] },
     title: { text: undefined },
     xAxis: { visible: false, categories: rptPeriodLabels },
     yAxis: { visible: false },
-    legend: { enabled: false },
+    legend: { align: "center", verticalAlign: "top", itemStyle: { fontSize: "10px", fontWeight: "500" }, margin: 4 },
     credits: { enabled: false },
     accessibility: { enabled: false },
     tooltip: {
@@ -143,8 +143,8 @@ export function buildTotalDomainChart(
       column: { borderRadius: 3, borderWidth: 0, groupPadding: 0.15, pointPadding: 0.05 },
     },
     series: [
-      { type: "column", name: "Total Domains", color: "#38bdf8", data: totalSeries },
-      { type: "column", name: "Live", color: "#ef4444", data: liveSeries },
+      { type: "column", name: "Captured", color: "#91092f", data: totalSeries },
+      { type: "column", name: "Online", color: "#74F9BC", data: liveSeries },
     ],
   };
   return { count: currentCount, pctChange, noPriorData, options };
@@ -234,7 +234,7 @@ export function buildSocialBubbleOptions(domains: Domain[]): Highcharts.Options 
   return {
     chart: { type: "packedbubble", backgroundColor: "transparent", style: CHART_STYLE },
     title: { text: undefined }, credits: { enabled: false }, accessibility: { enabled: false }, legend: { enabled: false },
-    tooltip: { useHTML: true, outside: true, pointFormat: "<b>{point.name}</b>: {point.y}" },
+    tooltip: { useHTML: true, outside: true, headerFormat: "<b>{point.name}</b><br/>", pointFormat: "Associated accounts: <b>{point.y}</b>" },
     plotOptions: {
       packedbubble: {
         minSize: "30%", maxSize: "110%",
@@ -307,7 +307,7 @@ export function buildPaymentTreemapOptions(domains: Domain[]): Highcharts.Option
   return {
     chart: { type: "treemap", backgroundColor: "transparent", style: CHART_STYLE, spacingTop:2, },
     title: { text: undefined }, credits: { enabled: false }, accessibility: { enabled: false }, legend: { enabled: false },
-    tooltip: { outside: true, pointFormat: "<b>{point.name}</b>: {point.value}" },
+    tooltip: { outside: true, headerFormat: "<b>{point.name}</b><br/>", pointFormat: "Payment mentions: <b>{point.value}</b>" },
     series: [{
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       type: "treemap" as any, layoutAlgorithm: "squarified", allowTraversingTree: true, borderWidth: 2, borderColor: "#f8fafc", borderRadius: 8,

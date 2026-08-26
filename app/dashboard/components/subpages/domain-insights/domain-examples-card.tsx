@@ -116,11 +116,21 @@ export function DomainExamplesCard({ domains, sampleSize = 10, periodLabels = {}
               .filter(Boolean)
               .join(", ");
             // Collapsed view: one dot+count per primary category (not every
-            // secondary product) to keep the folded row compact.
-            const primaryCounts = d.categories.reduce<Record<string, number>>((acc, c) => {
-              acc[c.primary] = (acc[c.primary] ?? 0) + 1;
-              return acc;
-            }, {});
+            // secondary product) to keep the folded row compact. Only falls
+            // back to the domain-level `domainProductCategories` (derived
+            // from product_label) when this domain has no resolvable
+            // per-product category at all — otherwise real product_info
+            // categories always win, matching the expanded detail below.
+            const hasRealCategories = d.categories.some((c) => c.primary !== "Uncategorized");
+            const primaryCounts = hasRealCategories
+              ? d.categories.reduce<Record<string, number>>((acc, c) => {
+                  acc[c.primary] = (acc[c.primary] ?? 0) + 1;
+                  return acc;
+                }, {})
+              : d.domainProductCategories.reduce<Record<string, number>>((acc, c) => {
+                  acc[c] = 1;
+                  return acc;
+                }, {});
 
             return (
               <div

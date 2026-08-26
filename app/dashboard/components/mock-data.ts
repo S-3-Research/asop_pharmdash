@@ -646,6 +646,7 @@ function generateDomains(): Domain[] {
         primaryCategory,
         secondaryCategory,
         categories: [{ primary: primaryCategory, secondary: secondaryCategory }],
+        domainProductCategories: [primaryCategory],
         domainType: pick(DOMAIN_TYPES),
         paymentInfo: [pick(PAYMENT_COMBOS)],
         socialProfiles: domainSeeded() > 0.6

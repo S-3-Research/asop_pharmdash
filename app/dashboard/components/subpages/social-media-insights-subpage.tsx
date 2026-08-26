@@ -107,7 +107,7 @@ export function SocialMediaInsightsSubpage() {
       stats: m
         ? [
             { label: "Total Data Collected", value: m.totalRawCount },
-            { label: "Unique Social Media Accounts", value: m.uniqueAccounts },
+            { label: "Unique Social Media Sellers", value: m.uniqueAccounts },
             { label: "Total Selling Posts/Comments", value: m.totalPosts },
           ]
         : [],

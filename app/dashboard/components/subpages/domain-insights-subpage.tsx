@@ -47,8 +47,8 @@ export function DomainInsightsSubpage() {
     return domains
       .map((d) => ({
         ...d,
-        matchCount: d.categories.filter((c) =>
-          selectedCategories.includes(c.primary),
+        matchCount: d.domainProductCategories.filter((c) =>
+          selectedCategories.includes(c),
         ).length,
       }))
       .filter((d) => d.matchCount > 0);
