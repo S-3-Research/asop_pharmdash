@@ -353,7 +353,7 @@ export function buildPaymentTreemapOptions(domains: Domain[]): Highcharts.Option
 // ── Card 5: Registrar Sunburst ────────────────────────────────────────────────
 // Blue → green gradient, ordered by descending domain count so the largest
 // registrar gets the deepest blue and later ones shade toward teal/green.
-// "Unknown" always stays a fixed neutral gray, outside the gradient.
+// "Not Public" always stays a fixed neutral gray, outside the gradient.
 export const REGISTRAR_GRADIENT = ["#60a5fa", "#38bdf8", "#2dd4bf", "#34d399", "#4ade80", "#86efac"];
 export const REGISTRAR_UNKNOWN_COLOR = "#94a3b8";
 
@@ -379,14 +379,14 @@ export function buildRegistrarSunburstPoints(
   // filteredDomains more than once, and guards against whitespace/casing
   // differences in registrar names via .trim().
   // Registrars with missing/unresolved whois data are folded into a single
-  // "Unknown" bucket rather than shown as their own segment.
+  // "Not Public" bucket rather than shown as their own segment.
   const excludeUnknown = options?.excludeUnknown ?? false;
   const excludeSet = new Set(options?.excludeLabels ?? []);
   const byRegistrar = new Map<string, Set<string>>();
   for (const d of domains) {
     const raw = d.whois.registrar.trim();
-    const r = raw === "" || raw === "Unknown" ? "Unknown" : raw;
-    if (excludeUnknown && r === "Unknown") continue;
+    const r = raw === "" || raw === "Unknown" ? "Not Public" : raw;
+    if (excludeUnknown && r === "Not Public") continue;
     if (excludeSet.has(r)) continue;
     if (!byRegistrar.has(r)) byRegistrar.set(r, new Set());
     byRegistrar.get(r)!.add(d.domain); // Set.add is idempotent — no duplicates
@@ -398,23 +398,23 @@ export function buildRegistrarSunburstPoints(
     // looks like an intentional "registrar" color but isn't one we set.
     { id: "root", parent: "", name: "", color: "#f1f5f9" },
   ];
-  // Sort all registrars (including Unknown) by domain count descending so
+  // Sort all registrars (including Not Public) by domain count descending so
   // both the gradient assignment and the sunburst's push order (which
   // determines each segment's angular position) follow the same ranking.
   const sortedRegistrars = [...byRegistrar.entries()].sort((a, b) => b[1].size - a[1].size);
   let gradientIdx = 0;
   const colorByRegistrar = new Map<string, string>();
   for (const [registrar] of sortedRegistrars) {
-    if (registrar === "Unknown") continue;
+    if (registrar === "Not Public") continue;
     colorByRegistrar.set(registrar, REGISTRAR_GRADIENT[gradientIdx % REGISTRAR_GRADIENT.length]);
     gradientIdx++;
   }
   for (const [registrar, domainSet] of sortedRegistrars) {
-    const color = registrar === "Unknown" ? REGISTRAR_UNKNOWN_COLOR : colorByRegistrar.get(registrar)!;
+    const color = registrar === "Not Public" ? REGISTRAR_UNKNOWN_COLOR : colorByRegistrar.get(registrar)!;
     pts.push({ id: registrar, name: registrar, parent: "root", value: domainSet.size, color });
     // Domain leaf nodes inherit the parent's gradient color but darkened one
     // step further, so the outer ring reads as a deeper shade of its parent.
-    const childColor = registrar === "Unknown" ? darken(REGISTRAR_UNKNOWN_COLOR, 0.15) : darken(color, 0.2);
+    const childColor = registrar === "Not Public" ? darken(REGISTRAR_UNKNOWN_COLOR, 0.15) : darken(color, 0.2);
     for (const dom of domainSet) {
       const shortDom = dom.length > 18 ? dom.slice(0, 17) + "…" : dom;
       // `name` stays truncated for the in-chart data label (limited arc space);

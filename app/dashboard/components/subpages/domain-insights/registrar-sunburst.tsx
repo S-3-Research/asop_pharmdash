@@ -65,7 +65,7 @@ export function RegistrarSunburst({ domains }: RegistrarSunburstProps) {
   const registrarCounts = useMemo(() => {
     const byRegistrar = new Map<string, Set<string>>();
     for (const d of domains) {
-      const r = d.whois.registrar.trim() || "Unknown";
+      const r = d.whois.registrar.trim() || "Not Public";
       if (hiddenLabels.has(r)) continue;
       if (!byRegistrar.has(r)) byRegistrar.set(r, new Set());
       byRegistrar.get(r)!.add(d.domain);
@@ -85,29 +85,35 @@ export function RegistrarSunburst({ domains }: RegistrarSunburstProps) {
   // ── Legend model — always computed from the FULL/unfiltered-by-hiding
   //    set so each row's share always reflects its true (unhidden) count,
   //    and every row remains clickable regardless of its current visibility.
-  //    Shows Unknown + the top 2 named registrars only (no "Others" bucket). ──
+  //    Shows the top 3 registrars by domain count, ranked purely by size —
+  //    "Not Public" (unresolved WHOIS registrar) is just another bucket in
+  //    that ranking, not a forced/pinned first row. ──
   const legendItems = useMemo(() => {
     const byRegistrar = new Map<string, Set<string>>();
     for (const d of domains) {
-      const r = d.whois.registrar.trim() || "Unknown";
+      const r = d.whois.registrar.trim() || "Not Public";
       if (!byRegistrar.has(r)) byRegistrar.set(r, new Set());
       byRegistrar.get(r)!.add(d.domain);
     }
     const total = domains.length;
-    const unknown = byRegistrar.get("Unknown");
-    const named = [...byRegistrar.entries()]
-      .filter(([label]) => label !== "Unknown")
-      .sort((a, b) => b[1].size - a[1].size);
-    const top2 = named.slice(0, 2);
-
-    const rows: { label: string; count: number; color: string }[] = [];
-    if (unknown && unknown.size > 0) {
-      rows.push({ label: "Unknown", count: unknown.size, color: REGISTRAR_UNKNOWN_COLOR });
+    const sorted = [...byRegistrar.entries()].sort((a, b) => b[1].size - a[1].size);
+    // Gradient colors are assigned by rank among named registrars only (same
+    // rule buildRegistrarSunburstPoints uses), so a registrar's legend swatch
+    // always matches its sunburst segment color; "Not Public" keeps its own
+    // fixed neutral color wherever it lands in the ranking.
+    let gradientIdx = 0;
+    const colorByRegistrar = new Map<string, string>();
+    for (const [registrar] of sorted) {
+      if (registrar === "Not Public") continue;
+      colorByRegistrar.set(registrar, REGISTRAR_GRADIENT[gradientIdx % REGISTRAR_GRADIENT.length]);
+      gradientIdx++;
     }
-    top2.forEach(([label, set], i) => {
-      rows.push({ label, count: set.size, color: REGISTRAR_GRADIENT[i % REGISTRAR_GRADIENT.length] });
-    });
-    return rows.map((r) => ({ ...r, pct: total > 0 ? Math.round((r.count / total) * 100) : 0 }));
+    return sorted.slice(0, 3).map(([label, set]) => ({
+      label,
+      count: set.size,
+      color: label === "Not Public" ? REGISTRAR_UNKNOWN_COLOR : colorByRegistrar.get(label)!,
+      pct: total > 0 ? Math.round((set.size / total) * 100) : 0,
+    }));
   }, [domains]);
 
   const options = useMemo<Highcharts.Options>(
@@ -184,7 +190,7 @@ export function RegistrarSunburst({ domains }: RegistrarSunburstProps) {
       }
     >
       <div className="flex h-full gap-3">
-        {/* Legend — Unknown + top 2 registrars, each independently clickable to show/hide */}
+        {/* Legend — top 3 registrars by domain count, each independently clickable to show/hide */}
         <ul className="flex w-24 shrink-0 flex-col justify-center gap-2.5">
           {legendItems.map((item) => {
             const dimmed = hiddenLabels.has(item.label);

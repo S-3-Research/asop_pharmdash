@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { Database } from "lucide-react";
 
 /**
  * Shared visual shell for the page-level "Summary Strip" callouts used on
@@ -8,6 +9,13 @@ import type { ComponentType } from "react";
  * whether the data is filtered or not) — this component only owns the
  * shared *rendering* (grid layout, card chrome, icon badge, headline/label
  * typography), so all 3 strips stay visually consistent by construction.
+ *
+ * All 3 current usages are deliberately unfiltered snapshots (they must NOT
+ * react to their page's category/platform filter — see each subpage's own
+ * comment), so this shell always renders a small "All data" corner label
+ * (icon + text, no pill/border chrome) in the top-right to make that
+ * explicit, rather than leaving it as an undocumented assumption a user
+ * could easily miss.
  */
 export interface SummaryStripTile {
   id: string;
@@ -26,9 +34,20 @@ interface SummaryStripProps {
 export function SummaryStrip({ tiles, className }: SummaryStripProps) {
   return (
     <div
-      className={`relative overflow-visible rounded-xl border border-slate-200 bg-gradient-to-br from-white via-white to-slate-50 px-5 py-4 shadow-sm ${className ?? ""}`}
+      className={`relative overflow-visible rounded-xl border border-slate-200 border-l-4 border-l-[#77CDD1] bg-gradient-to-br from-white via-white to-slate-50 px-5 pb-5.5 pt-1 shadow-sm ${className ?? ""}`}
     >
+      <div className="mb-1 flex justify-end">
+        <span
+          title="These figures always reflect the full dataset and are not affected by the filters below"
+          className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-slate-400"
+        >
+          <Database size={10} strokeWidth={2.25} />
+          All data
+        </span>
+      </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+
+
         {tiles.map((tile) => {
           const Icon = tile.icon;
           return (
