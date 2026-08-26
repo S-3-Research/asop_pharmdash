@@ -23,6 +23,10 @@ export function DomainSummaryStrip({ allDomains }: DomainSummaryStripProps) {
       return primaries.has("GLP-1") && primaries.has("Cancer Med");
     }).length;
 
+    const nabpNotRecommendedCount = allDomains.filter((d) => d.nabpStatus === "not recommend").length;
+    const nabpNotRecommendedPct =
+      allDomains.length > 0 ? Math.round((nabpNotRecommendedCount / allDomains.length) * 100) : 0;
+
     return [
       {
         id: "dual-selling",
@@ -35,11 +39,8 @@ export function DomainSummaryStrip({ allDomains }: DomainSummaryStripProps) {
         id: "nabp-not-recommended",
         icon: ShieldAlert,
         accent: "bg-rose-50 text-rose-600",
-        // NABP "Not Recommended" status isn't part of the release data yet
-        // (see lib/schemas/pharmdash.ts — no such field exists upstream),
-        // so this tile is a placeholder until that signal is available.
-        headline: "Data pending",
-        label: "% of domains on NABP's Not Recommended list — awaiting data source",
+        headline: `${nabpNotRecommendedPct}% on NABP Not Recommended`,
+        label: `${nabpNotRecommendedCount} domains flagged "not recommend" by NABP`,
       },
       {
         id: "placeholder",

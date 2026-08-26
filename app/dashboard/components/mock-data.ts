@@ -622,6 +622,10 @@ function generateDomains(): Domain[] {
 
       domains.push({
         domain: `${secondaryCategory.toLowerCase().replace(/\s+/g, "-")}-${idx}.example`,
+        // ~30% of mock domains are flagged as curated "examples", mirroring
+        // real releases' is_example field — drives the Domain Samples card.
+        isExample: domainSeeded() > 0.7,
+        nabpStatus: pick(["not verify", "not recommend", "legit"] as const),
         platforms: [...platformSet],
         resource: domainSeeded() > 0.5 ? `social_account_${idx}` : `search_result_${idx}`,
         createDate,
@@ -807,6 +811,8 @@ function generateSocialPosts(): SocialMediaPost[] {
     // 0.50–1.00, skewed toward the high end so most mock posts read as
     // confident signals (matches typical real-release distributions).
     const confidenceScore = Math.round((0.5 + Math.pow(socialSeeded(), 0.5) * 0.5) * 100) / 100;
+    const numComments = Math.floor(socialSeeded() * 40);
+    const numLikes = Math.floor(socialSeeded() * 200);
 
     posts.push({
       id: `social-${i + 1}`,
@@ -821,6 +827,8 @@ function generateSocialPosts(): SocialMediaPost[] {
       keywords,
       categories,
       confidenceScore,
+      numComments,
+      numLikes,
     });
   }
   return posts;

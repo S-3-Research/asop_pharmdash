@@ -216,6 +216,9 @@ export const ProductInfoItemSchema = z.object({
   price_current: z.number().nullish(),
   price_old: z.number().nullish(),
   currency: CurrencyCode.nullish(),
+
+  // New in the 2026-08-25 schema.
+  screenshot_path: z.string().nullish(),
 });
 
 // New in the 2026-08-05 schema: social_media[] rows now carry their own
@@ -241,12 +244,21 @@ export const SeoInfoSchema = z.object({
   history_click_us: z.array(HistoryClickUsItemSchema).default([]),
 });
 
+// New in the 2026-08-25 schema.
+export const NabpStatus = z.enum(["not verify", "not recommend", "legit"]);
+export const FDAStatus = z.enum(["not verify", "warning"]);
+
 // ---------------------------------------------------------------------------
 // Top-level records
 // ---------------------------------------------------------------------------
 
 export const DomainDataSchema = z.object({
   domain: z.string(),
+  // New in the 2026-08-25 schema: Pydantic declares this as a required bool,
+  // but older releases predate the field entirely — treat it as optional
+  // with a `false` default rather than failing validation on historical
+  // release payloads.
+  is_example: z.boolean().nullish().default(false),
   platforms: z.array(SearchEnginePlatform).nullish(),
   resources: z.string().nullish(),
   is_live: z.boolean().nullish(),
@@ -255,6 +267,8 @@ export const DomainDataSchema = z.object({
   has_age_verification: z.boolean().nullish(),
   business_affiliation: z.string().nullish(),
   product_label: z.array(z.string()).nullish(),
+  nabp_status: NabpStatus.nullish(),
+  fda_status: FDAStatus.nullish(),
 
   address: z.string().nullish(),
   street: z.string().nullish(),
@@ -273,6 +287,9 @@ export const DomainDataSchema = z.object({
   social_media_profile_info: z.array(SocialMediaProfileInfoSchema),
   contact_info: z.array(ContactInfoItemSchema),
   payment_info: z.array(PaymentInfoItemSchema),
+
+  // New in the 2026-08-25 schema.
+  screenshot_path: z.string().nullish(),
 });
 
 export const SocialMediaDataSchema = z.object({
@@ -292,6 +309,10 @@ export const SocialMediaDataSchema = z.object({
   contact_info: z.array(ContactInfoItemSchema),
   // Required by the Pydantic model (no default), but nullable.
   is_trade: z.boolean().nullish(),
+
+  // New in the 2026-08-25 schema.
+  num_comments: z.number().int().nullish(),
+  num_likes: z.number().int().nullish(),
 });
 
 // NOTE: as of the 2026-07-30 schema, the previous `DataStat` +
@@ -333,6 +354,8 @@ export type SocialMediaProfileInfo = z.infer<typeof SocialMediaProfileInfoSchema
 export type PaymentInfoItem = z.infer<typeof PaymentInfoItemSchema>;
 export type ProductInfoItem = z.infer<typeof ProductInfoItemSchema>;
 export type ProductType = z.infer<typeof ProductTypeSchema>;
+export type NabpStatusType = z.infer<typeof NabpStatus>;
+export type FDAStatusType = z.infer<typeof FDAStatus>;
 export type HistoryClickUsItem = z.infer<typeof HistoryClickUsItemSchema>;
 export type SeoInfo = z.infer<typeof SeoInfoSchema>;
 export type DomainData = z.infer<typeof DomainDataSchema>;

@@ -59,8 +59,12 @@ export function DomainExamplesCard({ domains, sampleSize = 10, periodLabels = {}
   // Math.random(), so the same N domains show up on every render for a
   // given dataset (only changes when the underlying data/filter actually
   // changes), avoiding a jarring reshuffle on unrelated re-renders.
+  // Only domains explicitly flagged `is_example` in the release are
+  // eligible — these are the curated set meant for the Domain Samples
+  // card, not an arbitrary random cross-section of every domain.
   const samples = useMemo(() => {
-    return [...domains]
+    return domains
+      .filter((d) => d.isExample)
       .sort((a, b) => stableHash(a.domain) - stableHash(b.domain))
       .slice(0, sampleSize);
   }, [domains, sampleSize]);

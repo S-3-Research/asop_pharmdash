@@ -5,12 +5,12 @@ import { setChannelRelease, type ChannelName } from "@/lib/releases";
 
 /**
  * POST /api/admin/releases/publish
- *   body: { releaseId: string, channel: "preview" | "production" }
+ *   body: { releaseId: string, channel: "dev" | "preview" | "production" }
  *
- * Used for Publish-to-Preview, Promote-to-Production, AND Rollback — all
- * three are the same underlying operation: point a channel at a releaseId.
- * The only difference is which releaseId the caller passes (new upload vs.
- * an older one for rollback) and which channel.
+ * Used for Publish-to-Dev, Publish-to-Preview, Promote-to-Production, AND
+ * Rollback — all are the same underlying operation: point a channel at a
+ * releaseId. The only difference is which releaseId the caller passes (new
+ * upload vs. an older one for rollback) and which channel.
  *
  * A lightweight extra confirmation is required for "production" to reduce
  * the chance of an accidental promote from the UI.
@@ -36,9 +36,9 @@ export async function POST(request: Request) {
   if (!releaseId) {
     return NextResponse.json({ message: "releaseId is required" }, { status: 400 });
   }
-  if (channel !== "preview" && channel !== "production") {
+  if (channel !== "dev" && channel !== "preview" && channel !== "production") {
     return NextResponse.json(
-      { message: 'channel must be "preview" or "production"' },
+      { message: 'channel must be "dev", "preview", or "production"' },
       { status: 400 },
     );
   }

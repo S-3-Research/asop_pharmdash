@@ -150,6 +150,13 @@ export interface DomainCategoryPair {
 
 export interface Domain {
   domain: string;
+  /** True when the release flagged this domain as a curated "example" —
+   *  used to build the Domain Samples list on the Domain Insights page,
+   *  instead of sampling from every domain in the release. */
+  isExample: boolean;
+  /** NABP verification status (e.g. "not recommend"), null when the release
+   *  doesn't report it for this domain. */
+  nabpStatus: string | null;
   platforms: DomainPlatform[];
   resource: string;
   createDate: string;          // yyyy-mm-dd
@@ -214,6 +221,10 @@ export interface SocialMediaPost {
   categories: Array<{ primaryCategory: string; secondaryCategory: string }>;
   /** Model confidence (0–1) that this row is a genuine pharma signal. Drives Signal Samples' default sort order (highest first). */
   confidenceScore: number;
+  /** Number of comments on this post/comment row, 0 when not reported. */
+  numComments: number;
+  /** Number of likes/reactions on this post/comment row, 0 when not reported. */
+  numLikes: number;
 }
 
 export interface SocialPlatformTab {
@@ -230,6 +241,10 @@ export interface SocialMetrics {
    *  filter selection — total raw search-hit volume collected, regardless
    *  of whether each hit was ultimately flagged as a selling signal. */
   totalRawCount: number;
+  /** Sum of numComments + numLikes across the current category/platform
+   *  filter selection's flagged selling posts/comments — total user
+   *  interaction volume on detected illicit content. */
+  numInteractions: number;
 }
 
 export interface SocialProductSignalCount {

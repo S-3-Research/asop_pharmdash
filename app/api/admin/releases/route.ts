@@ -36,13 +36,14 @@ export async function GET() {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const [releases, preview, production] = await Promise.all([
+  const [releases, dev, preview, production] = await Promise.all([
     listReleases(),
+    readChannel("dev"),
     readChannel("preview"),
     readChannel("production"),
   ]);
 
-  return NextResponse.json({ releases, channels: { preview, production } });
+  return NextResponse.json({ releases, channels: { dev, preview, production } });
 }
 
 export async function POST(request: Request) {

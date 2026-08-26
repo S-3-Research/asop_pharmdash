@@ -75,7 +75,7 @@ function memoizeByKey<T>(fn: (key: string) => Promise<T>): (key: string) => Prom
 // Types
 // ---------------------------------------------------------------------------
 
-export type ChannelName = "preview" | "production";
+export type ChannelName = "dev" | "preview" | "production";
 
 export interface ChannelRef {
   releaseId: string;
@@ -109,7 +109,7 @@ export interface ReleaseManifest {
 export interface AuditLogEntry {
   time: string;
   actor: string;
-  action: "upload" | "publish_preview" | "promote_production" | "rollback";
+  action: "upload" | "publish_dev" | "publish_preview" | "promote_production" | "rollback";
   releaseId: string;
   channel?: ChannelName;
   details?: Record<string, unknown>;
@@ -224,7 +224,7 @@ export async function setChannelRelease(
   await appendAuditLog({
     time: now,
     actor,
-    action: channel === "production" ? "promote_production" : "publish_preview",
+    action: channel === "production" ? "promote_production" : channel === "dev" ? "publish_dev" : "publish_preview",
     releaseId,
     channel,
   });

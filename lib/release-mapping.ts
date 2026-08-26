@@ -309,6 +309,8 @@ export function mapReleaseDomain(
 
   return {
     domain: normalizeDomainHost(d.domain),
+    isExample: d.is_example ?? false,
+    nabpStatus: d.nabp_status ?? null,
     platforms: mapPlatforms(d.platforms),
     resource: d.resources ?? "search_result",
     createDate,
@@ -629,6 +631,8 @@ function mapSocialRow(
     keywords: productNames.length > 0 ? productNames : null,
     categories: resolveSocialCategories(post),
     confidenceScore: post.confidence_score,
+    numComments: post.num_comments ?? 0,
+    numLikes: post.num_likes ?? 0,
   };
 }
 
@@ -671,6 +675,10 @@ export interface SocialPostLite {
   mentions: string[];
   categories: { primaryCategory: string; secondaryCategory: string }[];
   keywordCount: number;
+  /** Comments + likes reported on this post/comment row (0 when not
+   *  reported by the release) — summed into `numInteractions` metrics. */
+  numComments: number;
+  numLikes: number;
 }
 
 /**
@@ -695,6 +703,8 @@ export function buildSocialIndex(
       mentions: extractMentions(post.contact_info),
       categories: resolveSocialCategories(post),
       keywordCount: productList.length,
+      numComments: post.num_comments ?? 0,
+      numLikes: post.num_likes ?? 0,
     };
   });
 }
@@ -817,7 +827,7 @@ function filterSocialIndex(
 
 export interface SocialAggregates {
   platformTabs: SocialPlatformTab[];
-  metrics: { totalPosts: number; uniqueAccounts: number; activeCount: number };
+  metrics: { totalPosts: number; uniqueAccounts: number; activeCount: number; numInteractions: number };
   mentionsByApp: SocialMentionByApp[];
   productSignalCounts: { name: string; count: number }[];
 }
@@ -874,6 +884,7 @@ export function buildSocialAggregates(
 
   const uniqueAccounts = new Set(filtered.map((p) => p.username)).size;
   const activeCount = filtered.filter((p) => p.status === "active").length;
+  const numInteractions = filtered.reduce((sum, p) => sum + p.numComments + p.numLikes, 0);
 
   const mentionMap = new Map<string, number>();
   for (const post of filtered) {
@@ -889,7 +900,7 @@ export function buildSocialAggregates(
 
   return {
     platformTabs,
-    metrics: { totalPosts: filtered.length, uniqueAccounts, activeCount },
+    metrics: { totalPosts: filtered.length, uniqueAccounts, activeCount, numInteractions },
     mentionsByApp,
     productSignalCounts,
   };
@@ -950,7 +961,7 @@ const PLATFORM_ALL_KEY = "all";
 
 export interface SocialAggregateEntry {
   platformTabs: SocialPlatformTab[];
-  metrics: { totalPosts: number; uniqueAccounts: number; activeCount: number };
+  metrics: { totalPosts: number; uniqueAccounts: number; activeCount: number; numInteractions: number };
   mentionsByApp: SocialMentionByApp[];
   productSignalCounts: { name: string; count: number }[];
 }
@@ -1006,6 +1017,7 @@ function aggregateSubset(
 
   const uniqueAccounts = new Set(filtered.map((p) => p.username)).size;
   const activeCount = filtered.filter((p) => p.status === "active").length;
+  const numInteractions = filtered.reduce((sum, p) => sum + p.numComments + p.numLikes, 0);
 
   const mentionMap = new Map<string, number>();
   for (const post of filtered) {
@@ -1024,7 +1036,7 @@ function aggregateSubset(
 
   return {
     platformTabs,
-    metrics: { totalPosts: filtered.length, uniqueAccounts, activeCount },
+    metrics: { totalPosts: filtered.length, uniqueAccounts, activeCount, numInteractions },
     mentionsByApp,
     productSignalCounts,
   };

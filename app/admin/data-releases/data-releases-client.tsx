@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Pencil, Check, X, Download as DownloadIcon, FlaskConical, Eye, Rocket } from "lucide-react";
 
 import { LogoNav } from "@/app/dashboard/components/logo-nav";
 import { supabaseBrowser } from "@/lib/supabase-browser";
@@ -63,7 +64,7 @@ type AuditEntry = {
 
 export default function DataReleasesClient() {
   const [releases, setReleases] = useState<ReleaseManifest[]>([]);
-  const [channels, setChannels] = useState<{ preview: ChannelPointer; production: ChannelPointer } | null>(
+  const [channels, setChannels] = useState<{ dev: ChannelPointer; preview: ChannelPointer; production: ChannelPointer } | null>(
     null,
   );
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
@@ -94,6 +95,10 @@ export default function DataReleasesClient() {
   // admin is actively editing it.
   const [displayNameDrafts, setDisplayNameDrafts] = useState<Record<string, string>>({});
   const [savingDisplayNameId, setSavingDisplayNameId] = useState<string | null>(null);
+  // Which release row currently has its inline display-name editor open
+  // (lives in the Actions column, toggled by the pencil icon button) — only
+  // one row can be in edit mode at a time.
+  const [editingDisplayNameId, setEditingDisplayNameId] = useState<string | null>(null);
 
   const saveDisplayName = async (releaseId: string) => {
     const draft = displayNameDrafts[releaseId] ?? "";
@@ -112,6 +117,7 @@ export default function DataReleasesClient() {
       const body = (await res.json()) as { manifest: ReleaseManifest };
       setReleases((prev) => prev.map((r) => (r.releaseId === releaseId ? body.manifest : r)));
       setActionMessage(`Display name updated for "${releaseId}".`);
+      setEditingDisplayNameId(null);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Failed to save display name");
     } finally {
@@ -169,7 +175,7 @@ export default function DataReleasesClient() {
     if (releasesRes.ok) {
       const data = (await releasesRes.json()) as {
         releases: ReleaseManifest[];
-        channels: { preview: ChannelPointer; production: ChannelPointer };
+        channels: { dev: ChannelPointer; preview: ChannelPointer; production: ChannelPointer };
       };
       setReleases(data.releases);
       setChannels(data.channels);
@@ -290,7 +296,7 @@ export default function DataReleasesClient() {
     refresh();
   };
 
-  const publish = async (releaseId: string, channel: "preview" | "production") => {
+  const publish = async (releaseId: string, channel: "dev" | "preview" | "production") => {
     if (channel === "production") {
       const ok = window.confirm(
         `Promote release "${releaseId}" to PRODUCTION? This immediately affects live users.`,
@@ -350,8 +356,8 @@ export default function DataReleasesClient() {
       ) : null}
 
       {/* Channel status */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {(["preview", "production"] as const).map((channel) => {
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {(["dev", "preview", "production"] as const).map((channel) => {
           const pointer = channels?.[channel];
           return (
             <div key={channel} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
@@ -547,6 +553,7 @@ export default function DataReleasesClient() {
             <tbody>
               {releases.map((r) => {
                 const isMock = r.releaseId === "mock-data";
+                const isEditingDisplayName = editingDisplayNameId === r.releaseId;
                 return (
                   <tr key={r.releaseId} className="border-b border-slate-100">
                     <td className="py-2 font-mono text-xs">
@@ -561,25 +568,40 @@ export default function DataReleasesClient() {
                     <td>
                       {isMock ? (
                         "—"
-                      ) : (
+                      ) : isEditingDisplayName ? (
                         <div className="flex items-center gap-1.5">
                           <input
+                            autoFocus
                             type="text"
                             placeholder={r.reportPeriod}
                             value={displayNameDrafts[r.releaseId] ?? r.displayName ?? ""}
                             onChange={(e) =>
                               setDisplayNameDrafts((prev) => ({ ...prev, [r.releaseId]: e.target.value }))
                             }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") saveDisplayName(r.releaseId);
+                              if (e.key === "Escape") setEditingDisplayNameId(null);
+                            }}
                             className="w-32 rounded border border-slate-200 px-1.5 py-1 text-xs"
                           />
                           <button
-                            className="rounded bg-slate-100 px-2 py-1 text-xs hover:bg-slate-200 disabled:opacity-50"
+                            className="rounded p-1 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
                             disabled={savingDisplayNameId === r.releaseId}
                             onClick={() => saveDisplayName(r.releaseId)}
+                            title="Save display name"
                           >
-                            {savingDisplayNameId === r.releaseId ? "Saving…" : "Save"}
+                            <Check size={14} />
+                          </button>
+                          <button
+                            className="rounded p-1 text-slate-400 hover:bg-slate-100"
+                            onClick={() => setEditingDisplayNameId(null)}
+                            title="Cancel"
+                          >
+                            <X size={14} />
                           </button>
                         </div>
+                      ) : (
+                        <span className="text-slate-700">{r.displayName || "—"}</span>
                       )}
                     </td>
                     <td>{isMock ? "built-in" : new Date(r.generatedAt).toLocaleString()}</td>
@@ -590,27 +612,50 @@ export default function DataReleasesClient() {
                           r.recordCounts.socialMedia +
                           r.recordCounts.socialMediaSummary}
                     </td>
-                    <td className="space-x-2 py-2 text-right">
-                      {!isMock ? (
+                    <td className="py-2 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {!isMock ? (
+                          <>
+                            <button
+                              className="rounded p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                              onClick={() =>
+                                setEditingDisplayNameId(isEditingDisplayName ? null : r.releaseId)
+                              }
+                              title="Edit display name"
+                            >
+                              <Pencil size={15} />
+                            </button>
+                            <button
+                              className="rounded p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                              onClick={() => downloadRelease(r.releaseId)}
+                              title="Download release JSON"
+                            >
+                              <DownloadIcon size={15} />
+                            </button>
+                          </>
+                        ) : null}
                         <button
-                          className="rounded bg-slate-100 px-2 py-1 text-xs hover:bg-slate-200"
-                          onClick={() => downloadRelease(r.releaseId)}
+                          className="rounded p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                          onClick={() => publish(r.releaseId, "dev")}
+                          title="Publish → Dev"
                         >
-                          Download
+                          <FlaskConical size={15} />
                         </button>
-                      ) : null}
-                      <button
-                        className="rounded bg-slate-100 px-2 py-1 text-xs hover:bg-slate-200"
-                        onClick={() => publish(r.releaseId, "preview")}
-                      >
-                        Publish → Preview
-                      </button>
-                      <button
-                        className="rounded bg-amber-100 px-2 py-1 text-xs text-amber-900 hover:bg-amber-200"
-                        onClick={() => publish(r.releaseId, "production")}
-                      >
-                        Promote → Production
-                      </button>
+                        <button
+                          className="rounded p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                          onClick={() => publish(r.releaseId, "preview")}
+                          title="Publish → Preview"
+                        >
+                          <Eye size={15} />
+                        </button>
+                        <button
+                          className="rounded p-1.5 text-amber-700 hover:bg-amber-50"
+                          onClick={() => publish(r.releaseId, "production")}
+                          title="Promote → Production"
+                        >
+                          <Rocket size={15} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -626,6 +671,7 @@ export default function DataReleasesClient() {
           </table>
         )}
       </section>
+
 
       {/* Audit log */}
       <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
