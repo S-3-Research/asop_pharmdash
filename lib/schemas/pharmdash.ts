@@ -200,11 +200,24 @@ export const PaymentInfoItemSchema = z.object({
   paymentoption: PaymentOption.nullish(),
 });
 
+// New in the 2026-08-05 schema: social_media[] rows (and, as of
+// 2026-08-26, product_info[] rows too) carry their own product_category
+// directly (per matched product), rather than relying on a product_name ->
+// category lookup derived from domains[].product_info.
+// NOTE: as of the 2026-08-26 schema the enum values were renamed:
+// "cancer drug" -> "cancer med", "glp-1" -> "glp".
+export const ProductCategory = z.enum([
+  "cancer med",
+  "glp",
+]);
+
 export const ProductInfoItemSchema = z.object({
   product_title: z.string(),
   product_url: httpUrl,
 
-  product_category: z.array(z.string()).nullish(),
+  // NOTE: as of the 2026-08-26 schema this is a single category value (was
+  // a free-form string array in earlier releases).
+  product_category: ProductCategory.nullish(),
   product_name: z.string().nullish(),
 
   in_stock: z.boolean().nullish().default(true),
@@ -220,14 +233,6 @@ export const ProductInfoItemSchema = z.object({
   // New in the 2026-08-25 schema.
   screenshot_path: z.string().nullish(),
 });
-
-// New in the 2026-08-05 schema: social_media[] rows now carry their own
-// product_category directly (per matched product), rather than relying on
-// a product_name -> category lookup derived from domains[].product_info.
-export const ProductCategory = z.enum([
-  "cancer drug",
-  "glp-1",
-]);
 
 export const ProductTypeSchema = z.object({
   product_category: ProductCategory.nullish(),
@@ -266,7 +271,9 @@ export const DomainDataSchema = z.object({
   last_seen: z.number().int().nullish(),
   has_age_verification: z.boolean().nullish(),
   business_affiliation: z.string().nullish(),
-  product_label: z.array(z.string()).nullish(),
+  // NOTE: as of the 2026-08-26 schema this is constrained to ProductCategory
+  // values (was a free-form string array in earlier releases).
+  product_label: z.array(ProductCategory).nullish(),
   nabp_status: NabpStatus.nullish(),
   fda_status: FDAStatus.nullish(),
 

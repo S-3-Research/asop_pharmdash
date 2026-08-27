@@ -63,6 +63,7 @@ import type {
 const KNOWN_CATEGORY_LABELS: Record<string, string> = {
   "glp-1": "GLP-1",
   glp1: "GLP-1",
+  glp: "GLP-1",
   cancer: "Cancer Med",
   "cancer med": "Cancer Med",
   "cancer medication": "Cancer Med",
@@ -132,7 +133,7 @@ export function buildCategoryRegistry(domains: DomainData[]): CategoryOption[] {
   const counts = new Map<string, number>();
   for (const d of domains) {
     for (const p of d.product_info) {
-      for (const raw of p.product_category ?? []) {
+      for (const raw of productCategoryValues(p)) {
         const label = normalizeCategoryLabel(raw);
         counts.set(label, (counts.get(label) ?? 0) + 1);
       }
@@ -206,6 +207,18 @@ export function convertReportPeriod(reportPeriod: string): string {
 // ---------------------------------------------------------------------------
 
 /**
+ * Normalizes a product's `product_category` field into a flat array of raw
+ * category strings. NOTE: as of the 2026-08-26 schema this field is a
+ * single value (was an array of free-form strings in earlier releases) —
+ * handle both shapes defensively so historical release payloads still work.
+ */
+function productCategoryValues(product: ProductInfoItem): string[] {
+  const raw = product.product_category;
+  if (Array.isArray(raw)) return raw;
+  return raw ? [raw] : [];
+}
+
+/**
  * A `product_name` only counts as meaningful if it's a non-empty, non-
  * placeholder string — NOT merely non-null/undefined. Raw release data
  * routinely has `product_name: ""` (empty string) or whitespace/"n/a"
@@ -224,7 +237,7 @@ function meaningfulProductName(raw: string | null | undefined): string | null {
 }
 
 function productCategoryPairs(product: ProductInfoItem): DomainCategoryPair[] {
-  const rawCategories = product.product_category ?? [];
+  const rawCategories = productCategoryValues(product);
   const secondary = meaningfulProductName(product.product_name) ?? "Unknown";
   if (rawCategories.length === 0) {
     return [{ primary: "Uncategorized", secondary }];
