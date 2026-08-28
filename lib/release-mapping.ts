@@ -61,9 +61,11 @@ import type {
  *  back to a generic title-case transform, so new categories introduced by
  *  upstream data automatically show up without code changes. */
 const KNOWN_CATEGORY_LABELS: Record<string, string> = {
+  // NOTE: as of the 2026-08-26 schema "glp" (not "glp-1") is the canonical
+  // category value — display label is now "GLP" to match, not "GLP-1".
+  glp: "GLP",
   "glp-1": "GLP-1",
   glp1: "GLP-1",
-  glp: "GLP-1",
   cancer: "Cancer Med",
   "cancer med": "Cancer Med",
   "cancer medication": "Cancer Med",
@@ -114,6 +116,7 @@ function hashColor(label: string): string {
 }
 
 const FIXED_CATEGORY_COLORS: Record<string, string> = {
+  "GLP": "#3b82f6",
   "GLP-1": "#3b82f6",
   "Cancer Med": "#10b981",
   "CNS Med": "#a855f7",

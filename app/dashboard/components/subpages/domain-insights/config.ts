@@ -15,13 +15,14 @@ const CHART_STYLE = { fontFamily: "var(--font-geist-sans)" };
 // of categories straight from the data, in the same spirit as
 // `buildCategoryRegistry()` in lib/release-mapping.ts.
 export const DOMAIN_PRIMARY_CATEGORIES: CategoryOption[] = [
-  { id: "GLP-1",      name: "GLP-1",      color: "#3b82f6" },
+  { id: "GLP",        name: "GLP",        color: "#3b82f6" },
   { id: "Cancer Med", name: "Cancer Med", color: "#10b981", isTop: true },
   { id: "CNS Med",    name: "CNS Med",    color: "#a855f7" },
   { id: "Pain Med",   name: "Pain Med",   color: "#f59e0b" },
 ];
 
 const FIXED_CATEGORY_COLORS: Record<string, string> = {
+  "GLP": "#3b82f6",
   "GLP-1": "#3b82f6",
   "Cancer Med": "#10b981",
   "CNS Med": "#a855f7",

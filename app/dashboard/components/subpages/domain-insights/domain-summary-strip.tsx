@@ -15,12 +15,15 @@ interface DomainSummaryStripProps {
 
 export function DomainSummaryStrip({ allDomains }: DomainSummaryStripProps) {
   const tiles = useMemo((): SummaryStripTile[] => {
-    // Domains that carry BOTH a GLP-1 and a Cancer Med category among their
+    // Domains that carry BOTH a GLP and a Cancer Med category among their
     // full categories[] set (not just the single "representative" pair) —
     // i.e. dual-selling across these two specific primary categories.
+    // NOTE: as of the 2026-08-26 schema the canonical display label is
+    // "GLP" (was "GLP-1") — check both so historical releases still count.
     const dualSellingCount = allDomains.filter((d) => {
       const primaries = new Set(d.categories.map((c) => c.primary));
-      return primaries.has("GLP-1") && primaries.has("Cancer Med");
+      const hasGlp = primaries.has("GLP") || primaries.has("GLP-1");
+      return hasGlp && primaries.has("Cancer Med");
     }).length;
 
     const nabpNotRecommendedCount = allDomains.filter((d) => d.nabpStatus === "not recommend").length;
@@ -33,7 +36,7 @@ export function DomainSummaryStrip({ allDomains }: DomainSummaryStripProps) {
         icon: Layers,
         accent: "bg-violet-50 text-violet-600",
         headline: `${dualSellingCount} dual-selling domains`,
-        label: "Domains listing both GLP-1 and Cancer Med products",
+        label: "Domains listing both GLP and Cancer Med products",
       },
       {
         id: "nabp-not-recommended",
