@@ -19,12 +19,17 @@
  *     product (for the Top Products subpage), each carrying its own
  *     primary/secondary category pair.
  *
- * Category taxonomy: rather than a hand-maintained lookup table, the set of
- * selectable categories is rebuilt from whatever `product_category` values
- * actually appear in the release (see `buildCategoryRegistry`). Known/legacy
- * short-codes get a nicer display label; anything unrecognized still shows
- * up (title-cased) rather than being dropped or forced into an existing
- * bucket.
+ * Category taxonomy: the set of selectable categories is rebuilt from
+ * whatever `product_category` / `product_label` values actually appear in
+ * the release (see `buildCategoryRegistry`), but the raw -> display-label
+ * mapping itself is a strict, exhaustive lookup keyed off the
+ * `ProductCategory` Zod enum (lib/schemas/pharmdash.ts) — not a
+ * fuzzy/best-effort transform. Upload-time validation already rejects any
+ * release whose `product_category`/`product_label` values fall outside that
+ * enum, so there's no legitimate "recognize an unlisted short-code" case to
+ * design for; anything that still doesn't match (e.g. a pre-existing release
+ * uploaded before the enum was enforced) surfaces as an explicit "Unknown
+ * Category" placeholder instead of being silently smoothed over.
  */
 
 import "server-only";
@@ -37,6 +42,7 @@ import type {
   ProductInfoItem,
   SocialMediaData,
 } from "@/lib/schemas/pharmdash";
+import { ProductCategory } from "@/lib/schemas/pharmdash";
 import type {
   CategoryOption,
   Domain,
@@ -57,25 +63,50 @@ import type {
 // Category registry — built dynamically from release data
 // ---------------------------------------------------------------------------
 
-/** Known short-code -> nice display label. Anything not listed here falls
- *  back to a generic title-case transform, so new categories introduced by
- *  upstream data automatically show up without code changes. */
-const KNOWN_CATEGORY_LABELS: Record<string, string> = {
-  // NOTE: as of the 2026-08-26 schema "glp" (not "glp-1") is the canonical
-  // category value — display label is now "GLP" to match, not "GLP-1".
-  glp: "GLP",
-  "glp-1": "GLP-1",
-  glp1: "GLP-1",
-  cancer: "Cancer Med",
+/** Placeholder shown for any raw `product_category` value that doesn't
+ *  match the `ProductCategory` enum (see lib/schemas/pharmdash.ts). Since
+ *  the upload API's Zod validation (`PharmDashReleaseDataSchema.safeParse`)
+ *  already rejects any release payload containing an out-of-enum category
+ *  value, this should never actually be hit for data that made it through
+ *  upload — it exists only as a defensive fallback for pre-existing
+ *  releases uploaded before this enum was enforced. */
+const UNKNOWN_CATEGORY_LABEL = "Unknown Category";
+
+/** Exhaustive short-code -> display-label map, one entry per
+ *  `ProductCategory` enum value. Deliberately NOT a fuzzy/best-effort
+ *  lookup: since the schema strictly enforces `product_category` /
+ *  `product_label` to be one of these exact enum values at upload time,
+ *  there is no legitimate "unknown short-code" case to fall back for. If a
+ *  new category is added to the Pydantic/Zod enum, TypeScript will flag
+ *  this object as missing a key (via `satisfies Record<ProductCategoryValue, string>`)
+ *  until it's added here too. */
+type ProductCategoryValue = (typeof ProductCategory.options)[number];
+
+const CATEGORY_DISPLAY_LABELS = {
   "cancer med": "Cancer Med",
-  "cancer medication": "Cancer Med",
-  "cancer drug": "Cancer Med",
-  cns: "CNS Med",
-  "cns med": "CNS Med",
-  pain: "Pain Med",
-  "pain med": "Pain Med",
-  "pain medication": "Pain Med",
-};
+  glp: "GLP",
+} satisfies Record<ProductCategoryValue, string>;
+
+/** Normalizes a raw `product_category` value into its display label.
+ *  Strict: only exact matches to a `ProductCategory` enum value resolve to
+ *  a real label. Anything else (which should be impossible for data that
+ *  passed upload validation) becomes the explicit `UNKNOWN_CATEGORY_LABEL`
+ *  placeholder rather than a "best guess" title-cased string, so any stale
+ *  or legacy value shows up visibly instead of being silently smoothed
+ *  over. */
+export function normalizeCategoryLabel(raw: string): string {
+  return CATEGORY_DISPLAY_LABELS[raw as ProductCategoryValue] ?? UNKNOWN_CATEGORY_LABEL;
+}
+
+/** Deterministic color for a category label — stable across reloads since
+ *  it's derived from the label string itself, not array order. */
+function hashColor(label: string): string {
+  let hash = 0;
+  for (let i = 0; i < label.length; i++) {
+    hash = (hash * 31 + label.charCodeAt(i)) >>> 0;
+  }
+  return FALLBACK_PALETTE[hash % FALLBACK_PALETTE.length];
+}
 
 const FALLBACK_PALETTE = [
   "#3b82f6",
@@ -90,34 +121,8 @@ const FALLBACK_PALETTE = [
   "#8b5cf6",
 ];
 
-function titleCase(raw: string): string {
-  return raw
-    .trim()
-    .split(/[\s_-]+/)
-    .filter(Boolean)
-    .map((w) => (w.length <= 3 && w === w.toUpperCase() ? w : w[0].toUpperCase() + w.slice(1).toLowerCase()))
-    .join(" ");
-}
-
-/** Normalizes a raw `product_category` value into a stable display label. */
-export function normalizeCategoryLabel(raw: string): string {
-  const key = raw.trim().toLowerCase();
-  return KNOWN_CATEGORY_LABELS[key] ?? titleCase(raw);
-}
-
-/** Deterministic color for a category label — stable across reloads since
- *  it's derived from the label string itself, not array order. */
-function hashColor(label: string): string {
-  let hash = 0;
-  for (let i = 0; i < label.length; i++) {
-    hash = (hash * 31 + label.charCodeAt(i)) >>> 0;
-  }
-  return FALLBACK_PALETTE[hash % FALLBACK_PALETTE.length];
-}
-
 const FIXED_CATEGORY_COLORS: Record<string, string> = {
   "GLP": "#3b82f6",
-  "GLP-1": "#3b82f6",
   "Cancer Med": "#10b981",
   "CNS Med": "#a855f7",
   "Pain Med": "#f59e0b",

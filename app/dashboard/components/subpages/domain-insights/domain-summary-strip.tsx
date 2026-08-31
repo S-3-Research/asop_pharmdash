@@ -18,12 +18,9 @@ export function DomainSummaryStrip({ allDomains }: DomainSummaryStripProps) {
     // Domains that carry BOTH a GLP and a Cancer Med category among their
     // full categories[] set (not just the single "representative" pair) —
     // i.e. dual-selling across these two specific primary categories.
-    // NOTE: as of the 2026-08-26 schema the canonical display label is
-    // "GLP" (was "GLP-1") — check both so historical releases still count.
     const dualSellingCount = allDomains.filter((d) => {
       const primaries = new Set(d.categories.map((c) => c.primary));
-      const hasGlp = primaries.has("GLP") || primaries.has("GLP-1");
-      return hasGlp && primaries.has("Cancer Med");
+      return primaries.has("GLP") && primaries.has("Cancer Med");
     }).length;
 
     const nabpNotRecommendedCount = allDomains.filter((d) => d.nabpStatus === "not recommend").length;
