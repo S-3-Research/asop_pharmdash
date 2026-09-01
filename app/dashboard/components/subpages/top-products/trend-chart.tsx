@@ -1,12 +1,18 @@
 "use client";
 
-import { useMemo } from "react";
-import type Highcharts from "highcharts";
+import { useMemo, useRef, useEffect } from "react";
+import dynamic from "next/dynamic";
+import Highcharts from "highcharts";
 
 import type { ApiListing, CategoryOption } from "../../types";
-import { HighchartsCard } from "../../charts/highcharts-card";
+import { DashboardCard } from "../../ui/dashboard-card";
 import { useWidgetData } from "../../copilot/copilot-context";
 import { formatRptPeriodLabel } from "./config";
+
+const HighchartsReact = dynamic(() => import("highcharts-react-official"), {
+  ssr: false,
+  loading: () => <div className="h-full w-full animate-pulse bg-slate-50" />,
+});
 
 const FALLBACK_COLOR = "#94a3b8";
 
@@ -38,6 +44,30 @@ export function ListingTrendChart({
   currentPeriodLabel,
   periodLabels,
 }: ListingTrendChartProps) {
+  // See total-domain-card.tsx for why this ResizeObserver+reflow is needed.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const chartCompRef = useRef<any>(null);
+  const chartWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = chartWrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const chart = chartCompRef.current?.chart;
+      if (!chart || !chart.container) return;
+      try {
+        chart.tooltip?.hide(0);
+        chart.reflow();
+      } catch {
+        // Highcharts can throw internally if a resize races with an
+        // in-flight tooltip animation (e.g. rapid container resize when
+        // the card's expand modal opens/closes) — safe to ignore.
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   // Prefer the admin-configured display name; fall back to the formatted
   // internal code for any period not present in the map.
   const labelFor = useMemo(
@@ -103,7 +133,6 @@ export function ListingTrendChart({
     return {
       chart: {
         type: "column",
-        height: 230,
         backgroundColor: "transparent",
         style: CHART_STYLE,
       },
@@ -169,16 +198,20 @@ export function ListingTrendChart({
   }, [filteredListings, allRptPeriodKeys, selectedPrimaryName, categories, labelFor]);
 
   return (
-    <HighchartsCard
-      chart={{
-        id: "product-trend",
-        title: selectedPrimaryName
-          ? `${selectedPrimaryName} — Rpt. Period Trend`
-          : "Listing Trend by Category",
-        subtitle: `rpt. period listing count · ${currentPeriodLabel}`,
-        options,
-      }}
+    <DashboardCard
+      title={selectedPrimaryName ? `${selectedPrimaryName} — Rpt. Period Trend` : "Listing Trend by Category"}
+      subtitle={`rpt. period listing count · ${currentPeriodLabel}`}
       subtitleClassName="py-1"
-    />
+      className="p-5 h-full"
+    >
+      <div ref={chartWrapRef} className="min-h-0 flex-1 relative">
+        <HighchartsReact
+          ref={chartCompRef}
+          highcharts={Highcharts}
+          options={options}
+          containerProps={{ style: { position: "absolute", inset: 0 } }}
+        />
+      </div>
+    </DashboardCard>
   );
 }

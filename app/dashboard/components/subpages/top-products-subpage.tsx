@@ -222,8 +222,10 @@ export function TopProductsSubpage() {
 
         {/* Right column */}
         <div className="col-span-12 flex flex-col gap-6 lg:col-span-6">
+          <div className="h-[360px]">
           <SelectableCard
             expandable
+            className="h-full"
             widget={{
               widgetId: "top-products-trend",
               title: selectedPrimaryName ? `${selectedPrimaryName} — Listing Trend` : "Listing Trend",
@@ -240,8 +242,11 @@ export function TopProductsSubpage() {
               periodLabels={data.reportingPeriodLabels ?? {}}
             />
           </SelectableCard>
+          </div>
+          <div className="h-[420px]">
           <SelectableCard
             expandable
+            className="h-full"
             widget={{
               widgetId: "top-products-distribution",
               title: "Product Distribution",
@@ -257,6 +262,7 @@ export function TopProductsSubpage() {
               periodLabel={currentPeriodLabel}
             />
           </SelectableCard>
+          </div>
         </div>
       </div>
     </section>
