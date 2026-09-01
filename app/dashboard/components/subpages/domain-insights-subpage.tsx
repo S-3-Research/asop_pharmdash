@@ -174,6 +174,7 @@ export function DomainInsightsSubpage() {
             </SelectableCard>
 
             <SelectableCard
+              expandable
               widget={{
                 widgetId: "domain-status",
                 title: "Domain Status",
@@ -208,6 +209,7 @@ export function DomainInsightsSubpage() {
             </SelectableCard>
 
             <SelectableCard
+              expandable
               widget={{
                 widgetId: "domain-registrar",
                 title: "Registrar Distribution",

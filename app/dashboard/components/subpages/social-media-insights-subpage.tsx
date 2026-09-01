@@ -200,6 +200,7 @@ export function SocialMediaInsightsSubpage() {
               <div className="flex flex-col lg:flex-row gap-4 h-auto lg:h-[330px]">
                 <div className="w-full lg:basis-1/4 lg:min-w-0 h-[380px] lg:h-full">
                   <SelectableCard
+                    expandable
                     className="h-full"
                     widget={{
                       widgetId: "social-product-signal-chart",
@@ -239,6 +240,7 @@ export function SocialMediaInsightsSubpage() {
                 </div>
                 <div className="w-full lg:basis-1/4 lg:min-w-0 h-[380px] lg:h-full">
                   <SelectableCard
+                    expandable
                     className="h-full"
                     widget={{
                       widgetId: "social-keyword-performance",

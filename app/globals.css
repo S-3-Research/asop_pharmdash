@@ -25,3 +25,18 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Highcharts' `tooltip.outside: true` mode appends its tooltip container
+ * straight to <body> (see highcharts.js Tooltip.getLabel), but computes its
+ * z-index as roughly `chart.style.zIndex + 3` — which resolves to a very low
+ * value (~3) since this app never sets a chart-level style.zIndex. That's
+ * far below any modal/overlay we render (see selectable-card.tsx's expand
+ * modal, which uses z-[9999]), so the tooltip would silently render
+ * *behind* those overlays. Force it well above the highest z-index used
+ * anywhere in this app so it always sits on top, regardless of what other
+ * overlay is open. An !important external rule beats Highcharts' inline
+ * `element.style.zIndex` per the CSS cascade (author-!important outranks
+ * a plain inline style), so this reliably overrides it. */
+.highcharts-tooltip-container {
+  z-index: 2147483647 !important;
+}
