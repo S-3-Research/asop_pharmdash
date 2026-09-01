@@ -54,7 +54,16 @@ export function KeywordPerformanceCard({ bubbles, platform, categories }: Keywor
     const el = chartWrapRef.current;
     if (!el) return;
     const ro = new ResizeObserver(() => {
-      chartCompRef.current?.chart?.reflow();
+      const chart = chartCompRef.current?.chart;
+      if (!chart || !chart.container) return;
+      try {
+        chart.tooltip?.hide(0);
+        chart.reflow();
+      } catch {
+        // Highcharts can throw internally if a resize races with an
+        // in-flight tooltip animation (e.g. rapid container resize when
+        // the card's expand modal opens/closes) — safe to ignore.
+      }
     });
     ro.observe(el);
     return () => ro.disconnect();

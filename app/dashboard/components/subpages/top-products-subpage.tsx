@@ -223,6 +223,7 @@ export function TopProductsSubpage() {
         {/* Right column */}
         <div className="col-span-12 flex flex-col gap-6 lg:col-span-6">
           <SelectableCard
+            expandable
             widget={{
               widgetId: "top-products-trend",
               title: selectedPrimaryName ? `${selectedPrimaryName} — Listing Trend` : "Listing Trend",
@@ -240,6 +241,7 @@ export function TopProductsSubpage() {
             />
           </SelectableCard>
           <SelectableCard
+            expandable
             widget={{
               widgetId: "top-products-distribution",
               title: "Product Distribution",
