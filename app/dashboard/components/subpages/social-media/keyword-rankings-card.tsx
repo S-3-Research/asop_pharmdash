@@ -49,30 +49,34 @@ export function KeywordRankingsCard({ rankings }: KeywordRankingsCardProps) {
           <thead className="text-gray-500 border-b border-gray-100">
             <tr>
               <th className="pb-3 font-medium">Keyword</th>
-              <th className="pb-3 font-medium text-right">Selling Posts/Comments</th>
-              <th className="pb-3 font-medium text-right">Growth</th>
+              <th className="pb-3 font-medium text-right whitespace-nowrap w-px">Selling Content</th>
             </tr>
           </thead>
           <tbody>
             {visible.map((row) => (
               <tr key={row.keyword} className="border-b border-gray-50 last:border-0">
-                <td className="py-2.5">
+                <td className="py-2.5 w-full max-w-0">
                   <span
-                    className="px-2 py-1 rounded-md text-xs font-semibold"
+                    title={row.keyword}
+                    className="inline-block max-w-full truncate align-middle px-2 py-1 rounded-md text-xs font-semibold"
                     style={{ backgroundColor: row.color + "22", color: row.color }}
                   >
                     {row.keyword}
                   </span>
                 </td>
-                <td className="py-2.5 text-right text-gray-700 font-medium text-xs">{row.signalCount}</td>
                 <td className="py-2.5 text-right">
-                  {row.growthRate !== null ? (
-                    <span className="flex items-center justify-end gap-0.5 text-emerald-500 font-medium text-xs">
-                      <ArrowUp size={11} /> {row.growthRate}%
-                    </span>
-                  ) : (
-                    <span className="text-gray-400 text-xs">—</span>
-                  )}
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="text-gray-700 font-medium text-xs">{row.signalCount}</span>
+                    {row.growthRate !== null ? (
+                      <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[11px] font-semibold bg-emerald-50 text-emerald-600">
+                        <ArrowUp size={10} /> {row.growthRate}%
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium bg-gray-50 text-gray-400">
+                        -%
+                      </span>
+                    )}
+                  </span>
                 </td>
               </tr>
             ))}
@@ -80,11 +84,11 @@ export function KeywordRankingsCard({ rankings }: KeywordRankingsCardProps) {
         </table>
       </div>
 
-      <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center text-xs text-gray-400">
-        <span>
+      <div className="mt-0 pt-3 flex flex-nowrap justify-between items-center gap-3 text-xs text-gray-400">
+        <span className="truncate min-w-0">
           Showing {start + 1}–{Math.min(start + PAGE_SIZE, rankings.length)} of {rankings.length}
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0 whitespace-nowrap">
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}

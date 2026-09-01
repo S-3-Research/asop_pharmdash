@@ -118,7 +118,7 @@ export function buildTotalDomainChart(
   );
 
   const options: Highcharts.Options = {
-    chart: { type: "column", backgroundColor: "transparent", style: CHART_STYLE, margin: [20, 0, 0, 0], spacing: [0, 0, 0, 0] },
+    chart: { type: "column", backgroundColor: "transparent", style: CHART_STYLE, margin: [10, 0, 0, 0], spacing: [5, 0, 0, 0] },
     title: { text: undefined },
     xAxis: { visible: false, categories: rptPeriodLabels },
     yAxis: { visible: false },

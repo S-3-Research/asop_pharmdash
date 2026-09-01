@@ -37,7 +37,7 @@ export function HeatmapCard({ domains, selectedCategories }: HeatmapCardProps) {
     Object.entries(cityCounts)
       .sort((a, b) => b[1] - a[1])
       .map(([label, value]) => ({ label, value })),
-    "Geographic heatmap (Mapbox) of where the rogue domains are located; the underlying data format is one point per domain with a geoLocation object " +
+    "Geographic map (Mapbox) of where the rogue domains are located; the underlying data format is one point per domain with a geoLocation object " +
       "(city, country, lat/lng), plus per-domain category/status/registrar/payment fields shown when hovering a point. " +
       "The data points above are aggregated by CITY for convenience — each value is the number of domains geolocated to that city (from geoLocation.city). " +
       "On hover, the tooltip's top-right corner shows the domain's CITY (geoLocation.city field) next to the live/offline status dot; the tooltip body also lists category, registrar, and purported payment info for that single domain. " +
@@ -49,7 +49,7 @@ export function HeatmapCard({ domains, selectedCategories }: HeatmapCardProps) {
 
   return (
     <DashboardCard
-      title="Domain Heatmap"
+      title="Domain Map"
       className="h-full flex flex-col overflow-hidden"
       note={
         KEY_TAKEAWAY_SUPPRESSED ? undefined : (

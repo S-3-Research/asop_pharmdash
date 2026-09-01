@@ -143,12 +143,24 @@ export function RegistrarSunburst({ domains }: RegistrarSunburstProps) {
           // instead of showing "<b></b>: undefined domains".
           if (pt.point.options.id === "root") return false;
           const label = pt.point.options.fullName ?? pt.point.name;
-          return `<b>${label}</b>: ${pt.point.options.value} domains`;
+          // Domain leaf nodes always have value 1 (one point per domain) —
+          // showing "xxx.com: 1 domain" is redundant noise, so leaf nodes
+          // just show the domain name; only registrar (parent) nodes show
+          // the aggregate "<b>Registrar</b>: N domains" count.
+          const value = pt.point.options.value ?? 0;
+          return value === 1 ? `<b>${label}</b>` : `<b>${label}</b>: ${value} domains`;
         },
       },
       plotOptions: {
         sunburst: {
           allowTraversingTree: true,
+          // Level numbering resets relative to whatever node is currently
+          // the traversal root (rather than always counting from the
+          // overall data root) — this is what lets the domain-leaf ring
+          // (level 3 below) stay collapsed by default but "become" the
+          // now-outer, normal-size ring once a registrar segment is
+          // clicked/traversed into.
+          levelIsConstant: false,
           borderWidth: 1,
           borderColor: "#f8fafc",
           borderRadius: 3,
@@ -163,6 +175,20 @@ export function RegistrarSunburst({ domains }: RegistrarSunburstProps) {
               color: "#fff",
             },
           },
+          levels: [
+            { level: 1 }, // center/root node
+            { level: 2 }, // registrar ring — always visible at full size
+            {
+              // Domain leaf ring — collapsed to zero width by default so
+              // only the registrar ring shows on first render; clicking a
+              // registrar segment traverses into it (allowTraversingTree),
+              // which re-roots the level numbering and makes this level
+              // the new (normal-size) outer ring for that registrar's domains.
+              level: 3,
+              levelSize: { value: 0 },
+              dataLabels: { enabled: false },
+            },
+          ],
         },
       },
       series: [
@@ -179,7 +205,7 @@ export function RegistrarSunburst({ domains }: RegistrarSunburstProps) {
   return (
     <DashboardCard
       title="Registrar"
-      subtitle="Inner ring = registrar · outer ring = domain"
+      subtitle="Click a registrar to reveal its domains"
       className="h-full overflow-hidden"
       note={
         KEY_TAKEAWAY_SUPPRESSED ? undefined : (

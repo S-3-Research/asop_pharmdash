@@ -165,8 +165,7 @@ export function TopProductsSubpage() {
       <div className="mb-4">
         <h2 className="text-xl font-bold text-slate-800">Overview</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Surveillance dashboard covering {realCategories.length || 2} categories of drugs monitored
-          for illegal online sale{realCategories.length > 0 ? `: ${realCategories.map((c) => c.name).join(", ")}` : ""}.
+          The data provided here from ASOP Global Foundation and S-3 Research initially covers two categories of medicines: cancer and metabolic disease.
         </p>
       </div>
 

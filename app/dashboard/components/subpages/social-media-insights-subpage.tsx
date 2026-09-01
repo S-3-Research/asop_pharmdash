@@ -203,7 +203,7 @@ export function SocialMediaInsightsSubpage() {
                     className="h-full"
                     widget={{
                       widgetId: "social-product-signal-chart",
-                      title: "Selling Posts/Comments by Product",
+                      title: "Selling by Product",
                       type: "chart",
                       description: "Ranks specific products/drugs by how many flagged selling posts mention them. Taller bars mean that product appears in more illicit posts.",
                     }}

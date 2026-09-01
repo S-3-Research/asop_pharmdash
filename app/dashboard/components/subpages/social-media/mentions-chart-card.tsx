@@ -87,24 +87,24 @@ export function MentionsChartCard({ mentionsByApp }: MentionsChartCardProps) {
             <thead className="text-gray-500 border-b border-gray-100">
               <tr>
                 <th className="pb-2 font-medium">App</th>
-                <th className="pb-2 font-medium text-right">Channel Mentions</th>
-                <th className="pb-2 font-medium text-right">Share</th>
+                <th className="pb-2 pl-4 font-medium text-right whitespace-nowrap w-px">Channel Mentions</th>
+                <th className="pb-2 pl-4 font-medium text-right whitespace-nowrap w-px">Share</th>
               </tr>
             </thead>
             <tbody>
               {top.map(({ app, count }) => (
                 <tr key={app} className="border-b border-gray-50 last:border-0">
-                  <td className="py-2 text-gray-700">
-                    <span className="flex items-center gap-1.5 font-medium">
+                  <td className="py-2 text-gray-700 w-full max-w-0">
+                    <span className="flex items-center gap-1.5 font-medium min-w-0">
                       <span
                         className="inline-block w-2 h-2 rounded-full flex-shrink-0"
                         style={{ backgroundColor: appColor(app) }}
                       />
-                      {app}
+                      <span className="truncate" title={app}>{app}</span>
                     </span>
                   </td>
-                  <td className="py-2 text-right text-gray-700">{count}</td>
-                  <td className="py-2 text-right text-gray-400 text-xs">
+                  <td className="py-2 pl-4 text-right text-gray-700 whitespace-nowrap">{count}</td>
+                  <td className="py-2 pl-4 text-right text-gray-400 text-xs whitespace-nowrap">
                     {total > 0 ? ((count / total) * 100).toFixed(1) : "0.0"}%
                   </td>
                 </tr>

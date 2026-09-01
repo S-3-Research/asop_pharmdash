@@ -124,7 +124,7 @@ export function ProductSignalChartCard({ productSignalCounts }: ProductSignalCha
   return (
     <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex flex-col h-full">
       <div className="flex justify-between items-center mb-1">
-        <h3 className="font-semibold text-gray-800 text-sm">Selling Posts/Comments by Product</h3>
+        <h3 className="font-semibold text-gray-800 text-sm">Selling by Product</h3>
       </div>
       <div ref={chartWrapRef} className="relative flex-1 min-h-0">
         <HighchartsReact

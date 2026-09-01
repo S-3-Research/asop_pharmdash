@@ -63,7 +63,7 @@ export function SignalSamplesCard({ categories, platform }: SignalSamplesCardPro
           Selling Posts/Comments Samples
           {total > 0 && (
             <span className="ml-2 text-[11px] text-gray-400 font-normal">
-              {Math.min(total, MAX_SAMPLES)} shown (50 max)
+              {Math.min(total, MAX_SAMPLES)} shown
             </span>
           )}
         </h3>

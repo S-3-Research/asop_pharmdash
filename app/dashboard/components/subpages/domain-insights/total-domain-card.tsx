@@ -76,7 +76,7 @@ export function TotalDomainCard({ domains, periodLabels = {} }: TotalDomainCardP
 
   const isUp = pctChange !== null && pctChange >= 0;
   const changeLabel =
-    pctChange !== null ? `${isUp ? "▲" : "▼"} ${Math.abs(pctChange)}%` : "—";
+    pctChange !== null ? `${isUp ? "▲" : "▼"} ${Math.abs(pctChange)}%` : "—%";
   const badgeClass =
     pctChange === null
       ? "text-slate-400 bg-slate-100"
@@ -90,7 +90,7 @@ export function TotalDomainCard({ domains, periodLabels = {} }: TotalDomainCardP
       className="h-full overflow-hidden"
       note={
         noPriorData ? (
-          <span className="text-[10px] text-slate-400">Prior Rpt. Period data unavailable</span>
+          <span className="text-[10px] text-slate-400"></span>
         ) : KEY_TAKEAWAY_SUPPRESSED ? undefined : (
           <KeyTakeaway>
             Domain count is growing faster than the takedown rate. (example data)
@@ -105,7 +105,9 @@ export function TotalDomainCard({ domains, periodLabels = {} }: TotalDomainCardP
             {changeLabel}
           </span>
         </div>
-        <p className="text-xs text-slate-400 mb-2">vs prior rpt. period</p>
+        {noPriorData ? null : (
+          <p className="text-xs text-slate-400 mb-2">vs prior rpt. period</p>
+        )}
         <div ref={chartWrapRef} className="-mx-4 min-h-0 flex-1 relative">
           <HighchartsReact
             ref={chartCompRef}

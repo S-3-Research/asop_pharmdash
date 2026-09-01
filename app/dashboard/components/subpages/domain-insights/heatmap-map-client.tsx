@@ -22,75 +22,6 @@ function categoryColor(label: string): string {
   return FALLBACK_PALETTE[hash % FALLBACK_PALETTE.length];
 }
 
-/** Native-styled Mapbox control (mirrors mapboxgl-ctrl-group buttons) that
- *  toggles the visibility of the heatmap-density layer vs. the point layer.
- *  Domain points are on by default; the heatmap layer is off by default. */
-class LayerToggleControl implements mapboxgl.IControl {
-  private container?: HTMLDivElement;
-  private map?: mapboxgl.Map;
-  private domainBtn?: HTMLButtonElement;
-  private heatBtn?: HTMLButtonElement;
-
-  onAdd(map: mapboxgl.Map): HTMLElement {
-    this.map = map;
-    this.container = document.createElement("div");
-    this.container.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
-    // Explicitly clip to the group's rounded corners — without this, an
-    // active button's full-rect background color can visually spill past
-    // (or fall short of) the container's rounded top/bottom corners,
-    // depending on the installed mapbox-gl CSS version.
-    this.container.style.cssText = "overflow:hidden;border-radius:4px;";
-
-    this.domainBtn = this.makeButton("Domain", true, () => this.toggle("domains-point", this.domainBtn!), "top");
-    this.heatBtn = this.makeButton("Heatmap", false, () => this.toggle("domains-heat", this.heatBtn!), "bottom");
-
-    this.container.appendChild(this.domainBtn);
-    this.container.appendChild(this.heatBtn);
-    return this.container;
-  }
-
-  onRemove(): void {
-    this.container?.parentNode?.removeChild(this.container);
-    this.map = undefined;
-  }
-
-  private makeButton(
-    label: string,
-    active: boolean,
-    onClick: () => void,
-    corner: "top" | "bottom",
-  ): HTMLButtonElement {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.textContent = label;
-    btn.setAttribute("aria-pressed", String(active));
-    // box-sizing:border-box ensures the declared height/padding define the
-    // full rendered box. width:100% (not auto) is required because the
-    // container's own width auto-sizes to its widest child ("Heatmap") —
-    // an auto-width "Domain" button would then only be as wide as its own
-    // (shorter) text, leaving its background not filling the shared
-    // container width and looking like unfilled whitespace on the right.
-    btn.style.cssText =
-      "box-sizing:border-box;display:block;width:100%;padding:0 10px;font-size:11px;" +
-      "font-weight:600;font-family:inherit;white-space:nowrap;text-align:center;height:29px;border:none;" +
-      `border-radius:${corner === "top" ? "4px 4px 0 0" : "0 0 4px 4px"};` +
-      (active ? "background:#1f4e58;color:#fff;" : "background:#fff;color:#334155;");
-    btn.onclick = onClick;
-    return btn;
-  }
-
-  private toggle(layerId: string, btn: HTMLButtonElement) {
-    if (!this.map || !this.map.getLayer(layerId)) return;
-    const current = this.map.getLayoutProperty(layerId, "visibility") ?? "visible";
-    const next = current === "none" ? "visible" : "none";
-    this.map.setLayoutProperty(layerId, "visibility", next);
-    const active = next === "visible";
-    btn.setAttribute("aria-pressed", String(active));
-    btn.style.background = active ? "#1f4e58" : "#fff";
-    btn.style.color = active ? "#fff" : "#334155";
-  }
-}
-
 interface TooltipCategoryPair {
   primary: string;
   secondary: string;
@@ -223,9 +154,6 @@ export function HeatmapMapClient({
       new mapboxgl.FullscreenControl({ container: wrapperRef.current ?? undefined }),
       "top-right",
     );
-    // Layer toggle: Points on by default, Heatmap density layer off by default.
-    map.addControl(new LayerToggleControl(), "top-left");
-
     // Observe container size changes — fires when the flex layout resolves
     // a non-zero height, even if the container was 0×0 at map creation time.
     const ro = new ResizeObserver(() => map.resize());
@@ -237,31 +165,9 @@ export function HeatmapMapClient({
 
       map.addSource("domains", { type: "geojson", data: geojsonRef.current });
 
-      // ── Heatmap density layer (low zoom) ──────────────────────────────────
-      map.addLayer({
-        id:      "domains-heat",
-        type:    "heatmap",
-        source:  "domains",
-        maxzoom: 8,
-        // Off by default — the point layer (below) is the default view; users
-        // can switch to the density heatmap via the top-left layer toggle.
-        layout: { visibility: "none" },
-        paint: {
-          "heatmap-weight":    ["get", "weight"],
-          "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 0, 0.3, 8, .9],
-          "heatmap-color": [
-            "interpolate", ["linear"], ["heatmap-density"],
-            0,   "rgba(33,102,172,0)",
-            0.2, "rgba(103,169,207,0.6)",
-            0.4, "rgba(209,229,240,0.8)",
-            0.6, "rgba(253,219,199,0.9)",
-            0.98, "rgba(239,138,98,1)",
-            1,   "rgba(178,24,43,1)",
-          ],
-          "heatmap-radius":  ["interpolate", ["linear"], ["zoom"], 0, 15, 8, 30],
-          "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 6, 1, 9, 0],
-        },
-      });
+      // NOTE: The heatmap-density layer + its layer-toggle button have been
+      // temporarily disabled (points-only view). To re-enable, restore the
+      // "domains-heat" heatmap layer and the LayerToggleControl removed here.
 
       // ── Circle markers ────────────────────────────────────────────────────
       map.addLayer({

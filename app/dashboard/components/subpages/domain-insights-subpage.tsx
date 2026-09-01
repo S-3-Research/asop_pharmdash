@@ -223,7 +223,7 @@ export function DomainInsightsSubpage() {
                 widgetId: "domain-traffic",
                 title: "Traffic Chart",
                 type: "chart",
-                description: "Tracks average website traffic (organic plus paid search clicks) per domain over time. Use the range toggle to see whether traffic is trending up or down.",
+                description: "Tracks average website traffic (organic plus paid search clicks) over time, based on the category-filtered set of domains that have historical traffic data available. Use the range toggle to see whether traffic is trending up or down.",
               }}
             >
               <TrafficChart domains={filteredDomains} />
@@ -235,9 +235,9 @@ export function DomainInsightsSubpage() {
                 className="h-full flex flex-col"
                 widget={{
                   widgetId: "domain-heatmap",
-                  title: "Geographic Heatmap",
+                  title: "Geographic Map",
                   type: "map",
-                  description: "Maps where rogue domains are physically located, based on business address, domain registration info, or other available signals. Denser clusters indicate geographic hotspots of rogue domain activity.",
+                  description: "Maps where rogue domains are physically located, based on business address, domain registration info, or other available signals. Each point represents a domain, colored by category.",
                 }}
               >
                 <HeatmapCard domains={filteredDomains} selectedCategories={selectedCategories} />

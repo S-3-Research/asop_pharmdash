@@ -46,7 +46,7 @@ export function MetricCard({ item }: MetricCardProps) {
         <p className="mt-2 text-xs text-[#9cd3e0] opacity-80">
           {hasChange
             ? (item.changeLabel ?? "vs prior rpt. period")
-            : (item.changeLabel ?? "No prior Rpt. Period data")}
+            : (item.changeLabel ?? "")}
         </p>
       </div>
     </DashboardCard>

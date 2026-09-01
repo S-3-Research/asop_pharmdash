@@ -122,7 +122,7 @@ export function KeywordPerformanceCard({ bubbles, platform, categories }: Keywor
     legend:   { enabled: false },
     accessibility: { enabled: false },
     xAxis: {
-      title: { text: "Raw Count (Rpt. Period)", style: { fontSize: "10px", color: "#9ca3af" } },
+      title: { text: "Raw Count", style: { fontSize: "10px", color: "#9ca3af" } },
       gridLineWidth: 1,
       gridLineColor: "#f3f4f6",
       lineColor: "#e5e7eb",
