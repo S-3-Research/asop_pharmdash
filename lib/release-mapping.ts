@@ -803,6 +803,27 @@ function filterKeywordStats(
 }
 
 /**
+ * Same as filterKeywordStats(), but additionally restricted to rows whose
+ * `keyword_type` is "keyword" (rows with no `keyword_type` at all — every
+ * row from a pre-2026-09-01 release — are treated as "keyword" for backward
+ * compat). As of the 2026-09-01 schema, keyword_stats[] can also carry
+ * matched user-handle or community-name rows; keyword rankings/bubbles
+ * should reflect only genuine search keywords, not those. Raw-count/total
+ * aggregations (lookupKeywordRawCounts, totalRawCount, uniqueKeywordCount)
+ * intentionally keep using filterKeywordStats() directly so they still sum
+ * across every keyword_type.
+ */
+function filterKeywordStatsForRanking(
+  stats: KeywordStat[],
+  selectedCategories: string[] | null | undefined,
+  platform: string | null | undefined,
+): KeywordStat[] {
+  return filterKeywordStats(stats, selectedCategories, platform).filter(
+    (s) => s.keyword_type == null || s.keyword_type === "keyword",
+  );
+}
+
+/**
  * Aggregates keyword_stats[] (release's flattened KeywordStat rows — one
  * per keyword/platform/category triple) into the dashboard's keyword-ranking
  * view model. Sums `signal_num` across matching rows; restricted to
@@ -816,7 +837,7 @@ export function buildKeywordRankingsFromStats(
   limit: number,
   colors: string[],
 ): SocialKeywordRanking[] {
-  const filtered = filterKeywordStats(stats, selectedCategories, platform);
+  const filtered = filterKeywordStatsForRanking(stats, selectedCategories, platform);
 
   const totals = new Map<string, number>();
   for (const s of filtered) {

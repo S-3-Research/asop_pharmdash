@@ -328,8 +328,15 @@ export const SocialMediaDataSchema = z.object({
 // NOTE: as of the 2026-08-12 schema, `product_name` was replaced with
 // `product_category` — keyword stats now carry a category directly instead
 // of a product name, letting rankings/bubbles be filtered by category.
+// NOTE: as of the 2026-09-01 schema, keyword_stats[] rows can also represent
+// a matched user handle or community name (not just a search keyword) —
+// `keyword_type` distinguishes the three. Rows with no `keyword_type` (pre-
+// 2026-09-01 releases) are treated as "keyword" for backward compat.
+export const KeywordType = z.enum(["keyword", "user", "community"]);
+
 export const KeywordStatSchema = z.object({
   keyword: z.string(),
+  keyword_type: KeywordType.nullish(),
   product_category: ProductCategory.nullish(),
   socialmedia_platform: SocialMediaPlatform,
   raw_num: z.number().int().nullish(),
@@ -368,4 +375,5 @@ export type SeoInfo = z.infer<typeof SeoInfoSchema>;
 export type DomainData = z.infer<typeof DomainDataSchema>;
 export type SocialMediaData = z.infer<typeof SocialMediaDataSchema>;
 export type KeywordStat = z.infer<typeof KeywordStatSchema>;
+export type KeywordTypeValue = z.infer<typeof KeywordType>;
 export type PharmDashReleaseData = z.infer<typeof PharmDashReleaseDataSchema>;
