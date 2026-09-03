@@ -91,9 +91,10 @@ export function KeywordPerformanceCard({ bubbles, platform, categories, onlyAcco
     "social-keyword-performance",
     bubbles.map((b) => {
       const rawCount = rawCountMap.get(b.keyword);
+      const pctSelling = rawCount != null && rawCount > 0 ? (b.signalCount / rawCount) * 100 : null;
       const ratioPart =
-        rawCount != null && rawCount > 0
-          ? ` (${((b.signalCount / rawCount) * 100) < 0.01 ? "less than 0.01" : ((b.signalCount / rawCount) * 100).toFixed(2)}% selling of ${rawCount} total)`
+        pctSelling != null
+          ? ` (${b.signalCount === 0 ? "0" : pctSelling < 0.01 ? "less than 0.01" : pctSelling.toFixed(2)}% selling of ${rawCount} total)`
           : rawCount === 0
             ? " (total count: 0)"
             : "";
@@ -106,7 +107,7 @@ export function KeywordPerformanceCard({ bubbles, platform, categories, onlyAcco
       "A keyword with a relatively high % Selling can represent a higher-value surveillance or enforcement target, even if that keyword generates fewer overall posts (a small Total Count) — a small, concentrated, high-confidence set of hits deserves attention. " +
       "Conversely, a keyword with a huge Total Count but a low % Selling is mostly noise/false positives and is lower priority despite a large signalCount or large bubble. " +
       "As additional reporting periods accumulate, changes in these % Selling/signal rates can also help observe how illicit sellers shift their language and tactics over time, potentially in response to platform enforcement, policy changes, or broader market trends — so % Selling trends across periods are as informative as any single period's snapshot. " +
-      "When asked which keywords are worth watching, compare signalCount against Total Count (not signalCount or bubble size in isolation) and call out keywords with an unusually high % Selling. Very small ratios (below 0.01%) are reported as 'less than 0.01%' rather than rounded down to 0%. " +
+      "When asked which keywords are worth watching, compare signalCount against Total Count (not signalCount or bubble size in isolation) and call out keywords with an unusually high % Selling. Very small but nonzero ratios (below 0.01%) are reported as 'less than 0.01%' rather than rounded down to 0%; a keyword with signalCount = 0 is reported as an exact 0%, not 'less than 0.01%'. " +
       "NOTE: Total Count/% Selling above is only available for keywords among the top 12 (fetched live from the keyword-count API) — for other keywords the total count simply hasn't been fetched, not that it's zero. " +
       "The data points here contain ALL keywords with their selling posts/comments counts; the on-screen chart shows only the top 12. " +
       "Data source: keyword aggregates from the published data release, after the page's category/platform filter selection; total counts come from the live keyword-count API.",
@@ -161,6 +162,7 @@ export function KeywordPerformanceCard({ bubbles, platform, categories, onlyAcco
         const pt  = ctx.point ?? ctx;
         const percentSelling: string = pt.x > 0
           ? (() => {
+              if (pt.y === 0) return "0%";
               const pct = (pt.y / pt.x) * 100;
               return pct < 0.01 ? "less than 0.01%" : pct.toFixed(2) + "%";
             })()
