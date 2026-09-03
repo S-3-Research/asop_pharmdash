@@ -37,17 +37,18 @@ export function DomainInsightsSubpage() {
   const filteredDomains = useMemo((): DomainWithMatch[] => {
     const domains = data?.domains ?? [];
     // Every card on this subpage shares the same rule: a domain counts if
-    // ANY of its categories intersects the selected filter set (or always,
-    // when no filter is selected). `matchCount` is exposed so cards that
-    // want a weight (e.g. the geo heatmap) can use it instead of a plain
-    // boolean include/exclude.
+    // ANY of its domain-level primaryCategories (product_label, the sole
+    // source of truth for "what category is this domain") intersects the
+    // selected filter set (or always, when no filter is selected).
+    // `matchCount` is exposed so cards that want a weight (e.g. the geo
+    // heatmap) can use it instead of a plain boolean include/exclude.
     if (selectedCategories.length === 0) {
-      return domains.map((d) => ({ ...d, matchCount: d.categories.length || 1 }));
+      return domains.map((d) => ({ ...d, matchCount: d.primaryCategories.length || 1 }));
     }
     return domains
       .map((d) => ({
         ...d,
-        matchCount: d.domainProductCategories.filter((c) =>
+        matchCount: d.primaryCategories.filter((c) =>
           selectedCategories.includes(c),
         ).length,
       }))

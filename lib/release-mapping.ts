@@ -162,22 +162,16 @@ export function buildCategoryRegistry(domains: DomainData[]): CategoryOption[] {
 }
 
 /** Domain Insights variant of `buildCategoryRegistry`: counts each domain's
- *  `domainProductCategories` union (real product categories + domain-level
- *  product_label fallback) instead of raw product_info.product_category
- *  only — so a domain tagged solely via product_label still contributes an
- *  option to the Domain Insights category filter. Used only by
- *  app/api/domains/route.ts; Top Products keeps using `buildCategoryRegistry`
- *  (Listings are never influenced by product_label). */
+ *  `product_label` tags (normalized) instead of raw product_info.product_category
+ *  — product_label is the domain-level source of truth for "what category is
+ *  this domain", independent of its product-level `categories[]` detail. Used
+ *  only by app/api/domains/route.ts; Top Products keeps using
+ *  `buildCategoryRegistry` (Listings are always product-level). */
 export function buildDomainCategoryRegistry(domains: DomainData[]): CategoryOption[] {
   const counts = new Map<string, number>();
   for (const d of domains) {
-    const productCats = d.product_info
-      .flatMap(productCategoryPairs)
-      .map((c) => c.primary)
-      .filter((p) => p !== "Uncategorized");
-    const labelCats = (d.product_label ?? []).map(normalizeCategoryLabel);
-    const union = new Set([...productCats, ...labelCats]);
-    for (const label of union) {
+    const labelCats = new Set((d.product_label ?? []).map(normalizeCategoryLabel));
+    for (const label of labelCats) {
       counts.set(label, (counts.get(label) ?? 0) + 1);
     }
   }
@@ -355,15 +349,15 @@ export function mapReleaseDomain(
 ): Domain {
   const categories = d.product_info.flatMap(productCategoryPairs);
   const representative = categories[0] ?? { primary: "Uncategorized", secondary: "Unknown" };
-  // Domain-level category union: real per-product categories (excluding the
-  // "Uncategorized" placeholder) merged with the domain's own product_label
-  // tags, deduplicated. This is the single field filter matching and the
-  // Domain Samples fallback labeling should consult — see `buildDomainCategoryRegistry`.
-  const domainProductCategories = Array.from(
-    new Set([
-      ...categories.map((c) => c.primary).filter((p) => p !== "Uncategorized"),
-      ...(d.product_label ?? []).map(normalizeCategoryLabel),
-    ]),
+  // Domain-level primary category: the SOLE source of truth is this domain's
+  // own product_label tags (normalized, deduplicated) — independent of
+  // per-product categories derived from product_info (`categories` above).
+  // Empty when the release reported no product_label for this domain; every
+  // consumer (filter matching/options, map coloring, Domain Samples pills,
+  // dual-selling stats) treats an empty array as "uncategorized at the
+  // domain level" and falls back accordingly at the call site.
+  const primaryCategories = Array.from(
+    new Set((d.product_label ?? []).map(normalizeCategoryLabel)),
   ).sort();
   const now = Math.floor(Date.now() / 1000);
   const createTimestamp = d.captured_time ?? d.last_seen ?? now;
@@ -391,10 +385,8 @@ export function mapReleaseDomain(
       keywords: d.product_label ?? undefined,
     },
     seoClickHistory: mapSeoClickHistory(d.seo_info?.history_click_us),
-    primaryCategory: representative.primary,
-    secondaryCategory: representative.secondary,
     categories: categories.length > 0 ? categories : [representative],
-    domainProductCategories,
+    primaryCategories,
     domainType: "rogue-pharmacy",
     paymentInfo: mapPaymentInfo(d.payment_info),
     socialProfiles: mapSocialProfiles(d.social_media_profile_info),

@@ -22,18 +22,21 @@ function categoryColor(label: string): string {
   return FALLBACK_PALETTE[hash % FALLBACK_PALETTE.length];
 }
 
-interface TooltipCategoryPair {
+interface TooltipCategoryCount {
   primary: string;
-  secondary: string;
+  /** Number of this domain's products (categories[]) resolving to this same
+   *  primary category name; 0 when this domain-level category (from
+   *  product_label) has no matching product — rendered as a bare label. */
+  count: number;
 }
 
 interface TooltipState {
   domain: string;
   isLive: boolean;
-  /** Full set of category/product pairs for this domain (not just the
-   *  single "representative" pair) so the tooltip can list every product
-   *  the domain sells, each colored by its own primary category. */
-  categories: TooltipCategoryPair[];
+  /** This domain's primaryCategories (product_label), each paired with its
+   *  product count, so the tooltip lists every domain-level category the
+   *  domain is tagged with — not just a single "representative" pair. */
+  categories: TooltipCategoryCount[];
   registrar: string;
   /** Formatted "type · provider" string, or a "no data" placeholder — never
    *  a fabricated default like "Credit Card" when the release reported no
@@ -78,18 +81,27 @@ export function HeatmapMapClient({
             : payment.provider
               ? `${payment.type} \u00b7 ${payment.provider}`
               : payment.type;
-          // When 1+ categories are selected, prefer whichever of this
-          // domain's own categories is first among the selected set (so the
-          // color always corresponds to a category the domain was actually
-          // matched on), falling back to the representative primaryCategory
-          // when there's no overlap (shouldn't normally happen, since the
-          // domain wouldn't have matched the filter otherwise) or when no
-          // filter is active.
+          // Domain-level primary category matching (d.primaryCategories,
+          // from product_label — the sole source of truth for "what
+          // category is this domain") drives both point color and which
+          // categories the tooltip lists — independent from the
+          // product-level `categories[]` detail used only to compute the
+          // per-category product count below.
           const matchedCategory =
             selectedCategories && selectedCategories.length > 0
-              ? (d.categories.find((c) => selectedCategories.includes(c.primary))?.primary ??
-                d.primaryCategory)
-              : d.primaryCategory;
+              ? (d.primaryCategories.find((c) => selectedCategories.includes(c)) ??
+                d.primaryCategories[0] ??
+                "Uncategorized")
+              : (d.primaryCategories[0] ?? "Uncategorized");
+          // Product count per domain-level primary category — 0 when this
+          // domain has no product resolving to that same category name
+          // (tooltip shows the bare category name in that case, no "×N").
+          const productCountByPrimary = d.categories.reduce<Record<string, number>>((acc, c) => {
+            if (c.primary !== "Uncategorized") acc[c.primary] = (acc[c.primary] ?? 0) + 1;
+            return acc;
+          }, {});
+          const primaryCategoriesForTooltip =
+            d.primaryCategories.length > 0 ? d.primaryCategories : ["Uncategorized"];
           return {
             type: "Feature" as const,
             geometry: {
@@ -99,21 +111,30 @@ export function HeatmapMapClient({
             properties: {
               domain:            d.domain,
               isLive:            d.isLive,
-              primaryCategory:   d.primaryCategory,
-              secondaryCategory: d.secondaryCategory,
-              // Full category/product list, serialized — parsed back out in
-              // the mousemove handler for the tooltip.
+              // Serialized [{primary, count}] pairs for the tooltip — parsed
+              // back out in the mousemove handler.
               categoriesJson:    JSON.stringify(
-                d.categories.map((c) => ({ primary: c.primary, secondary: c.secondary })),
+                primaryCategoriesForTooltip.map((primary) => ({
+                  primary,
+                  count: productCountByPrimary[primary] ?? 0,
+                })),
               ),
               registrar:         d.whois.registrar,
               paymentLabel,
               city:              d.geoLocation.city,
               color:             categoryColor(matchedCategory),
-              // Number of currently-selected categories this domain matches —
-              // drives heatmap density weight / circle size. Defaults to 1 when
-              // the caller hasn't computed a matchCount (e.g. unfiltered Domain[]).
-              weight:            "matchCount" in d ? Math.max(1, d.matchCount) : 1,
+              // Point size reflects the number of this domain's products
+              // matching the current filter (or its total product count
+              // when unfiltered) — see heatmap-card.tsx / domain-insights-
+              // subpage.tsx for the "does this domain match at all" logic,
+              // which is a separate, domain-level (primaryCategories) check.
+              weight:
+                selectedCategories && selectedCategories.length > 0
+                  ? Math.max(
+                      1,
+                      d.categories.filter((c) => selectedCategories.includes(c.primary)).length,
+                    )
+                  : Math.max(1, d.categories.length),
             },
           };
         }),
@@ -200,7 +221,7 @@ export function HeatmapMapClient({
         const props = (feature as any)?.properties as Record<string, unknown> | undefined;
         if (!props) return;
         map.getCanvas().style.cursor = "pointer";
-        let categories: TooltipCategoryPair[] = [];
+        let categories: TooltipCategoryCount[] = [];
         try {
           const parsed = JSON.parse(String(props.categoriesJson ?? "[]"));
           if (Array.isArray(parsed)) categories = parsed;
@@ -208,12 +229,7 @@ export function HeatmapMapClient({
           categories = [];
         }
         if (categories.length === 0) {
-          categories = [
-            {
-              primary: String(props.primaryCategory ?? ""),
-              secondary: String(props.secondaryCategory ?? ""),
-            },
-          ];
+          categories = [{ primary: "Uncategorized", count: 0 }];
         }
         setTooltip({
           domain:       String(props.domain ?? ""),
@@ -296,12 +312,7 @@ export function HeatmapMapClient({
             <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[10px] mb-2">
               <dt className="text-slate-400 self-start">Category</dt>
               <dd className="space-y-0.5">
-                {Object.entries(
-                  tooltip.categories.reduce<Record<string, number>>((acc, c) => {
-                    acc[c.primary] = (acc[c.primary] ?? 0) + 1;
-                    return acc;
-                  }, {}),
-                ).map(([primary, count]) => (
+                {tooltip.categories.map(({ primary, count }) => (
                   <div key={primary} className="flex items-center gap-1.5">
                     <span
                       className="inline-block h-1.5 w-1.5 rounded-full shrink-0"

@@ -166,18 +166,19 @@ export interface Domain {
   sem: DomainSem;
   /** Monthly click history (organic/paid) reported upstream via seo_info.history_click_us */
   seoClickHistory: SeoClickHistoryPoint[];
-  primaryCategory: string;     // representative value (first product) — e.g. "GLP-1"
-  secondaryCategory: string;   // representative value (first product) — e.g. "Ozempic"
-  /** Full set of primary/secondary category pairs across all of this domain's products/listings */
+  /** Full set of primary/secondary category pairs across all of this domain's
+   *  products/listings — strictly product-level (derived from product_info),
+   *  used for product/Listing-detail displays (Domain Status, Domain Samples'
+   *  expanded product chips) rather than for "what category is this domain"
+   *  filter matching. */
   categories: DomainCategoryPair[];
-  /** Deduplicated union of primary categories derived from this domain's
-   *  product_info entries (categories[].primary, excluding "Uncategorized")
-   *  plus its domain-level product_label tags, normalized. Single source of
-   *  truth for "what categories is this domain associated with" (filter
-   *  matching, Domain Samples fallback labeling) — independent from
-   *  `categories`, which stays strictly product-level (secondary/Listing
-   *  detail). */
-  domainProductCategories: string[];
+  /** Deduplicated, normalized list of this domain's own product_label tags —
+   *  the single source of truth for "what category is this domain" (filter
+   *  matching/options, map point coloring, Domain Samples pill labels,
+   *  dual-selling stats), independent from `categories`'s product-level
+   *  detail. Empty when the release reported no product_label for this
+   *  domain. */
+  primaryCategories: string[];
   domainType: DomainType;
   paymentInfo: DomainPaymentInfo[];
   /** Social media presence for this domain, per whatever the release

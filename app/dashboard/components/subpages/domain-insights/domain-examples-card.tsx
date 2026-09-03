@@ -115,22 +115,20 @@ export function DomainExamplesCard({ domains, sampleSize = 10, periodLabels = {}
             const location = [d.geoLocation.city, d.geoLocation.state, d.geoLocation.country]
               .filter(Boolean)
               .join(", ");
-            // Collapsed view: one dot+count per primary category (not every
-            // secondary product) to keep the folded row compact. Only falls
-            // back to the domain-level `domainProductCategories` (derived
-            // from product_label) when this domain has no resolvable
-            // per-product category at all — otherwise real product_info
-            // categories always win, matching the expanded detail below.
-            const hasRealCategories = d.categories.some((c) => c.primary !== "Uncategorized");
-            const primaryCounts = hasRealCategories
-              ? d.categories.reduce<Record<string, number>>((acc, c) => {
-                  acc[c.primary] = (acc[c.primary] ?? 0) + 1;
-                  return acc;
-                }, {})
-              : d.domainProductCategories.reduce<Record<string, number>>((acc, c) => {
-                  acc[c] = 1;
-                  return acc;
-                }, {});
+            // Collapsed view: one pill per domain-level primary category
+            // (d.primaryCategories, from product_label — the sole source
+            // of truth for "what category is this domain"), each labeled
+            // with how many of this domain's own products (categories[])
+            // resolved to that same category name; 0 matching products
+            // just shows the bare category name with no "×N".
+            const productCountByPrimary = d.categories.reduce<Record<string, number>>((acc, c) => {
+              if (c.primary !== "Uncategorized") acc[c.primary] = (acc[c.primary] ?? 0) + 1;
+              return acc;
+            }, {});
+            const primaryCounts = d.primaryCategories.reduce<Record<string, number>>((acc, c) => {
+              acc[c] = productCountByPrimary[c] ?? 0;
+              return acc;
+            }, {});
 
             return (
               <div
@@ -193,18 +191,26 @@ export function DomainExamplesCard({ domains, sampleSize = 10, periodLabels = {}
                   <div className="px-3 pb-3 border-t border-gray-100 pt-2.5">
                     {/* Full category/product breakdown — deduped + counted per
                         secondary name (same "Name ×N" pattern as the collapsed
-                        row's primary-category chips), color-keyed by primary. */}
+                        row's primary-category chips), color-keyed by primary.
+                        Products with no meaningful product_name ("Unknown" —
+                        see lib/release-mapping.ts meaningfulProductName) are
+                        skipped entirely rather than shown as an "Unknown"
+                        pill: an unresolved product name isn't a real, useful
+                        label to surface here, no matter what its primary
+                        category is. */}
                     <div className="flex flex-wrap items-center gap-1.5 mb-2">
                       {Object.values(
-                        d.categories.reduce<Record<string, { primary: string; secondary: string; count: number }>>(
-                          (acc, c) => {
-                            const key = `${c.primary}::${c.secondary}`;
-                            if (!acc[key]) acc[key] = { primary: c.primary, secondary: c.secondary, count: 0 };
-                            acc[key].count += 1;
-                            return acc;
-                          },
-                          {},
-                        ),
+                        d.categories
+                          .filter((c) => c.secondary !== "Unknown")
+                          .reduce<Record<string, { primary: string; secondary: string; count: number }>>(
+                            (acc, c) => {
+                              const key = `${c.primary}::${c.secondary}`;
+                              if (!acc[key]) acc[key] = { primary: c.primary, secondary: c.secondary, count: 0 };
+                              acc[key].count += 1;
+                              return acc;
+                            },
+                            {},
+                          ),
                       ).map((c) => (
                         <span
                           key={`${c.primary}-${c.secondary}`}

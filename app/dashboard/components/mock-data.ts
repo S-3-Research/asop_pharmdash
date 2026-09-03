@@ -643,10 +643,8 @@ function generateDomains(): Domain[] {
           impressions: domainSeeded() > 0.5 ? Math.round(domainSeeded() * 50000) : undefined,
         },
         seoClickHistory: buildMockClickHistory(),
-        primaryCategory,
-        secondaryCategory,
         categories: [{ primary: primaryCategory, secondary: secondaryCategory }],
-        domainProductCategories: [primaryCategory],
+        primaryCategories: [primaryCategory],
         domainType: pick(DOMAIN_TYPES),
         paymentInfo: [pick(PAYMENT_COMBOS)],
         socialProfiles: domainSeeded() > 0.6

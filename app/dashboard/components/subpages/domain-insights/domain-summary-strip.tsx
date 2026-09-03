@@ -15,11 +15,12 @@ interface DomainSummaryStripProps {
 
 export function DomainSummaryStrip({ allDomains }: DomainSummaryStripProps) {
   const tiles = useMemo((): SummaryStripTile[] => {
-    // Domains that carry BOTH a GLP and a Cancer Med category among their
-    // full categories[] set (not just the single "representative" pair) —
-    // i.e. dual-selling across these two specific primary categories.
+    // Domains whose domain-level primaryCategories (product_label, the
+    // sole source of truth for "what category is this domain") include
+    // BOTH GLP and Cancer Med — i.e. dual-selling across these two
+    // specific primary categories.
     const dualSellingCount = allDomains.filter((d) => {
-      const primaries = new Set(d.categories.map((c) => c.primary));
+      const primaries = new Set(d.primaryCategories);
       return primaries.has("GLP") && primaries.has("Cancer Med");
     }).length;
 

@@ -41,13 +41,14 @@ function hashCategoryColor(label: string): string {
 }
 
 /** Derives the live set of selectable primary categories from whatever is
- *  actually present in `domains` (via each domain's full `categories[]`),
- *  instead of a hardcoded 4-value list — so newly-introduced categories in
- *  a release automatically become selectable in the filter dropdown. */
+ *  actually present in `domains` (via each domain's `primaryCategories`,
+ *  the domain-level product_label source of truth), instead of a hardcoded
+ *  4-value list — so newly-introduced categories in a release automatically
+ *  become selectable in the filter dropdown. */
 export function buildDomainCategoryOptions(domains: Domain[]): CategoryOption[] {
   const counts = new Map<string, number>();
   for (const d of domains) {
-    for (const c of d.categories) counts.set(c.primary, (counts.get(c.primary) ?? 0) + 1);
+    for (const c of d.primaryCategories) counts.set(c, (counts.get(c) ?? 0) + 1);
   }
   if (counts.size === 0) return DOMAIN_PRIMARY_CATEGORIES;
   let topName: string | null = null;
