@@ -33,12 +33,16 @@ interface KeywordPerformanceCardProps {
   /** Selected category ids (e.g. ["GLP-1"]) — forwarded to the raw-count
    *  lookup so it matches the same category filter used to build `bubbles`. */
   categories: string[];
+  /** True when keyword_stats data exists for this filter but consists
+   *  entirely of matched user-handle/community-name rows rather than
+   *  genuine search keywords — see SocialMediaPayload.onlyAccountBasedData. */
+  onlyAccountBasedData?: boolean;
 }
 
 const countFetcher = (url: string) =>
   fetch(url).then((r) => r.json() as Promise<SocialKeywordCountPayload>);
 
-export function KeywordPerformanceCard({ bubbles, platform, categories }: KeywordPerformanceCardProps) {
+export function KeywordPerformanceCard({ bubbles, platform, categories, onlyAccountBasedData }: KeywordPerformanceCardProps) {
   const top12    = bubbles.slice(0, 12);
   const keywords = top12.map((b) => b.keyword).join(",");
 
@@ -89,23 +93,23 @@ export function KeywordPerformanceCard({ bubbles, platform, categories }: Keywor
       const rawCount = rawCountMap.get(b.keyword);
       const ratioPart =
         rawCount != null && rawCount > 0
-          ? ` (ratio ${((b.signalCount / rawCount) * 100).toFixed(1)}% of ${rawCount} raw hits)`
+          ? ` (${((b.signalCount / rawCount) * 100) < 0.01 ? "less than 0.01" : ((b.signalCount / rawCount) * 100).toFixed(2)}% selling of ${rawCount} total)`
           : rawCount === 0
-            ? " (raw hits: 0)"
+            ? " (total count: 0)"
             : "";
       return { label: b.keyword, value: `${b.signalCount} selling posts/comments${ratioPart}` };
     }),
-    "Bubble chart of keyword performance: bubble size = selling posts/comments count per monitored keyword, plus a live raw-mention count per keyword (x-axis = raw count). " +
-      "Meaning: for each keyword, we search that platform using the keyword and retrieve a set of 'raw' search results (rawCount); " +
-      "'signalCount' is the number of those raw results that were detected/classified as illegal selling posts/comments. " +
-      "Keyword Performance is essentially a SEARCH-YIELD metric: it shows how likely a search for a particular keyword is to surface content associated with illicit selling activity (signalCount / rawCount, the 'hit rate'). " +
-      "A keyword with a relatively high hit rate can represent a higher-value surveillance or enforcement target, even if that keyword generates fewer overall posts (a small rawCount) — a small, concentrated, high-confidence set of hits deserves attention. " +
-      "Conversely, a keyword with a huge rawCount but a low hit rate is mostly noise/false positives and is lower priority despite a large signalCount or large bubble. " +
-      "As additional reporting periods accumulate, changes in these hit/signal rates can also help observe how illicit sellers shift their language and tactics over time, potentially in response to platform enforcement, policy changes, or broader market trends — so hit-rate trends across periods are as informative as any single period's snapshot. " +
-      "When asked which keywords are worth watching, compare signalCount against rawCount (not signalCount or bubble size in isolation) and call out keywords with an unusually high hit rate. " +
-      "NOTE: rawCount/ratio above is only available for keywords among the top 12 (fetched live from the keyword-count API) — for other keywords the raw count simply hasn't been fetched, not that it's zero. " +
+    "Bubble chart of keyword performance: bubble size = selling posts/comments count per monitored keyword, plus a live total mention count per keyword (x-axis = Total Count). " +
+      "Meaning: for each keyword, we search that platform using the keyword and retrieve a set of 'total' search results (rawCount, labeled 'Total Count' in the UI); " +
+      "'signalCount' is the number of those total results that were detected/classified as illegal selling posts/comments. " +
+      "Keyword Performance is essentially a SEARCH-YIELD metric: it shows how likely a search for a particular keyword is to surface content associated with illicit selling activity (signalCount / rawCount, shown in the UI as '% Selling'). " +
+      "A keyword with a relatively high % Selling can represent a higher-value surveillance or enforcement target, even if that keyword generates fewer overall posts (a small Total Count) — a small, concentrated, high-confidence set of hits deserves attention. " +
+      "Conversely, a keyword with a huge Total Count but a low % Selling is mostly noise/false positives and is lower priority despite a large signalCount or large bubble. " +
+      "As additional reporting periods accumulate, changes in these % Selling/signal rates can also help observe how illicit sellers shift their language and tactics over time, potentially in response to platform enforcement, policy changes, or broader market trends — so % Selling trends across periods are as informative as any single period's snapshot. " +
+      "When asked which keywords are worth watching, compare signalCount against Total Count (not signalCount or bubble size in isolation) and call out keywords with an unusually high % Selling. Very small ratios (below 0.01%) are reported as 'less than 0.01%' rather than rounded down to 0%. " +
+      "NOTE: Total Count/% Selling above is only available for keywords among the top 12 (fetched live from the keyword-count API) — for other keywords the total count simply hasn't been fetched, not that it's zero. " +
       "The data points here contain ALL keywords with their selling posts/comments counts; the on-screen chart shows only the top 12. " +
-      "Data source: keyword aggregates from the published data release, after the page's category/platform filter selection; raw counts come from the live keyword-count API.",
+      "Data source: keyword aggregates from the published data release, after the page's category/platform filter selection; total counts come from the live keyword-count API.",
   );
 
   // Build Highcharts bubble series data: x=rawCount, y=signalCount, z=rawCount (bubble size)
@@ -131,7 +135,7 @@ export function KeywordPerformanceCard({ bubbles, platform, categories }: Keywor
     legend:   { enabled: false },
     accessibility: { enabled: false },
     xAxis: {
-      title: { text: "Raw Count", style: { fontSize: "10px", color: "#9ca3af" } },
+      title: { text: "Total Count", style: { fontSize: "10px", color: "#9ca3af" } },
       gridLineWidth: 1,
       gridLineColor: "#f3f4f6",
       lineColor: "#e5e7eb",
@@ -155,15 +159,18 @@ export function KeywordPerformanceCard({ bubbles, platform, categories }: Keywor
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const ctx = this as any;
         const pt  = ctx.point ?? ctx;
-        const penetration: string = pt.x > 0
-          ? ((pt.y / pt.x) * 100).toFixed(1) + "%"
+        const percentSelling: string = pt.x > 0
+          ? (() => {
+              const pct = (pt.y / pt.x) * 100;
+              return pct < 0.01 ? "less than 0.01%" : pct.toFixed(2) + "%";
+            })()
           : "—";
         return `
           <div style="font-size:12px;font-weight:700;color:${ctx.color};margin-bottom:6px">${pt.name}</div>
           <table style="font-size:11px;border-collapse:collapse">
             <tr><td style="color:#9ca3af;padding-right:12px">Selling Posts/Comments</td><td style="font-weight:600;color:#374151">${pt.y}</td></tr>
-            <tr><td style="color:#9ca3af;padding-right:12px">Raw count</td><td style="font-weight:600;color:#374151">${pt.x > 0 ? (pt.x as number).toLocaleString() : "—"}</td></tr>
-            <tr style="border-top:1px solid #f3f4f6"><td style="color:#9ca3af;padding-right:12px;padding-top:4px">Penetration</td><td style="font-weight:600;color:#059669;padding-top:4px">${penetration}</td></tr>
+            <tr><td style="color:#9ca3af;padding-right:12px">Total Count</td><td style="font-weight:600;color:#374151">${pt.x > 0 ? (pt.x as number).toLocaleString() : "—"}</td></tr>
+            <tr style="border-top:1px solid #f3f4f6"><td style="color:#9ca3af;padding-right:12px;padding-top:4px">% Selling</td><td style="font-weight:600;color:#059669;padding-top:4px">${percentSelling}</td></tr>
           </table>`;
       },
     },
@@ -191,8 +198,10 @@ export function KeywordPerformanceCard({ bubbles, platform, categories }: Keywor
     return (
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col h-full">
         <h3 className="font-semibold text-gray-800 text-sm mb-4">Keyword Performance</h3>
-        <div className="flex-1 flex items-center justify-center text-xs text-gray-400">
-          No data available
+        <div className="flex-1 flex items-center justify-center text-xs text-gray-400 text-center px-6">
+          {onlyAccountBasedData
+            ? "Data not available because of account-based search"
+            : "No data available"}
         </div>
       </div>
     );
@@ -203,7 +212,7 @@ export function KeywordPerformanceCard({ bubbles, platform, categories }: Keywor
       <div className="flex justify-between items-center mb-1">
         <div>
           <h3 className="font-semibold text-gray-800 text-sm">Keyword Performance</h3>
-          <p className="text-[10px] text-gray-400 mt-0.5">X: raw count · Y: selling posts/comments · size: raw count</p>
+          <p className="text-[10px] text-gray-400 mt-0.5">X: total count · Y: selling posts/comments · size: total count</p>
         </div>
       </div>
       <div ref={chartWrapRef} className="relative flex-1 min-h-0">

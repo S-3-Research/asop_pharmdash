@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import mapboxgl from "mapbox-gl";
 import type { Domain, DomainWithMatch } from "../../types";
+import { formatCityDisplay } from "@/lib/geo-format";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
@@ -14,6 +15,11 @@ const CAT_COLORS: Record<string, string> = {
 };
 
 const FALLBACK_PALETTE = ["#ef4444", "#0ea5e9", "#84cc16", "#ec4899", "#14b8a6", "#8b5cf6"];
+
+// Distinct color for domains that sell products across 2+ primary categories
+// (primaryCategories.length > 1) — avoids implying such a domain belongs to
+// just one category via an arbitrary "first match" color.
+const MULTI_CATEGORY_COLOR = "#f43f5e";
 
 function categoryColor(label: string): string {
   if (CAT_COLORS[label]) return CAT_COLORS[label];
@@ -68,79 +74,141 @@ export function HeatmapMapClient({
   const noToken = !MAPBOX_TOKEN;
 
   const geojson = useMemo(
-    () => ({
-      type: "FeatureCollection" as const,
-      // Skip domains with no resolvable geo coordinates — avoids plotting a
-      // cluster of unrelated domains at (0,0) in the Gulf of Guinea.
-      features: domains
-        .filter((d) => d.geoLocation.lat !== 0 || d.geoLocation.lng !== 0)
-        .map((d) => {
-          const payment = d.paymentInfo[0];
-          const paymentLabel = !payment
-            ? "No payment data"
-            : payment.provider
-              ? `${payment.type} \u00b7 ${payment.provider}`
-              : payment.type;
-          // Domain-level primary category matching (d.primaryCategories,
-          // from product_label — the sole source of truth for "what
-          // category is this domain") drives both point color and which
-          // categories the tooltip lists — independent from the
-          // product-level `categories[]` detail used only to compute the
-          // per-category product count below.
-          const matchedCategory =
-            selectedCategories && selectedCategories.length > 0
-              ? (d.primaryCategories.find((c) => selectedCategories.includes(c)) ??
-                d.primaryCategories[0] ??
-                "Uncategorized")
-              : (d.primaryCategories[0] ?? "Uncategorized");
-          // Product count per domain-level primary category — 0 when this
-          // domain has no product resolving to that same category name
-          // (tooltip shows the bare category name in that case, no "×N").
-          const productCountByPrimary = d.categories.reduce<Record<string, number>>((acc, c) => {
-            if (c.primary !== "Uncategorized") acc[c.primary] = (acc[c.primary] ?? 0) + 1;
-            return acc;
-          }, {});
-          const primaryCategoriesForTooltip =
-            d.primaryCategories.length > 0 ? d.primaryCategories : ["Uncategorized"];
-          return {
-            type: "Feature" as const,
-            geometry: {
-              type: "Point" as const,
-              coordinates: [d.geoLocation.lng, d.geoLocation.lat] as [number, number],
-            },
-            properties: {
-              domain:            d.domain,
-              isLive:            d.isLive,
-              // Serialized [{primary, count}] pairs for the tooltip — parsed
-              // back out in the mousemove handler.
-              categoriesJson:    JSON.stringify(
-                primaryCategoriesForTooltip.map((primary) => ({
-                  primary,
-                  count: productCountByPrimary[primary] ?? 0,
-                })),
-              ),
-              registrar:         d.whois.registrar,
-              paymentLabel,
-              city:              d.geoLocation.city,
-              color:             categoryColor(matchedCategory),
-              // Point size reflects the number of this domain's products
-              // matching the current filter (or its total product count
-              // when unfiltered) — see heatmap-card.tsx / domain-insights-
-              // subpage.tsx for the "does this domain match at all" logic,
-              // which is a separate, domain-level (primaryCategories) check.
-              weight:
-                selectedCategories && selectedCategories.length > 0
-                  ? Math.max(
-                      1,
-                      d.categories.filter((c) => selectedCategories.includes(c.primary)).length,
-                    )
-                  : Math.max(1, d.categories.length),
-            },
-          };
-        }),
-    }),
+    () => {
+      // Spiderfy: many domains share a fallback city-center coordinate and
+      // would otherwise render as fully-overlapping circles. Track how many
+      // points have already been placed at each rounded coordinate and, for
+      // the 2nd+ point at that location, nudge it outward along a small
+      // spiral in degree-space. The same degree offset maps to a larger
+      // on-screen pixel distance at higher zoom levels, so these offsets
+      // naturally merge back together when zoomed out (still looks like one
+      // point) and visibly separate out when zoomed in — no zoom-dependent
+      // recompute needed.
+      const coordCounts = new Map<string, number>();
+      return {
+        type: "FeatureCollection" as const,
+        // Skip domains with no resolvable geo coordinates — avoids plotting a
+        // cluster of unrelated domains at (0,0) in the Gulf of Guinea.
+        features: domains
+          .filter((d) => d.geoLocation.lat !== 0 || d.geoLocation.lng !== 0)
+          .map((d) => {
+            const payment = d.paymentInfo[0];
+            const paymentLabel = !payment
+              ? "No payment data"
+              : payment.provider
+                ? `${payment.type} \u00b7 ${payment.provider}`
+                : payment.type;
+            // Domain-level primary category matching (d.primaryCategories,
+            // from product_label — the sole source of truth for "what
+            // category is this domain") drives both point color and which
+            // categories the tooltip lists — independent from the
+            // product-level `categories[]` detail used only to compute the
+            // per-category product count below.
+            const matchedCategory =
+              selectedCategories && selectedCategories.length > 0
+                ? (d.primaryCategories.find((c) => selectedCategories.includes(c)) ??
+                  d.primaryCategories[0] ??
+                  "Uncategorized")
+                : (d.primaryCategories[0] ?? "Uncategorized");
+            // Domains tagged with 2+ primary categories render in a distinct
+            // blended color rather than an arbitrary "first match" color.
+            const isMultiCategory = d.primaryCategories.length > 1;
+            // Product count per domain-level primary category — 0 when this
+            // domain has no product resolving to that same category name
+            // (tooltip shows the bare category name in that case, no "×N").
+            const productCountByPrimary = d.categories.reduce<Record<string, number>>((acc, c) => {
+              if (c.primary !== "Uncategorized") acc[c.primary] = (acc[c.primary] ?? 0) + 1;
+              return acc;
+            }, {});
+            const primaryCategoriesForTooltip =
+              d.primaryCategories.length > 0 ? d.primaryCategories : ["Uncategorized"];
+
+            const baseLng = d.geoLocation.lng;
+            const baseLat = d.geoLocation.lat;
+            const key = `${baseLat.toFixed(4)},${baseLng.toFixed(4)}`;
+            const idx = coordCounts.get(key) ?? 0;
+            coordCounts.set(key, idx + 1);
+            let lng = baseLng;
+            let lat = baseLat;
+            if (idx > 0) {
+              const angle = idx * 2.4; // golden-angle-ish spread (radians)
+              const radius = 0.0006 * Math.sqrt(idx); // degrees
+              lng += radius * Math.cos(angle);
+              lat += radius * Math.sin(angle);
+            }
+
+            return {
+              type: "Feature" as const,
+              geometry: {
+                type: "Point" as const,
+                coordinates: [lng, lat] as [number, number],
+              },
+              properties: {
+                domain:            d.domain,
+                isLive:            d.isLive,
+                // Serialized [{primary, count}] pairs for the tooltip — parsed
+                // back out in the mousemove handler.
+                categoriesJson:    JSON.stringify(
+                  primaryCategoriesForTooltip.map((primary) => ({
+                    primary,
+                    count: productCountByPrimary[primary] ?? 0,
+                  })),
+                ),
+                registrar:         d.whois.registrar,
+                paymentLabel,
+                city:              d.geoLocation.city,
+                color:             isMultiCategory ? MULTI_CATEGORY_COLOR : categoryColor(matchedCategory),
+                // Point size reflects the number of this domain's products
+                // matching the current filter (or its total product count
+                // when unfiltered) — see heatmap-card.tsx / domain-insights-
+                // subpage.tsx for the "does this domain match at all" logic,
+                // which is a separate, domain-level (primaryCategories) check.
+                weight:
+                  selectedCategories && selectedCategories.length > 0
+                    ? Math.max(
+                        1,
+                        d.categories.filter((c) => selectedCategories.includes(c.primary)).length,
+                      )
+                    : Math.max(1, d.categories.length),
+              },
+            };
+          }),
+      };
+    },
     [domains, selectedCategories],
   );
+
+  // Distinct primary categories present across the current (filtered)
+  // domain set — drives the legend. "Uncategorized" is excluded (matches
+  // the point-color fallback, which only applies when a domain has no
+  // primaryCategories at all — rare/edge-case, not worth a legend entry).
+  // Built from geoLocation-plottable domains only (mirrors the `geojson`
+  // filter above) — a category with domains that all lack resolvable
+  // coordinates would otherwise show a legend entry for a color that never
+  // actually appears as a point on the map. A single-category name is only
+  // included when some plotted domain resolves to THAT category alone
+  // (primaryCategories.length === 1) — a domain with 2+ categories always
+  // renders as the "Multiple Categories" blended color (see `geojson`
+  // above), so its individual category names never actually appear as a
+  // point color and shouldn't get their own legend entry just because
+  // they're present in some multi-category domain's list.
+  const legendEntries = useMemo(() => {
+    const names = new Set<string>();
+    let hasMulti = false;
+    for (const d of domains) {
+      if (d.geoLocation.lat === 0 && d.geoLocation.lng === 0) continue;
+      if (d.primaryCategories.length > 1) {
+        hasMulti = true;
+      } else if (d.primaryCategories.length === 1 && d.primaryCategories[0] !== "Uncategorized") {
+        names.add(d.primaryCategories[0]);
+      }
+    }
+    const entries = Array.from(names)
+      .sort()
+      .map((name) => ({ name, color: categoryColor(name) }));
+    if (hasMulti) entries.push({ name: "Multiple Categories", color: MULTI_CATEGORY_COLOR });
+    return entries;
+  }, [domains]);
 
   // Keep a stable ref so the load callback always sees the latest data
   const geojsonRef = useRef(geojson);
@@ -160,6 +228,10 @@ export function HeatmapMapClient({
       attributionControl: false,
     });
     mapRef.current = map;
+
+    // Compact (icon-only) attribution — keeps required Mapbox/OSM credit per
+    // ToS without the full-text watermark taking up visual space.
+    map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
 
     // ── Map controls: zoom in/out + fullscreen ────────────────────────────
     map.addControl(
@@ -237,7 +309,7 @@ export function HeatmapMapClient({
           categories,
           registrar:    String(props.registrar ?? ""),
           paymentLabel: String(props.paymentLabel ?? "No payment data"),
-          city:         String(props.city ?? ""),
+          city:         formatCityDisplay(String(props.city ?? "")),
           x: e.point.x,
           y: e.point.y,
         });
@@ -277,6 +349,25 @@ export function HeatmapMapClient({
   return (
     <div ref={wrapperRef} className="absolute inset-0 h-full">
       <div ref={containerRef} className="absolute inset-0 h-full" />
+
+      {/* Category legend */}
+      {legendEntries.length > 0 && (
+        <div className="absolute z-20 bottom-3 left-3 bg-white/95 backdrop-blur rounded-lg shadow-md border border-slate-100 px-2.5 py-2 pointer-events-none">
+          <div className="flex flex-col gap-1">
+            {legendEntries.map(({ name, color }) => (
+              <div key={name} className="flex items-center gap-1.5">
+                <span
+                  className="inline-block h-2 w-2 rounded-full shrink-0"
+                  style={{ backgroundColor: color }}
+                />
+                <span className="text-[10px] font-medium text-slate-600 whitespace-nowrap">
+                  {name}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Domain hover tooltip */}
       {tooltip && (

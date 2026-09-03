@@ -14,11 +14,15 @@ interface KeywordRankingsCardProps {
    *  with the rest of the page, even though this card no longer fetches a
    *  separate raw-count lookup itself. */
   categories: string[];
+  /** True when keyword_stats data exists for this filter but consists
+   *  entirely of matched user-handle/community-name rows rather than
+   *  genuine search keywords — see SocialMediaPayload.onlyAccountBasedData. */
+  onlyAccountBasedData?: boolean;
 }
 
 const PAGE_SIZE = 4;
 
-export function KeywordRankingsCard({ rankings }: KeywordRankingsCardProps) {
+export function KeywordRankingsCard({ rankings, onlyAccountBasedData }: KeywordRankingsCardProps) {
   const [page, setPage] = useState(1);
 
   const totalPages = Math.max(1, Math.ceil(rankings.length / PAGE_SIZE));
@@ -37,6 +41,19 @@ export function KeywordRankingsCard({ rankings }: KeywordRankingsCardProps) {
       "The data points here contain the COMPLETE keyword ranking (all pages), not just the visible page. " +
       "Data source: keyword aggregates from the published data release, after the page's category/platform filter selection.",
   );
+
+  if (rankings.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 h-full flex flex-col">
+        <h3 className="font-semibold text-gray-800 text-sm mb-4">Keyword Rankings</h3>
+        <div className="flex-1 flex items-center justify-center text-xs text-gray-400 text-center px-6">
+          {onlyAccountBasedData
+            ? "Data not available because of account-based search"
+            : "No data available"}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 h-full flex flex-col">

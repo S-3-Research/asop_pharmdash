@@ -235,7 +235,7 @@ export function SocialMediaInsightsSubpage() {
                       description: "Ranks monitored keywords by how many flagged selling posts they appear in, along with growth versus the prior reporting period. Rising keywords can signal emerging illicit seller activity.",
                     }}
                   >
-                    <KeywordRankingsCard rankings={data.keywordRankings} platform={selectedPlatform} categories={selectedIds} />
+                    <KeywordRankingsCard rankings={data.keywordRankings} platform={selectedPlatform} categories={selectedIds} onlyAccountBasedData={data.onlyAccountBasedData ?? false} />
                   </SelectableCard>
                 </div>
                 <div className="w-full lg:basis-1/4 lg:min-w-0 h-[380px] lg:h-full">
@@ -249,7 +249,7 @@ export function SocialMediaInsightsSubpage() {
                       description: "Shows how effective each keyword is at surfacing illicit selling content, not just how much volume it generates. A keyword with a high hit rate is a valuable enforcement target even with fewer overall posts, and shifts in hit rate over time can reveal how sellers are changing their language or tactics.",
                     }}
                   >
-                    <KeywordPerformanceCard bubbles={data.keywordBubbles} platform={selectedPlatform} categories={selectedIds} />
+                    <KeywordPerformanceCard bubbles={data.keywordBubbles} platform={selectedPlatform} categories={selectedIds} onlyAccountBasedData={data.onlyAccountBasedData ?? false} />
                   </SelectableCard>
                 </div>
               </div>

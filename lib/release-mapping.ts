@@ -816,6 +816,24 @@ function filterKeywordStatsForRanking(
 }
 
 /**
+ * True when `filterKeywordStats()` returns rows for this category/platform
+ * filter (i.e. the release DOES have keyword_stats data here) but every one
+ * of those rows is a matched user-handle or community-name row rather than
+ * a genuine search keyword (so `filterKeywordStatsForRanking()` returns
+ * nothing) — used to distinguish "no data at all" from "only account-based
+ * search results available" in the Keyword Ranking/Performance empty states.
+ */
+export function hasOnlyAccountBasedKeywordData(
+  stats: KeywordStat[],
+  selectedCategories: string[] | null | undefined,
+  platform: string | null | undefined,
+): boolean {
+  const all = filterKeywordStats(stats, selectedCategories, platform);
+  if (all.length === 0) return false;
+  return !all.some((s) => s.keyword_type == null || s.keyword_type === "keyword");
+}
+
+/**
  * Aggregates keyword_stats[] (release's flattened KeywordStat rows — one
  * per keyword/platform/category triple) into the dashboard's keyword-ranking
  * view model. Sums `signal_num` across matching rows; restricted to
@@ -1052,6 +1070,8 @@ export interface SocialKeywordAggregateEntry {
   /** Sum of raw_num across matching keyword_stats rows — total raw search-hit
    *  volume for this category/platform combination. */
   totalRawCount: number;
+  /** See hasOnlyAccountBasedKeywordData() doc comment. */
+  onlyAccountBasedData: boolean;
 }
 
 export interface SocialAggregateTable {
@@ -1209,6 +1229,7 @@ export function buildSocialAggregateTable(
         keywordRankings: buildKeywordRankingsFromStats(keywordStats, selectedCategories, platform, 25, AGGREGATE_KEYWORD_COLORS),
         keywordBubbles: buildKeywordBubblesFromStats(keywordStats, selectedCategories, platform, 15, AGGREGATE_KEYWORD_COLORS),
         totalRawCount: relevantStats.reduce((sum, s) => sum + (s.raw_num ?? 0), 0),
+        onlyAccountBasedData: hasOnlyAccountBasedKeywordData(keywordStats, selectedCategories, platform),
       };
     }
     byCategoryKeywords[category] = perPlatform;

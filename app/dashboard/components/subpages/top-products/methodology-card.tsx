@@ -13,7 +13,7 @@ const SECTIONS: MethodologySection[] = [
     title: "Scope of Project",
     body:
       "This dashboard surveils illegal online sale of prescription medications across two drug " +
-      "categories — GLP-1 weight-loss medications and Cancer medications — spanning rogue e-commerce " +
+      "categories — metabolic and cancer medications — spanning rogue e-commerce " +
       "domains and major social-media platforms. Monitoring is ongoing across successive rolling " +
       "3-month reporting periods.",
   },

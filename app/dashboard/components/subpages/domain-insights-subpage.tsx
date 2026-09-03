@@ -240,7 +240,7 @@ export function DomainInsightsSubpage() {
                   widgetId: "domain-heatmap",
                   title: "Geographic Map",
                   type: "map",
-                  description: "Maps where rogue domains are physically located, based on business address, domain registration info, or other available signals. Each point represents a domain, colored by category.",
+                  description: "Maps where rogue domains are physically located, based on business address, domain registration info, or other available signals. Each point represents a domain, colored by category. Point size reflects product count: with no category filter, it's proportional to a domain's total product count; with one or more categories selected, it reflects only the count of products matching the selected categories. Domains selling across multiple categories render in a distinct blended color, shown in the map legend. Nearby overlapping points (e.g. domains sharing a city-level fallback coordinate) are visually separated rather than fully overlapping. City labels that look like a WHOIS privacy-redaction placeholder (e.g. \"REDACTED FOR PRIVACY\", \"N/a\") are shown as \"Approximate Location\" instead.",
                 }}
               >
                 <HeatmapCard domains={filteredDomains} selectedCategories={selectedCategories} />

@@ -298,6 +298,17 @@ export interface SocialMediaPayload {
    *  field of their own). Falls back to a fixed list for the built-in mock
    *  release, which has no product_info-derived category registry. */
   categoryOptions?: CategoryOption[];
+  /** True when the current category/platform filter has keyword_stats rows
+   *  available (so `activeKeywords`/`totalRawCount` above are non-zero), but
+   *  every one of those rows is a matched user-handle or community-name row
+   *  (keyword_type "user"/"community") rather than a genuine search keyword
+   *  — meaning keywordRankings/keywordBubbles are legitimately empty not
+   *  because there's no data at all, but because only account-based search
+   *  results were reported for this filter. Cards should show a distinct
+   *  "data not available because of account-based search" message in this
+   *  case rather than a generic "no data" message. Always false for the
+   *  built-in mock release (no keyword_type field there). */
+  onlyAccountBasedData?: boolean;
 }
 
 export interface SocialSamplesPayload {

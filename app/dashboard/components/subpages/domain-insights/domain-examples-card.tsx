@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { ExternalLink, MapPin, Building2, ChevronDown } from "lucide-react";
-import type { Domain, DomainType, DomainWithMatch } from "../../types";
+import type { Domain, DomainWithMatch } from "../../types";
 import { useWidgetData } from "../../copilot/copilot-context";
+import { formatCityDisplay, formatBestLocation } from "@/lib/geo-format";
 
 // ── Color helpers (mirrors heatmap-map-client.tsx's category palette) ────────
 const CAT_COLORS: Record<string, string> = {
@@ -20,13 +21,6 @@ function categoryColor(label: string): string {
   for (let i = 0; i < label.length; i++) hash = (hash * 31 + label.charCodeAt(i)) >>> 0;
   return FALLBACK_PALETTE[hash % FALLBACK_PALETTE.length];
 }
-
-const DOMAIN_TYPE_LABEL: Record<DomainType, string> = {
-  "rogue-pharmacy": "Rogue Pharmacy",
-  "social-media":   "Social Media",
-  "counterfeit":    "Counterfeit",
-  "unregistered":   "Unregistered",
-};
 
 function formatMoney(n: number): string {
   return n > 0 ? `$${n.toLocaleString()}` : "—";
@@ -73,7 +67,7 @@ export function DomainExamplesCard({ domains, sampleSize = 10, periodLabels = {}
     "domain-samples",
     samples.map((d) => ({
       label: d.domain,
-      value: `${DOMAIN_TYPE_LABEL[d.domainType]} · ${d.isLive ? "Live" : "Inactive"} · ${[d.geoLocation.city, d.geoLocation.country].filter(Boolean).join(", ") || "unknown location"}`,
+      value: `${d.isLive ? "Live" : "Inactive"} · ${[d.geoLocation.city ? formatCityDisplay(d.geoLocation.city) : "", d.geoLocation.country].filter(Boolean).join(", ") || "unknown location"}`,
     })),
     "Card of individual sampled rogue domain records (a deterministic random subset, not the full dataset) — each entry expands to show registrar, WHOIS dates, payment info, ad spend, social profiles, and reporting period. " +
       "Use this to look at concrete example domains behind the aggregate charts on this page, rather than aggregate counts. " +
@@ -112,9 +106,11 @@ export function DomainExamplesCard({ domains, sampleSize = 10, periodLabels = {}
               : payment.provider
                 ? `${payment.type} · ${payment.provider}`
                 : payment.type;
-            const location = [d.geoLocation.city, d.geoLocation.state, d.geoLocation.country]
-              .filter(Boolean)
-              .join(", ");
+            const location = formatBestLocation(
+              d.geoLocation.city,
+              d.geoLocation.state,
+              d.geoLocation.country,
+            );
             // Collapsed view: one pill per domain-level primary category
             // (d.primaryCategories, from product_label — the sole source
             // of truth for "what category is this domain"), each labeled
@@ -222,9 +218,6 @@ export function DomainExamplesCard({ domains, sampleSize = 10, periodLabels = {}
                           {c.count > 1 && <span className="text-[9px] opacity-70">×{c.count}</span>}
                         </span>
                       ))}
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500">
-                        {DOMAIN_TYPE_LABEL[d.domainType]}
-                      </span>
                       {d.platforms.map((p) => (
                         <span key={p} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-500">
                           {p}

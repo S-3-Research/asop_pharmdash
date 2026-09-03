@@ -10,7 +10,7 @@ import type {
 } from "@/app/dashboard/components/types";
 import { getActiveChannel } from "@/lib/channel";
 import { fetchSocialIndex, fetchSocialAggregateTable, fetchReleaseData, getActiveReleaseContext } from "@/lib/releases";
-import { buildSocialAggregates, buildKeywordRankingsFromStats, buildKeywordBubblesFromStats } from "@/lib/release-mapping";
+import { buildSocialAggregates, buildKeywordRankingsFromStats, buildKeywordBubblesFromStats, hasOnlyAccountBasedKeywordData } from "@/lib/release-mapping";
 import { SOCIAL_PRIMARY_CATEGORIES } from "@/app/dashboard/components/subpages/social-media/config";
 
 const CATEGORY_ALL_KEY = "__all__";
@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
   let categoryOptions: SocialMediaPayload["categoryOptions"];
   let productSignalCounts: SocialProductSignalCount[];
   let totalRawCount = 0;
+  let onlyAccountBasedData = false;
 
   if (ctx.isMock) {
     // ── Mock data path (unchanged) ──────────────────────────────────────────
@@ -165,7 +166,7 @@ export async function GET(request: NextRequest) {
     // selections hit the precomputed table below; 2+ selected categories
     // (rare multi-select case) fall back to filtering keyword_stats on
     // demand, mirroring the platformTabs/metrics fallback above.
-    let keywordAgg: { uniqueKeywordCount: number; keywordRankings: SocialKeywordRanking[]; keywordBubbles: SocialKeywordBubble[]; totalRawCount: number };
+    let keywordAgg: { uniqueKeywordCount: number; keywordRankings: SocialKeywordRanking[]; keywordBubbles: SocialKeywordBubble[]; totalRawCount: number; onlyAccountBasedData: boolean };
     if (selectedCategories.length <= 1) {
       const categoryKey = selectedCategories.length === 0 ? CATEGORY_ALL_KEY : selectedCategories[0];
       keywordAgg =
@@ -186,6 +187,7 @@ export async function GET(request: NextRequest) {
         keywordRankings,
         keywordBubbles,
         totalRawCount: relevantStats.reduce((sum, s) => sum + (s.raw_num ?? 0), 0),
+        onlyAccountBasedData: hasOnlyAccountBasedKeywordData(release.keyword_stats, selectedCategories, platformParam),
       };
     }
 
@@ -208,6 +210,7 @@ export async function GET(request: NextRequest) {
     keywordRankings = keywordAgg.keywordRankings;
     keywordBubbles = keywordAgg.keywordBubbles;
     categoryOptions = table.categoryOptions;
+    onlyAccountBasedData = keywordAgg.onlyAccountBasedData ?? false;
   }
 
   const payload: SocialMediaPayload = {
@@ -218,6 +221,7 @@ export async function GET(request: NextRequest) {
     keywordBubbles,
     productSignalCounts,
     categoryOptions,
+    onlyAccountBasedData,
   };
 
   return NextResponse.json(payload);

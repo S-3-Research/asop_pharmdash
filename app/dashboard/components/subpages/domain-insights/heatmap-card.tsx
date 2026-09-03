@@ -44,7 +44,11 @@ export function HeatmapCard({ domains, selectedCategories }: HeatmapCardProps) {
       "Data source: each domain record's geoLocation (city, country, lat/lng) from the published data release, resolved using a fallback priority order: " +
       "(1) the domain's listed business address, if available; (2) otherwise the WHOIS registration address (registrant street/city/state/country); " +
       "(3) otherwise other proxy signals such as the phone number's area/country code. " +
-      "Counts reflect the page's current category filter.",
+      "Counts reflect the page's current category filter. " +
+      "Point SIZE encodes product count, not domain count: when no category filter is active, a domain's point size is proportional to its total number of products (categories[].length); when one or more categories are selected, point size instead reflects only the count of that domain's products matching the selected categories (so a domain selling 5 GLP-1 products but only 1 Cancer Med product will render larger when 'GLP-1' is selected than when 'Cancer Med' is selected). " +
+      "Point COLOR reflects the domain's primary category (from primaryCategories, sourced from the domain-level product_label field) \u2014 when multiple categories are selected and a domain matches more than one of them, the color highlights whichever of its own categories is first among the selected set. " +
+      "Nearby points that are very close together (often domains sharing a city-level fallback coordinate) are grouped into a single numbered cluster circle at lower zoom levels; zooming in (or clicking a cluster) expands it into individual domain points. " +
+      "The tooltip's city value is shown as 'Approximate Location' instead of the raw WHOIS city string when that string looks like a privacy-redaction placeholder (e.g. 'REDACTED FOR PRIVACY', 'N/a', 'Not Disclosed') rather than an actual place name \u2014 this is common since much WHOIS contact data is privacy-shielded.",
   );
 
   return (
