@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import mapboxgl from "mapbox-gl";
 import type { Domain, DomainWithMatch } from "../../types";
-import { formatCityDisplay } from "@/lib/geo-format";
+import { formatCityDisplay, formatAddressSource } from "@/lib/geo-format";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
@@ -49,6 +49,9 @@ interface TooltipState {
    *  payment_info at all. */
   paymentLabel: string;
   city: string;
+  /** Formatted address_source label ("WHOIS" / "Website"), or "" when the
+   *  release didn't report one — never shown as a fake-precision default. */
+  addressSource: string;
   x: number;
   y: number;
 }
@@ -157,6 +160,7 @@ export function HeatmapMapClient({
                 registrar:         d.whois.registrar,
                 paymentLabel,
                 city:              d.geoLocation.city,
+                addressSource:     d.geoLocation.addressSource ?? "",
                 color:             isMultiCategory ? MULTI_CATEGORY_COLOR : categoryColor(matchedCategory),
                 // Point size reflects the number of this domain's products
                 // matching the current filter (or its total product count
@@ -310,6 +314,9 @@ export function HeatmapMapClient({
           registrar:    String(props.registrar ?? ""),
           paymentLabel: String(props.paymentLabel ?? "No payment data"),
           city:         formatCityDisplay(String(props.city ?? "")),
+          addressSource: formatAddressSource(
+            (props.addressSource as "whois" | "web" | "" | undefined) || null,
+          ),
           x: e.point.x,
           y: e.point.y,
         });
@@ -424,6 +431,12 @@ export function HeatmapMapClient({
               <dd className="text-slate-700 truncate">{tooltip.registrar}</dd>
               <dt className="text-slate-400">Payment</dt>
               <dd className="text-slate-700 truncate">{tooltip.paymentLabel}</dd>
+              {tooltip.addressSource && (
+                <>
+                  <dt className="text-slate-400">Location Source</dt>
+                  <dd className="text-slate-700 truncate">{tooltip.addressSource}</dd>
+                </>
+              )}
             </dl>
           </div>
         </div>

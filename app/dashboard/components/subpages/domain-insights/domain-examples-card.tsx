@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { ExternalLink, MapPin, Building2, ChevronDown } from "lucide-react";
 import type { Domain, DomainWithMatch } from "../../types";
 import { useWidgetData } from "../../copilot/copilot-context";
-import { formatCityDisplay, formatBestLocation } from "@/lib/geo-format";
+import { formatCityDisplay, formatBestLocation, formatAddressSource } from "@/lib/geo-format";
 
 // ── Color helpers (mirrors heatmap-map-client.tsx's category palette) ────────
 const CAT_COLORS: Record<string, string> = {
@@ -111,6 +111,12 @@ export function DomainExamplesCard({ domains, sampleSize = 10, periodLabels = {}
               d.geoLocation.state,
               d.geoLocation.country,
             );
+            const addressSourceLabel = formatAddressSource(d.geoLocation.addressSource);
+            // Only annotate the source when we actually have a location to
+            // annotate and a source was reported — avoids a dangling "()" or
+            // a misleading source label next to an omitted address line.
+            const locationWithSource =
+              location && addressSourceLabel ? `${location} (${addressSourceLabel})` : location;
             // Collapsed view: one pill per domain-level primary category
             // (d.primaryCategories, from product_label — the sole source
             // of truth for "what category is this domain"), each labeled
@@ -176,7 +182,7 @@ export function DomainExamplesCard({ domains, sampleSize = 10, periodLabels = {}
                     {location && (
                       <span className="inline-flex items-center gap-1 text-gray-500 truncate">
                         <MapPin size={11} className="shrink-0 text-gray-400" />
-                        <span className="truncate">{location}</span>
+                        <span className="truncate">{locationWithSource}</span>
                       </span>
                     )}
                   </div>

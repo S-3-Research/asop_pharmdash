@@ -123,6 +123,10 @@ export interface DomainGeoLocation {
   country: string;
   lat: number;
   lng: number;
+  /** Whether city/state/country/zip above came from WHOIS registrant data
+   *  or were scraped from the domain's website — null when the release
+   *  doesn't report it (older releases predate this field). */
+  addressSource?: "whois" | "web" | null;
 }
 
 export interface DomainPaymentInfo {

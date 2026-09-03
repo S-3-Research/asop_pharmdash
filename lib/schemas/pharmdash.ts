@@ -252,6 +252,8 @@ export const SeoInfoSchema = z.object({
 // New in the 2026-08-25 schema.
 export const NabpStatus = z.enum(["not verify", "not recommend", "legit"]);
 export const FDAStatus = z.enum(["not verify", "warning"]);
+// New in the 2026-09-02 schema.
+export const AddressSource = z.enum(["whois", "web"]);
 
 // ---------------------------------------------------------------------------
 // Top-level records
@@ -283,6 +285,9 @@ export const DomainDataSchema = z.object({
   state: z.string().nullish(),
   country: z.string().nullish(),
   zip_code: z.string().nullish(),
+  // New in the 2026-09-02 schema: whether the address fields above came
+  // from WHOIS registrant data or were scraped from the domain's website.
+  address_source: AddressSource.nullish(),
 
   longitude: z.number().nullish(),
   latitude: z.number().nullish(),
@@ -370,6 +375,7 @@ export type ProductInfoItem = z.infer<typeof ProductInfoItemSchema>;
 export type ProductType = z.infer<typeof ProductTypeSchema>;
 export type NabpStatusType = z.infer<typeof NabpStatus>;
 export type FDAStatusType = z.infer<typeof FDAStatus>;
+export type AddressSourceType = z.infer<typeof AddressSource>;
 export type HistoryClickUsItem = z.infer<typeof HistoryClickUsItemSchema>;
 export type SeoInfo = z.infer<typeof SeoInfoSchema>;
 export type DomainData = z.infer<typeof DomainDataSchema>;

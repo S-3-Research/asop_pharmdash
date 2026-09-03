@@ -82,3 +82,16 @@ export function formatBestLocation(
   return parts.join(", ");
 }
 
+/** Human-readable label for the `address_source` field (new in the
+ *  2026-09-02 schema) — whether the reported address came from WHOIS
+ *  registrant data or was scraped from the domain's website. Returns an
+ *  empty string when the release didn't report a source, so callers can
+ *  simply omit the annotation rather than show a fake-precision label. */
+export function formatAddressSource(
+  source: "whois" | "web" | null | undefined,
+): string {
+  if (source === "whois") return "WHOIS";
+  if (source === "web") return "Website";
+  return "";
+}
+

@@ -396,6 +396,7 @@ export function mapReleaseDomain(
       country: d.country ?? "Unknown",
       lat: d.latitude ?? 0,
       lng: d.longitude ?? 0,
+      addressSource: d.address_source ?? null,
     },
     associatedBusinessName: d.business_affiliation ?? null,
     keyword: d.product_label ?? [],
