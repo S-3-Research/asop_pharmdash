@@ -1,4 +1,4 @@
-# PharmDash
+# Rx Watchdog (internal codename: pharmdash)
 
 A Next.js 16 pharmaceutical intelligence dashboard for monitoring product listings, domain activity, and social media mentions.
 

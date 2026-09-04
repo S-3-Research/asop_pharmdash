@@ -4,11 +4,11 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ASOP PharmDash",
+  title: "Rx Watchdog",
   description: "Online pharmacy monitoring and intelligence dashboard",
 
   openGraph: {
-    title: "ASOP PharmDash",
+    title: "Rx Watchdog",
     description: "Online pharmacy monitoring and intelligence dashboard",
     type: "website",
   },

@@ -196,7 +196,7 @@ export default function SetPasswordPage() {
         <div className="mb-4">
           <Image
             src="/ASOP Global wht x S3.png"
-            alt="ASOP PharmDash"
+            alt="Rx Watchdog"
             width={140}
             height={56}
             className="object-contain"
@@ -205,7 +205,7 @@ export default function SetPasswordPage() {
         </div>
         <h1 className="text-2xl font-semibold text-white">Activate your account</h1>
         <p className="mt-2 text-sm text-slate-400">
-          Choose a password to finish setting up your ASOP PharmDash account.
+          Choose a password to finish setting up your Rx Watchdog account.
         </p>
 
         {status === "checking" ? (

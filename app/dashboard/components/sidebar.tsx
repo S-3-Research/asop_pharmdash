@@ -24,9 +24,8 @@ type SidebarProps = {
 export function Sidebar({ items, activeKey, onChange, collapsed, onToggleCollapsed }: SidebarProps) {
   return (
     <aside
-      className={`relative flex shrink-0 flex-col justify-between overflow-visible bg-[#0a1116] text-white shadow-xl ${
-        collapsed ? "w-16" : "w-56"
-      }`}
+      className={`relative flex shrink-0 flex-col justify-between overflow-visible bg-[#0a1116] text-white shadow-xl ${collapsed ? "w-16" : "w-56"
+        }`}
     >
       <div>
         {/* Header slot: fixed h-14 height regardless of collapse state, but
@@ -42,14 +41,22 @@ export function Sidebar({ items, activeKey, onChange, collapsed, onToggleCollaps
             were left to shrink to the collapsed w-16 (64px) it would clamp
             the Logo down to 64px too, even with w-auto set. */}
         <div className="relative h-14 w-56">
-          <Image
-            src="/ASOP Global wht x S3.png"
-            alt="ASOP Global x S3"
-            width={176}
-            height={28}
-            className="absolute left-3.5 top-1/2 z-10 h-10 w-auto max-w-none -translate-y-1/2"
-            priority
-          />
+
+          <div className="absolute left-3.5 top-1/2 z-10 flex -translate-y-1/2 items-center gap-3">
+            <Image
+              src="/ASOP Global wht x S3.png"
+              alt="ASOP Global x S3"
+              width={176}
+              height={28}
+              className="h-10 w-auto max-w-none"
+              priority
+            />
+            {/* <span className="h-3 w-px bg-white/20 mt-2" aria-hidden="true"/>
+            <span className="whitespace-nowrap text-sm font-semibold text-[#F6F6F6] mt-2">
+              Rx Watchdog
+            </span> */}
+          </div>
+
         </div>
 
         <div className="mx-3 border-t border-white/5" />
@@ -65,13 +72,11 @@ export function Sidebar({ items, activeKey, onChange, collapsed, onToggleCollaps
                 key={item.key}
                 onClick={() => onChange(item.key)}
                 title={collapsed ? item.label : undefined}
-                className={`group relative w-full rounded-lg text-left transition-colors ${
-                  collapsed ? "flex justify-center px-0 py-2.5" : "px-3 py-2.5"
-                } ${
-                  isActive
+                className={`group relative w-full rounded-lg text-left transition-colors ${collapsed ? "flex justify-center px-0 py-2.5" : "px-3 py-2.5"
+                  } ${isActive
                     ? "bg-[#98b8c8] text-gray-900"
                     : "text-gray-300 hover:bg-[#1a252c]"
-                }`}
+                  }`}
               >
                 {collapsed ? (
                   <>
@@ -104,9 +109,8 @@ export function Sidebar({ items, activeKey, onChange, collapsed, onToggleCollaps
             type="button"
             onClick={onToggleCollapsed}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className={`flex w-full items-center gap-2 rounded-lg py-2 text-xs font-medium text-gray-500 transition-colors hover:bg-[#1a252c] hover:text-gray-300 ${
-              collapsed ? "justify-center px-0" : "px-3"
-            }`}
+            className={`flex w-full items-center gap-2 rounded-lg py-2 text-xs font-medium text-gray-500 transition-colors hover:bg-[#1a252c] hover:text-gray-300 ${collapsed ? "justify-center px-0" : "px-3"
+              }`}
           >
             {collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
             {!collapsed && <span>Collapse</span>}

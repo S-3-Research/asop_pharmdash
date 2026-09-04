@@ -155,14 +155,14 @@ export default function LoginPage() {
         <div className="mb-4">
           <Image
             src="/ASOP Global wht x S3.png"
-            alt="ASOP PharmDash"
+            alt="Rx Watchdog"
             width={140}
             height={56}
             className="object-contain"
             priority
           />
         </div>
-        <h1 className="text-2xl font-semibold text-white">ASOP PharmDash</h1>
+        <h1 className="text-2xl font-semibold text-white">Rx Watchdog</h1>
         <p className="mt-2 text-sm text-slate-400">
           {step === "credentials"
             ? "Sign in with your credentials"

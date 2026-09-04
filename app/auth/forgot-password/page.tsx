@@ -40,7 +40,7 @@ export default function ForgotPasswordPage() {
         <div className="mb-4">
           <Image
             src="/ASOP Global wht x S3.png"
-            alt="ASOP PharmDash"
+            alt="Rx Watchdog"
             width={140}
             height={56}
             className="object-contain"

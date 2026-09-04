@@ -8,7 +8,7 @@ import Image from "next/image";
  */
 export function LogoNav() {
   return (
-    <header className="flex h-14 shrink-0 items-center bg-[#0a1116] px-6 shadow-md">
+    <header className="flex h-14 shrink-0 items-center gap-4 bg-[#0a1116] px-6 shadow-md">
       <Image
         src="/ASOP Global wht x S3.png"
         alt="ASOP Global x S3"
@@ -17,6 +17,8 @@ export function LogoNav() {
         className="h-10 w-auto"
         priority
       />
+      <span className="h-6 w-px bg-white/20" aria-hidden="true" />
+      <span className="whitespace-nowrap text-xs font-semibold text-white">Rx Watchdog</span>
     </header>
   );
 }
