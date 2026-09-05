@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { Sparkles } from "lucide-react";
 
 import "@/lib/highcharts-theme";
@@ -68,7 +68,19 @@ function CopilotToggleButton() {
 
 function DashboardShellInner({ channel }: { channel: ChannelName }) {
   const [activeSubPage, setActiveSubPage] = useState<SubPageKey>(defaultSubPage);
+  const [isSubPagePending, startSubPageTransition] = useTransition();
   const { setSelectedWidget, isPanelOpen, closePanel } = useCopilot();
+
+  // Marked as a transition (non-urgent) so React prioritizes painting the
+  // sidebar's own click feedback (see Sidebar's local pendingKey state)
+  // ahead of the new subpage's render — the new subpage mounts several
+  // chart libraries (Highcharts, Mapbox) whose synchronous init/layout work
+  // would otherwise block the button's active-color paint for a visible
+  // beat. `isSubPagePending` drives a thin top progress bar so the delay
+  // itself reads as "navigating", not as an unresponsive click.
+  function handleSubPageChange(key: SubPageKey) {
+    startSubPageTransition(() => setActiveSubPage(key));
+  }
 
   // User's manually-chosen collapse preference, persisted across sessions.
   // Kept separate from the Copilot-driven force-collapse below so opening/
@@ -132,7 +144,7 @@ function DashboardShellInner({ channel }: { channel: ChannelName }) {
         <Sidebar
           items={sidebarItems}
           activeKey={activeSubPage}
-          onChange={setActiveSubPage}
+          onChange={handleSubPageChange}
           collapsed={sidebarCollapsed}
           onToggleCollapsed={toggleSidebarCollapsed}
         />
@@ -150,7 +162,17 @@ function DashboardShellInner({ channel }: { channel: ChannelName }) {
             }
           />
           <div className="flex min-h-0 flex-1">
-            <main className="flex-1 overflow-y-auto p-6 rounded-tl-3xl bg-[#f3f7f9]">
+            <main className="relative flex-1 overflow-y-auto p-6 rounded-tl-3xl bg-[#f3f7f9]">
+              {/* Thin top-edge progress bar — surfaces the (unavoidable,
+                  same-thread) subpage-swap work as "navigating" rather than
+                  a silent freeze. Width animates in on start and holds
+                  short of 100% until the transition actually resolves, so
+                  it never lies about being done while still rendering. */}
+              <div
+                className={`absolute left-0 top-0 z-10 h-0.5 bg-[#64D6D8] transition-[width,opacity] duration-300 ease-[var(--ease-out)] ${
+                  isSubPagePending ? "w-4/5 opacity-100" : "w-full opacity-0"
+                }`}
+              />
               {subPageContent}
             </main>
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { ChevronLeft } from "lucide-react";
 
@@ -22,6 +23,20 @@ type SidebarProps = {
 };
 
 export function Sidebar({ items, activeKey, onChange, collapsed, onToggleCollapsed }: SidebarProps) {
+  // Immediate, purely-local highlight state — set synchronously on click,
+  // independent of `activeKey` (which only updates once the parent's
+  // subpage-swap commit finishes, and that commit can be delayed several
+  // frames by the new subpage's chart-library init/layout work). Without
+  // this, the button's active color visibly lags behind the click by
+  // however long that heavy render takes. Reset once `activeKey` actually
+  // catches up, so it never drifts out of sync with real navigation state
+  // (e.g. browser back/forward, or programmatic navigation elsewhere).
+  const [pendingKey, setPendingKey] = useState<SubPageKey | null>(null);
+  useEffect(() => {
+    setPendingKey(null);
+  }, [activeKey]);
+  const displayedActiveKey = pendingKey ?? activeKey;
+
   return (
     <aside
       className={`relative flex shrink-0 flex-col justify-between overflow-visible bg-[#0a1116] text-white shadow-xl transition-[width] duration-200 ease-[var(--ease-out)] ${collapsed ? "w-16" : "w-56"
@@ -63,14 +78,17 @@ export function Sidebar({ items, activeKey, onChange, collapsed, onToggleCollaps
 
         <nav className="mt-3 space-y-1 px-3 ">
           {items.map((item) => {
-            const isActive = item.key === activeKey;
+            const isActive = item.key === displayedActiveKey;
             const Icon = item.icon;
 
             return (
               <button
                 type="button"
                 key={item.key}
-                onClick={() => onChange(item.key)}
+                onClick={() => {
+                  setPendingKey(item.key);
+                  onChange(item.key);
+                }}
                 title={collapsed ? item.label : undefined}
                 className={`group relative w-full rounded-lg text-left transition-colors ${collapsed ? "flex justify-center px-0 py-2.5" : "px-3 py-2.5"
                   } ${isActive
