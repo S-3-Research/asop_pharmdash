@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 
 import type { SubPageKey, SubPageNavItem } from "./types";
 import { UserMenu } from "./user-menu";
@@ -24,7 +24,7 @@ type SidebarProps = {
 export function Sidebar({ items, activeKey, onChange, collapsed, onToggleCollapsed }: SidebarProps) {
   return (
     <aside
-      className={`relative flex shrink-0 flex-col justify-between overflow-visible bg-[#0a1116] text-white shadow-xl ${collapsed ? "w-16" : "w-56"
+      className={`relative flex shrink-0 flex-col justify-between overflow-visible bg-[#0a1116] text-white shadow-xl transition-[width] duration-200 ease-[var(--ease-out)] ${collapsed ? "w-16" : "w-56"
         }`}
     >
       <div>
@@ -81,8 +81,11 @@ export function Sidebar({ items, activeKey, onChange, collapsed, onToggleCollaps
                 {collapsed ? (
                   <>
                     <Icon size={18} />
-                    {/* Simple CSS tooltip — no extra JS/positioning library needed */}
-                    <span className="pointer-events-none absolute left-full top-1/2 z-20 ml-2 -translate-y-1/2 whitespace-nowrap rounded-md bg-[#1a252c] px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                    {/* Simple CSS tooltip — no extra JS/positioning library needed.
+                        Starts 4px closer to the trigger and slides out to its
+                        resting offset on hover, so it reads as "emerging from"
+                        the icon rather than just fading in place. */}
+                    <span className="pointer-events-none absolute left-full top-1/2 z-20 ml-2 -translate-x-1 -translate-y-1/2 whitespace-nowrap rounded-md bg-[#1a252c] px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-[opacity,transform] duration-150 ease-out group-hover:translate-x-0 group-hover:opacity-100">
                       {item.label}
                     </span>
                   </>
@@ -112,7 +115,10 @@ export function Sidebar({ items, activeKey, onChange, collapsed, onToggleCollaps
             className={`flex w-full items-center gap-2 rounded-lg py-2 text-xs font-medium text-gray-500 transition-colors hover:bg-[#1a252c] hover:text-gray-300 ${collapsed ? "justify-center px-0" : "px-3"
               }`}
           >
-            {collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+            <ChevronLeft
+              size={15}
+              className={`transition-transform duration-200 ease-[var(--ease-out)] ${collapsed ? "rotate-180" : ""}`}
+            />
             {!collapsed && <span>Collapse</span>}
           </button>
         </div>
