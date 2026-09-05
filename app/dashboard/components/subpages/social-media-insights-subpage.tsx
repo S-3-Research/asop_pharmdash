@@ -158,10 +158,16 @@ export function SocialMediaInsightsSubpage() {
       {/* ── Dashboard Grid — always mounted once data arrives; overlay on revalidate ── */}
       {!error && (
         <div className="relative">
-          {/* Subtle revalidation overlay — no unmount flicker */}
-          {isValidating && (
-            <div className="absolute inset-0 z-10 bg-white/40 rounded-2xl pointer-events-none transition-opacity" />
-          )}
+          {/* Subtle revalidation overlay — no unmount flicker. Always
+              mounted (rather than conditionally rendered) so opacity can
+              transition on BOTH the appear and disappear edges; a
+              conditionally-mounted element has no prior frame to transition
+              from on mount, so it would otherwise only fade out. */}
+          <div
+            className={`absolute inset-0 z-10 bg-white/40 rounded-2xl pointer-events-none transition-opacity duration-150 ${
+              isValidating ? "opacity-100" : "opacity-0"
+            }`}
+          />
 
           {!data ? (
             <div className="text-sm text-slate-400 text-center py-12">Loading social media data…</div>

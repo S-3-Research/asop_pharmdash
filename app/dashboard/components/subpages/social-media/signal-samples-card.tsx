@@ -69,7 +69,10 @@ export function SignalSamplesCard({ categories, platform }: SignalSamplesCardPro
         </h3>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3 pr-1 [scrollbar-width:thin] [scrollbar-color:#e2e8f0_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-300">
+      <div
+        key={`${categories.join(",")}|${platform}`}
+        className="animate-fade-slide-in flex-1 min-h-0 overflow-y-auto flex flex-col gap-3 pr-1 [scrollbar-width:thin] [scrollbar-color:#e2e8f0_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-300"
+      >
         {isLoading && samples.length === 0 && (
           <div className="text-xs text-gray-400 text-center py-8">Loading…</div>
         )}

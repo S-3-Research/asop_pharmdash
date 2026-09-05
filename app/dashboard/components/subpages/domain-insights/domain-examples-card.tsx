@@ -188,8 +188,16 @@ export function DomainExamplesCard({ domains, sampleSize = 10, periodLabels = {}
                   </div>
                 </button>
 
-                {/* ── Expanded detail — full schema fields, only rendered when open ── */}
-                {isOpen && (
+                {/* Expanded detail — full schema fields. Always mounted so the
+                    height change can transition: CSS can't animate to/from
+                    `height: auto`, so this uses the grid-template-rows
+                    0fr→1fr trick (the row's content is clipped by the inner
+                    overflow-hidden div until the row itself grows). */}
+                <div
+                  className="grid transition-[grid-template-rows] duration-200 ease-out"
+                  style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }}
+                >
+                  <div className="overflow-hidden">
                   <div className="px-3 pb-3 border-t border-gray-100 pt-2.5">
                     {/* Full category/product breakdown — deduped + counted per
                         secondary name (same "Name ×N" pattern as the collapsed
@@ -277,7 +285,8 @@ export function DomainExamplesCard({ domains, sampleSize = 10, periodLabels = {}
                       </a>
                     </div>
                   </div>
-                )}
+                  </div>
+                </div>
               </div>
             );
           })}

@@ -123,7 +123,7 @@ export function SelectableCard({
 
   return (
     <div
-      className={`group/card relative rounded-xl transition-all ${
+      className={`group/card relative rounded-xl transition-[box-shadow] duration-150 ease-out ${
         isSelected ? "ring-2 ring-offset-2" : ""
       } ${className ?? ""}`}
       style={
@@ -195,11 +195,12 @@ export function SelectableCard({
             createPortal(
               <div
                 role="tooltip"
-                className="fixed z-[9999] w-64 rounded-lg p-3 text-xs leading-relaxed text-white shadow-lg"
+                className="animate-popover-scale-in fixed z-[9999] w-64 rounded-lg p-3 text-xs leading-relaxed text-white shadow-lg"
                 style={{
                   top: tooltipPos.top,
                   left: tooltipPos.left,
                   background: "rgba(17,24,39,0.97)",
+                  transformOrigin: "top right",
                 }}
               >
                 <div className="mb-1 font-semibold" style={{ color: B }}>
@@ -268,11 +269,11 @@ export function SelectableCard({
             role="dialog"
             aria-modal="true"
             aria-label={widget.title}
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 sm:p-8"
+            className="animate-modal-overlay-in fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 sm:p-8"
             onClick={() => setExpanded(false)}
           >
             <div
-              className="relative flex h-[85vh] w-[90vw] max-w-6xl flex-col rounded-2xl bg-white shadow-2xl"
+              className="animate-modal-scale-in relative flex h-[85vh] w-[90vw] max-w-6xl flex-col rounded-2xl bg-white shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               {/* ── Info trigger (same look as the inline card's Info button) ── */}
@@ -303,11 +304,12 @@ export function SelectableCard({
                     createPortal(
                       <div
                         role="tooltip"
-                        className="fixed z-[10000] w-64 rounded-lg p-3 text-xs leading-relaxed text-white shadow-lg"
+                        className="animate-popover-scale-in fixed z-[10000] w-64 rounded-lg p-3 text-xs leading-relaxed text-white shadow-lg"
                         style={{
                           top: modalTooltipPos.top,
                           left: modalTooltipPos.left,
                           background: "rgba(17,24,39,0.97)",
+                          transformOrigin: "top right",
                         }}
                       >
                         <div className="mb-1 font-semibold" style={{ color: B }}>

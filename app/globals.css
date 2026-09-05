@@ -94,6 +94,61 @@ body {
   animation: shake-x 220ms var(--ease-in-out);
 }
 
+@keyframes modal-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes popover-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* SelectableCard's expand-to-modal overlay + dialog (see selectable-card.tsx).
+ * Modals aren't anchored to a trigger, so they stay centered and scale from
+ * their own center rather than using a transform-origin at the trigger. */
+.animate-modal-overlay-in {
+  animation: modal-overlay-in 200ms ease-out both;
+}
+.animate-modal-scale-in {
+  animation: modal-scale-in 250ms var(--ease-out) both;
+}
+
+/* Small anchored popovers (Info tooltips, dropdown menus) — scale from the
+ * trigger's edge via transform-origin set inline by the consumer. */
+.animate-popover-scale-in {
+  animation: popover-scale-in 160ms var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-modal-overlay-in,
+  .animate-modal-scale-in,
+  .animate-popover-scale-in {
+    animation-duration: 120ms;
+  }
+}
+
 /* A two-option pill/segmented control with a sliding selection
  * indicator, e.g. the Password / Email-code toggle on the login page. */
 .segmented-control {

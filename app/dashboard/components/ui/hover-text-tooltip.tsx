@@ -55,11 +55,12 @@ export function HoverTextTooltip({ children, content, className }: HoverTextTool
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed z-[100] w-80 max-w-[calc(100vw-24px)] rounded-xl border border-gray-100 bg-white p-3.5 shadow-xl"
+            className="animate-popover-scale-in fixed z-[100] w-80 max-w-[calc(100vw-24px)] rounded-xl border border-gray-100 bg-white p-3.5 shadow-xl"
             style={{
               top: pos.top,
               left: pos.left,
               transform: pos.openUp ? "translateY(-100%)" : undefined,
+              transformOrigin: pos.openUp ? "bottom left" : "top left",
             }}
             role="tooltip"
           >

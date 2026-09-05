@@ -83,7 +83,7 @@ export function MultiCategoryDropdown({
           +{overflowIds.length}
 
           {/* Tooltip: lists the overflowed categories, each removable. */}
-          <div className="invisible absolute bottom-full right-0 z-40 mb-1.5 w-max max-w-[16rem] rounded-lg border border-slate-200 bg-white p-1.5 opacity-0 shadow-lg transition-opacity group-hover:visible group-hover:opacity-100">
+          <div className="invisible absolute bottom-full right-0 z-40 mb-1.5 w-max max-w-[16rem] translate-y-1 rounded-lg border border-slate-200 bg-white p-1.5 opacity-0 shadow-lg transition-[opacity,transform] duration-150 ease-out group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
             <ul className="flex flex-col gap-0.5">
               {overflowIds.map((id) => {
                 const cat = categories.find((c) => c.id === id);
@@ -137,7 +137,10 @@ export function MultiCategoryDropdown({
         </button>
 
         {isOpen && (
-          <div className="absolute left-0 right-0 top-full z-30 mt-1.5 rounded-lg border border-slate-200 bg-white shadow-lg">
+          <div
+            className="animate-popover-scale-in absolute left-0 right-0 top-full z-30 mt-1.5 rounded-lg border border-slate-200 bg-white shadow-lg"
+            style={{ transformOrigin: "top" }}
+          >
             <ul className="max-h-60 overflow-y-auto py-1">
               {categories.map((cat) => {
                 const checked = selectedIds.includes(cat.id);

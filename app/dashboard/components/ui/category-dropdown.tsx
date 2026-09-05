@@ -44,7 +44,10 @@ export function CategoryDropdown({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-lg shadow-lg z-10">
+        <div
+          className="animate-popover-scale-in absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-lg shadow-lg z-10"
+          style={{ transformOrigin: "top" }}
+        >
           <div className="max-h-64 overflow-y-auto">
             {categories.map((category) => (
               <button

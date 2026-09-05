@@ -248,13 +248,13 @@ export function RegistrarSunburst({ domains }: RegistrarSunburstProps) {
                   />
                   <span className="min-w-0 flex-1">
                     <span
-                      className={`block truncate text-[10px] font-medium leading-tight ${
+                      className={`block truncate text-[10px] font-medium leading-tight transition-colors duration-150 ${
                         dimmed ? "text-slate-300" : "text-slate-600"
                       }`}
                     >
                       {item.label}
                     </span>
-                    <span className={`block text-[10px] leading-tight ${dimmed ? "text-slate-300" : "text-slate-400"}`}>
+                    <span className={`block text-[10px] leading-tight transition-colors duration-150 ${dimmed ? "text-slate-300" : "text-slate-400"}`}>
                       {item.pct}%
                     </span>
                   </span>
