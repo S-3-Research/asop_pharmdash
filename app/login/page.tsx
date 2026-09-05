@@ -174,11 +174,19 @@ export default function LoginPage() {
         </p>
 
         {step === "credentials" || step === "otp-request" ? (
-          <div className="mt-4 flex rounded-lg border border-white/10 bg-white/5 p-1 text-xs font-medium">
+          <div className="segmented-control mt-4 flex rounded-lg border border-white/10 bg-white/5 p-1 text-xs font-medium">
+            <div
+              className="segmented-control-indicator"
+              style={{
+                left: 4,
+                width: "calc(50% - 4px)",
+                transform: mode === "password" ? "translateX(0%)" : "translateX(100%)",
+              }}
+            />
             <button
               type="button"
-              className={`flex-1 rounded-md py-1.5 transition-colors ${
-                mode === "password" ? "bg-white/10 text-white shadow" : "text-slate-400"
+              className={`relative z-10 flex-1 rounded-md py-1.5 transition-colors ${
+                mode === "password" ? "text-white" : "text-slate-400"
               }`}
               onClick={() => switchMode("password")}
             >
@@ -186,8 +194,8 @@ export default function LoginPage() {
             </button>
             <button
               type="button"
-              className={`flex-1 rounded-md py-1.5 transition-colors ${
-                mode === "otp" ? "bg-white/10 text-white shadow" : "text-slate-400"
+              className={`relative z-10 flex-1 rounded-md py-1.5 transition-colors ${
+                mode === "otp" ? "text-white" : "text-slate-400"
               }`}
               onClick={() => switchMode("otp")}
             >
@@ -196,6 +204,7 @@ export default function LoginPage() {
           </div>
         ) : null}
 
+        <div key={`${step}-${mode}`} className="animate-fade-slide-in">
         {step === "credentials" ? (
           <form className="mt-6 space-y-4" onSubmit={onSubmitCredentials}>
             <div>
@@ -229,12 +238,14 @@ export default function LoginPage() {
             </div>
 
             {state === "error" ? (
-              <p className="text-sm text-red-400">{errorMessage}</p>
+              <div key={errorMessage} className="animate-shake-x">
+                <p className="text-sm text-red-400">{errorMessage}</p>
+              </div>
             ) : null}
 
             <button
               type="submit"
-              className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-slate-500"
+              className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-transform duration-100 hover:bg-white/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-slate-500"
               disabled={state === "loading"}
             >
               {state === "loading" ? "Signing in..." : "Sign in"}
@@ -265,12 +276,14 @@ export default function LoginPage() {
             </div>
 
             {state === "error" ? (
-              <p className="text-sm text-red-400">{errorMessage}</p>
+              <div key={errorMessage} className="animate-shake-x">
+                <p className="text-sm text-red-400">{errorMessage}</p>
+              </div>
             ) : null}
 
             <button
               type="submit"
-              className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-slate-500"
+              className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-transform duration-100 hover:bg-white/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-slate-500"
               disabled={state === "loading"}
             >
               {state === "loading" ? "Sending code..." : "Send code"}
@@ -296,12 +309,14 @@ export default function LoginPage() {
             </div>
 
             {state === "error" ? (
-              <p className="text-sm text-red-400">{errorMessage}</p>
+              <div key={errorMessage} className="animate-shake-x">
+                <p className="text-sm text-red-400">{errorMessage}</p>
+              </div>
             ) : null}
 
             <button
               type="submit"
-              className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-slate-500"
+              className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-transform duration-100 hover:bg-white/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-slate-500"
               disabled={state === "loading" || otpCode.length < 8}
             >
               {state === "loading" ? "Verifying..." : "Verify"}
@@ -340,12 +355,14 @@ export default function LoginPage() {
             </div>
 
             {state === "error" ? (
-              <p className="text-sm text-red-400">{errorMessage}</p>
+              <div key={errorMessage} className="animate-shake-x">
+                <p className="text-sm text-red-400">{errorMessage}</p>
+              </div>
             ) : null}
 
             <button
               type="submit"
-              className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-slate-500"
+              className="w-full rounded-lg border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition-transform duration-100 hover:bg-white/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-slate-500"
               disabled={state === "loading" || code.length !== 6}
             >
               {state === "loading" ? "Verifying..." : "Verify"}
@@ -365,6 +382,7 @@ export default function LoginPage() {
             </button>
           </form>
         )}
+        </div>
       </section>
     </AuthBackground>
   );

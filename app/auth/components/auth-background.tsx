@@ -32,7 +32,13 @@ function AuthBackground({ children }: { children: ReactNode }) {
         }
         .auth-fade-in-up {
           opacity: 0;
-          animation: fadeInUp 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+          animation: fadeInUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .auth-fade-in-up {
+            animation-duration: 0.2s;
+          }
         }
 
         @keyframes beamFadeIn {

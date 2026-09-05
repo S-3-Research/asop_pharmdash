@@ -26,6 +26,102 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* -----------------------------------------------------------------------
+ * Shared motion vocabulary
+ *
+ * A small, deliberately limited set of easing curves + keyframes reused
+ * across the app's animation work, so future additions extend this
+ * vocabulary instead of forking a slightly-different curve/duration per
+ * component. See .agents/skills/animate and .agents/skills/apple-design
+ * for the reasoning behind these specific values.
+ * --------------------------------------------------------------------- */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1); /* strong ease-out for UI entrances */
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1); /* on-screen movement/morphing */
+}
+
+@keyframes fade-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes shake-x {
+  10%,
+  90% {
+    transform: translateX(-1px);
+  }
+  20%,
+  80% {
+    transform: translateX(2px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translateX(-4px);
+  }
+  40%,
+  60% {
+    transform: translateX(4px);
+  }
+}
+
+/* Content that swaps in place (step transitions, tab panels) — fades and
+ * settles up rather than teleporting. Re-triggered by remounting via a
+ * `key` change, not by rapid state toggles, so keyframes (not a
+ * transition) are appropriate here. */
+.animate-fade-slide-in {
+  animation: fade-slide-in 220ms var(--ease-out) both;
+}
+
+/* Brief horizontal shake for validation/error feedback. Re-triggered via
+ * `key` so it replays on each new error. */
+.animate-shake-x {
+  animation: shake-x 220ms var(--ease-in-out);
+}
+
+/* A two-option pill/segmented control with a sliding selection
+ * indicator, e.g. the Password / Email-code toggle on the login page. */
+.segmented-control {
+  position: relative;
+}
+.segmented-control-indicator {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 200ms var(--ease-out);
+  z-index: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-slide-in {
+    animation: fade-in 180ms ease both;
+  }
+  .animate-shake-x {
+    animation: none;
+  }
+  .segmented-control-indicator {
+    transition: none;
+  }
+}
+
 /* Highcharts' `tooltip.outside: true` mode appends its tooltip container
  * straight to <body> (see highcharts.js Tooltip.getLabel), but computes its
  * z-index as roughly `chart.style.zIndex + 3` — which resolves to a very low
