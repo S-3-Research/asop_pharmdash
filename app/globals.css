@@ -177,6 +177,29 @@ body {
   }
 }
 
+/* Page-level loading placeholder (see ui/page-state.tsx): a sweeping
+ * highlight band across a flat gray block, communicating "content is on its
+ * way" more clearly than a plain opacity pulse. Only `transform` is
+ * animated (translateX), so it stays compositor-only/cheap even though it
+ * runs continuously for the lifetime of the loading state. */
+@keyframes skeleton-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+.animate-skeleton-shimmer {
+  animation: skeleton-shimmer 1.6s var(--ease-in-out) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-skeleton-shimmer {
+    animation: none;
+  }
+}
+
 /* Highcharts' `tooltip.outside: true` mode appends its tooltip container
  * straight to <body> (see highcharts.js Tooltip.getLabel), but computes its
  * z-index as roughly `chart.style.zIndex + 3` — which resolves to a very low
@@ -191,3 +214,4 @@ body {
 .highcharts-tooltip-container {
   z-index: 2147483647 !important;
 }
+

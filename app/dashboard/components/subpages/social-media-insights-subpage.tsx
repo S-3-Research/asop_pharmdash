@@ -17,6 +17,7 @@ import { MentionsChartCard }      from "./social-media/mentions-chart-card";
 import { SignalSamplesCard }      from "./social-media/signal-samples-card";
 import { KeywordPerformanceCard } from "./social-media/keyword-performance-card";
 import { ProductSignalChartCard }  from "./social-media/product-signal-chart-card";
+import { PageLoadingState, PageErrorState } from "../ui/page-state";
 
 const fetcher = (url: string) =>
   fetch(url).then((r) => {
@@ -149,11 +150,7 @@ export function SocialMediaInsightsSubpage() {
       </div>
 
       {/* ── Error ── */}
-      {error && (
-        <div className="text-sm text-rose-500 text-center py-12">
-          Failed to load data. Please try again.
-        </div>
-      )}
+      {error && <PageErrorState label="social media data" />}
 
       {/* ── Dashboard Grid — always mounted once data arrives; overlay on revalidate ── */}
       {!error && (
@@ -162,17 +159,21 @@ export function SocialMediaInsightsSubpage() {
               mounted (rather than conditionally rendered) so opacity can
               transition on BOTH the appear and disappear edges; a
               conditionally-mounted element has no prior frame to transition
-              from on mount, so it would otherwise only fade out. */}
-          <div
-            className={`absolute inset-0 z-10 bg-white/40 rounded-2xl pointer-events-none transition-opacity duration-150 ${
-              isValidating ? "opacity-100" : "opacity-0"
-            }`}
-          />
+              from on mount, so it would otherwise only fade out. Only
+              relevant once data has arrived — during the initial load there's
+              nothing underneath to tint, so keep it hidden then. */}
+          {data && (
+            <div
+              className={`absolute inset-0 z-10 bg-white/40 rounded-2xl pointer-events-none transition-opacity duration-150 ${
+                isValidating ? "opacity-100" : "opacity-0"
+              }`}
+            />
+          )}
 
           {!data ? (
-            <div className="text-sm text-slate-400 text-center py-12">Loading social media data…</div>
+            <PageLoadingState label="social media data" />
           ) : (
-            <>
+            <div className="animate-fade-slide-in">
               {/* Row 1: Stats (5) + Signal Samples (7) — height is set once
                   on this flex row container; both cards stretch to fill it
                   via h-full, so changing the row height here is the only
@@ -259,7 +260,7 @@ export function SocialMediaInsightsSubpage() {
                   </SelectableCard>
                 </div>
               </div>
-            </>
+            </div>
           )}
         </div>
       )}

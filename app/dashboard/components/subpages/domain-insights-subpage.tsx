@@ -18,6 +18,7 @@ import { TrafficChart }       from "./domain-insights/traffic-chart";
 import { HeatmapCard }        from "./domain-insights/heatmap-card";
 import { DomainExamplesCard } from "./domain-insights/domain-examples-card";
 import { SelectableCard }     from "../ui/selectable-card";
+import { PageLoadingState, PageErrorState } from "../ui/page-state";
 
 const fetcher = (url: string) =>
   fetch(url).then((r) => {
@@ -128,38 +129,32 @@ export function DomainInsightsSubpage() {
 
       {/* Category filter is a chart-level control (scopes every card below),
           kept visually close to the grid it affects rather than up near the
-          page title — same placement/style as the Top Products page. */}
-      {categoryOptions.length > 0 && (
-        <div className="mb-4 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
-          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
-            Chart Filter
-          </span>
-          <div className="w-full sm:w-auto sm:min-w-xs">
-            <MultiCategoryDropdown
-              categories={categoryOptions}
-              selectedIds={selectedCategories}
-              onToggle={handleToggle}
-              onClear={() => setSelectedCategories([])}
-            />
-          </div>
+          page title — same placement/style as the Top Products page. Always
+          mounted (not gated on data having loaded yet) so it stays
+          persistent alongside the summary strip above. */}
+      <div className="mb-4 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+        <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+          Chart Filter
+        </span>
+        <div className="w-full sm:w-auto sm:min-w-xs">
+          <MultiCategoryDropdown
+            categories={categoryOptions}
+            selectedIds={selectedCategories}
+            onToggle={handleToggle}
+            onClear={() => setSelectedCategories([])}
+          />
         </div>
-      )}
+      </div>
 
       {/* ── Loading state ── */}
-      {isLoading && (
-        <div className="text-sm text-slate-400 text-center py-12">Loading domain data…</div>
-      )}
+      {isLoading && <PageLoadingState label="domain data" />}
 
       {/* ── Error state ── */}
-      {error && (
-        <div className="text-sm text-rose-500 text-center py-12">
-          Failed to load domain data. Please try again.
-        </div>
-      )}
+      {error && <PageErrorState label="domain data" />}
 
       {/* ── Dashboard grid — left: 3+3+1 chart grid, right: Domain Examples ── */}
       {!isLoading && !error && (
-        <div className="grid grid-cols-12 gap-4 items-stretch">
+        <div className="grid grid-cols-12 gap-4 items-stretch animate-fade-slide-in">
           {/* Left column — 7/12 width, charts in 3 rows (3, 3, 1) */}
           <div className="col-span-12 xl:col-span-7 grid grid-cols-1 md:grid-cols-3 gap-4 auto-rows-[250px]">
             {/* Row 1 */}

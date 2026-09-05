@@ -15,6 +15,7 @@ import { ProductDistribution } from "./top-products/distribution";
 import { MethodologyCard } from "./top-products/methodology-card";
 import { OverallSummaryStrip } from "./top-products/overall-summary-strip";
 import { formatRptPeriodLabel, parseRptPeriodKey } from "./top-products/config";
+import { PageLoadingState, PageErrorState } from "../ui/page-state";
 
 // ── API response shape ────────────────────────────────────────────────────────
 interface TopProductsPayload {
@@ -144,22 +145,6 @@ export function TopProductsSubpage() {
     });
   }, [updatePageContext, selectedPrimaryName, filteredListings, data?.reportingPeriodId, currentPeriodLabel, realCategories]);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64 text-slate-400 text-sm">
-        Loading…
-      </div>
-    );
-  }
-
-  if (error || !data) {
-    return (
-      <div className="flex items-center justify-center h-64 text-red-400 text-sm">
-        Failed to load data. Please try again.
-      </div>
-    );
-  }
-
   return (
     <section>
       <div className="mb-4">
@@ -172,28 +157,34 @@ export function TopProductsSubpage() {
       {/* Persistent, all-category snapshot — deliberately independent of the
           category filter below, so it always reflects the full dataset. */}
       <div className="mb-4">
-        <OverallSummaryStrip allListings={data.listings} domainSummary={data.domainSummary} />
+        <OverallSummaryStrip allListings={data?.listings ?? []} domainSummary={data?.domainSummary ?? { total: 0, aliveCount: 0, socialCount: 0 }} />
       </div>
 
       {/* Category filter is a chart-level control (scopes the ranked list /
           trend chart / distribution chart below), kept visually close to
-          the grid it affects rather than up near the page title. */}
-      {data.categories.length > 0 && (
-        <div className="mb-4 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
-          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
-            Chart Filter
-          </span>
-          <div className="w-full sm:w-auto sm:min-w-xs">
-            <CategoryDropdown
-              categories={data.categories}
-              selectedId={selectedCategoryId}
-              onSelect={setSelectedCategoryId}
-            />
-          </div>
+          the grid it affects rather than up near the page title. Always
+          mounted (not gated on data having loaded yet) so it stays
+          persistent alongside the summary strip above, matching Domain
+          Insights / Social Media Insights. */}
+      <div className="mb-4 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+        <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+          Chart Filter
+        </span>
+        <div className="w-full sm:w-auto sm:min-w-xs">
+          <CategoryDropdown
+            categories={data?.categories ?? []}
+            selectedId={selectedCategoryId}
+            onSelect={setSelectedCategoryId}
+          />
         </div>
-      )}
+      </div>
 
-      <div className="grid grid-cols-12 gap-6 items-stretch">
+      {isLoading && <PageLoadingState label="listings data" />}
+      {(error || (!isLoading && !data)) && <PageErrorState label="listings data" />}
+
+      {!isLoading && !error && data && (
+        <div className="animate-fade-slide-in">
+          <div className="grid grid-cols-12 gap-6 items-stretch">
         {/* Left column */}
         <div className="col-span-12 flex flex-col gap-6 lg:col-span-6">
           <MetricsRow
@@ -265,6 +256,8 @@ export function TopProductsSubpage() {
           </div>
         </div>
       </div>
+        </div>
+      )}
     </section>
   );
 }
