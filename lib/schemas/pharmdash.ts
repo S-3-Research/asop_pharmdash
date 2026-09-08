@@ -210,6 +210,7 @@ export const PaymentInfoItemSchema = z.object({
 export const ProductCategory = z.enum([
   "cancer med",
   "glp",
+  "experimental therapeutic peptides",
 ]);
 
 export const ProductInfoItemSchema = z.object({
@@ -235,9 +236,14 @@ export const ProductInfoItemSchema = z.object({
   screenshot_path: z.string().nullish(),
 });
 
+// New in the 2026-09-08 schema — only used by ProductType (social_media[]
+// rows' product_list[]), NOT by ProductInfoItem (domains[].product_info).
+export const ApprovalStatus = z.enum(["approved", "unapproved", "unknown"]);
+
 export const ProductTypeSchema = z.object({
   product_category: ProductCategory.nullish(),
   product_name: z.string().nullish(),
+  approval_status: ApprovalStatus.default("unknown"),
 });
 
 export const HistoryClickUsItemSchema = z.object({

@@ -85,6 +85,7 @@ type ProductCategoryValue = (typeof ProductCategory.options)[number];
 const CATEGORY_DISPLAY_LABELS = {
   "cancer med": "Cancer Med",
   glp: "GLP",
+  "experimental therapeutic peptides": "Peptides",
 } satisfies Record<ProductCategoryValue, string>;
 
 /** Normalizes a raw `product_category` value into its display label.
@@ -126,6 +127,7 @@ const FIXED_CATEGORY_COLORS: Record<string, string> = {
   "Cancer Med": "#10b981",
   "CNS Med": "#a855f7",
   "Pain Med": "#f59e0b",
+  "Peptides": "#ec4899",
 };
 
 export function getCategoryColor(label: string): string {
