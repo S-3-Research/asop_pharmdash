@@ -17,10 +17,20 @@ const HighchartsReact = dynamic(() => import("highcharts-react-official"), {
 
 interface DomainStatusCardProps {
   domains: Domain[];
+  /** Primary categories currently selected via the page's chart filter
+   *  (e.g. ["Cancer Med"]). When non-empty, both the chart and the
+   *  Copilot-facing breakdown only aggregate each domain's products whose
+   *  own primary category is in this set — not every product the domain
+   *  sells — so a domain that matched the page filter via one category
+   *  doesn't also surface its other categories' drug names here. */
+  selectedCategories?: string[];
 }
 
-export function DomainStatusCard({ domains }: DomainStatusCardProps) {
-  const options = useMemo(() => buildDomainStatusOptions(domains), [domains]);
+export function DomainStatusCard({ domains, selectedCategories = [] }: DomainStatusCardProps) {
+  const options = useMemo(
+    () => buildDomainStatusOptions(domains, selectedCategories),
+    [domains, selectedCategories],
+  );
 
   // See total-domain-card.tsx for why this ResizeObserver+reflow is needed —
   // highcharts-react-official only sizes the chart once at mount, which can
@@ -53,9 +63,14 @@ export function DomainStatusCard({ domains }: DomainStatusCardProps) {
   // points Copilot sees match what the stacked columns actually show,
   // instead of only a flat live/inactive total with no category dimension.
   const categoryBreakdown = useMemo(() => {
+    const relevantCategories = (d: Domain) =>
+      selectedCategories.length === 0
+        ? d.categories
+        : d.categories.filter((c) => selectedCategories.includes(c.primary));
+
     const secondarySet = new Set<string>();
     for (const d of domains) {
-      for (const c of d.categories) {
+      for (const c of relevantCategories(d)) {
         // Kept in sync with buildDomainStatusOptions (config.ts): "Unknown"
         // (no resolvable product name) isn't a real drug category and is
         // excluded from the chart, so it's excluded here too.
@@ -64,14 +79,14 @@ export function DomainStatusCard({ domains }: DomainStatusCardProps) {
       }
     }
     return Array.from(secondarySet).map((cat) => {
-      const inCategory = domains.filter((d) => d.categories.some((c) => c.secondary === cat));
+      const inCategory = domains.filter((d) => relevantCategories(d).some((c) => c.secondary === cat));
       return {
         category: cat,
         online: inCategory.filter((d) => d.isLive).length,
         offline: inCategory.filter((d) => !d.isLive).length,
       };
     });
-  }, [domains]);
+  }, [domains, selectedCategories]);
 
   useWidgetData(
     "domain-status",
@@ -89,6 +104,7 @@ export function DomainStatusCard({ domains }: DomainStatusCardProps) {
       "A domain selling multiple drugs contributes to multiple columns. " +
       "The '<category> — Online/Offline' data points above give the EXACT per-category breakdown the chart is plotting — use these (not just the overall Live/Inactive totals) whenever asked about a specific drug/category. " +
       "Data source: each domain record's categories[].secondary field and isLive flag from the published data release, after the page's category filter. Domains with no resolvable product name (\"Unknown\") are excluded, since that isn't a real drug category. " +
+      "When one or more primary categories (e.g. Cancer Med, GLP) are selected via the page's chart filter, only that domain's products belonging to the SELECTED primary categories are aggregated here — not every product the domain sells — so a domain matched into the filter via one category won't also surface drug names from its other categories. " +
       "'Online' means the domain resolved and was serving content at scan time; 'Offline' means it did not (e.g. taken down/seized).",
   );
 

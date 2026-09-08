@@ -157,10 +157,22 @@ export function buildTotalDomainChart(
 // just the domain's single representative value, so a domain selling both
 // Ozempic and Tramadol contributes to both bars — consistent with the
 // intersection-counting principle used elsewhere on this subpage.
-export function buildDomainStatusOptions(domains: Domain[]): Highcharts.Options {
+export function buildDomainStatusOptions(domains: Domain[], selectedCategories: string[] = []): Highcharts.Options {
+  // When one or more primary categories are selected via the page's chart
+  // filter, only aggregate products belonging to those primary categories —
+  // otherwise a domain matched into the filter (because ANY of its
+  // primaryCategories intersects the selection) would still contribute ALL
+  // of its products' secondary names here, including ones from categories
+  // the user didn't select (e.g. selecting "Cancer Med" would still show
+  // that domain's GLP drug names too).
+  const relevantCategories = (d: Domain) =>
+    selectedCategories.length === 0
+      ? d.categories
+      : d.categories.filter((c) => selectedCategories.includes(c.primary));
+
   const secondarySet = new Set<string>();
   for (const d of domains) {
-    for (const c of d.categories) {
+    for (const c of relevantCategories(d)) {
       // "Unknown" (no resolvable product name — see lib/release-mapping.ts
       // `meaningfulProductName`) is excluded outright, not toggleable: it
       // isn't a real drug category and would otherwise show up as a
@@ -170,8 +182,8 @@ export function buildDomainStatusOptions(domains: Domain[]): Highcharts.Options 
     }
   }
   const cats = Array.from(secondarySet).slice(0, 11);
-  const online  = cats.map((c) => domains.filter((d) => d.isLive && d.categories.some((p) => p.secondary === c)).length);
-  const offline = cats.map((c) => domains.filter((d) => !d.isLive && d.categories.some((p) => p.secondary === c)).length);
+  const online  = cats.map((c) => domains.filter((d) => d.isLive && relevantCategories(d).some((p) => p.secondary === c)).length);
+  const offline = cats.map((c) => domains.filter((d) => !d.isLive && relevantCategories(d).some((p) => p.secondary === c)).length);
   return {
     chart: { type: "column", backgroundColor: "transparent", style: CHART_STYLE, spacingTop: 0,},
     title: { text: undefined },

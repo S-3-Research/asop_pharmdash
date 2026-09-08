@@ -178,7 +178,7 @@ export function DomainInsightsSubpage() {
                 description: "Shows how many detected rogue domains are still live versus already taken down, broken down by drug type. A quick read on how much of what's been found is still active.",
               }}
             >
-              <DomainStatusCard domains={filteredDomains} />
+              <DomainStatusCard domains={filteredDomains} selectedCategories={selectedCategories} />
             </SelectableCard>
 
             <SelectableCard
