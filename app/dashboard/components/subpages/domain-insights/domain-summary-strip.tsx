@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Layers, ShieldAlert, Sparkles } from "lucide-react";
+import { Layers, ShieldAlert, AlertTriangle } from "lucide-react";
 
 import { SummaryStrip, type SummaryStripTile } from "../../ui/summary-strip";
 import type { Domain } from "../../types";
@@ -28,6 +28,10 @@ export function DomainSummaryStrip({ allDomains }: DomainSummaryStripProps) {
     const nabpNotRecommendedPct =
       allDomains.length > 0 ? Math.round((nabpNotRecommendedCount / allDomains.length) * 100) : 0;
 
+    // Sum of each domain's own unapprovedListingCount (products flagged
+    // approval_status === "unapproved" per the 2026-09-08 schema).
+    const unapprovedListingCount = allDomains.reduce((sum, d) => sum + d.unapprovedListingCount, 0);
+
     return [
       {
         id: "dual-selling",
@@ -44,11 +48,11 @@ export function DomainSummaryStrip({ allDomains }: DomainSummaryStripProps) {
         label: `${nabpNotRecommendedCount} domains flagged "not recommend" by NABP`,
       },
       {
-        id: "placeholder",
-        icon: Sparkles,
-        accent: "bg-slate-50 text-slate-400",
-        headline: "Coming soon",
-        label: "Reserved for a future metric",
+        id: "unapproved-listings",
+        icon: AlertTriangle,
+        accent: "bg-amber-50 text-amber-600",
+        headline: `${unapprovedListingCount} unapproved listings`,
+        label: "Products flagged as unapproved across all domains",
       },
     ];
   }, [allDomains]);

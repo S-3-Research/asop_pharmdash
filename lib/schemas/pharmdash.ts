@@ -213,6 +213,10 @@ export const ProductCategory = z.enum([
   "experimental therapeutic peptides",
 ]);
 
+// New in the 2026-09-08 schema — used by both ProductInfoItem
+// (domains[].product_info) and ProductType (social_media[].product_list).
+export const ApprovalStatus = z.enum(["approved", "unapproved", "unknown"]);
+
 export const ProductInfoItemSchema = z.object({
   product_title: z.string(),
   product_url: httpUrl,
@@ -221,6 +225,7 @@ export const ProductInfoItemSchema = z.object({
   // a free-form string array in earlier releases).
   product_category: ProductCategory.nullish(),
   product_name: z.string().nullish(),
+  approval_status: ApprovalStatus.default("unknown"),
 
   in_stock: z.boolean().nullish().default(true),
   product_sku: z.string().nullish(),
@@ -235,10 +240,6 @@ export const ProductInfoItemSchema = z.object({
   // New in the 2026-08-25 schema.
   screenshot_path: z.string().nullish(),
 });
-
-// New in the 2026-09-08 schema — only used by ProductType (social_media[]
-// rows' product_list[]), NOT by ProductInfoItem (domains[].product_info).
-export const ApprovalStatus = z.enum(["approved", "unapproved", "unknown"]);
 
 export const ProductTypeSchema = z.object({
   product_category: ProductCategory.nullish(),

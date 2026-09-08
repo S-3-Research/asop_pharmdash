@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Percent, TrendingUp, Sparkles } from "lucide-react";
+import { Percent, TrendingUp, AlertTriangle } from "lucide-react";
 
 import { SummaryStrip, type SummaryStripTile } from "../../ui/summary-strip";
 import type { SocialMetrics, SocialProductSignalCount } from "../../types";
@@ -42,11 +42,11 @@ export function SocialSummaryStrip({ metrics, productSignalCounts }: SocialSumma
         label: "Top 5 drugs account for this share of selling posts/comments",
       },
       {
-        id: "placeholder",
-        icon: Sparkles,
-        accent: "bg-slate-50 text-slate-400",
-        headline: "Coming soon",
-        label: "Reserved for a future metric",
+        id: "unapproved-listings",
+        icon: AlertTriangle,
+        accent: "bg-amber-50 text-amber-600",
+        headline: `${metrics?.unapprovedCount ?? 0} unapproved listings`,
+        label: "Products flagged as unapproved across selling posts/comments",
       },
     ];
   }, [metrics, productSignalCounts]);

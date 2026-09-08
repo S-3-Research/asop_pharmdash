@@ -388,6 +388,11 @@ export function mapReleaseDomain(
     },
     seoClickHistory: mapSeoClickHistory(d.seo_info?.history_click_us),
     categories: categories.length > 0 ? categories : [representative],
+    // Count of this domain's own products flagged "unapproved" (2026-09-08
+    // schema's approval_status on ProductInfoItem) — 0 for releases that
+    // predate the field (Zod defaults it to "unknown" per item) or that
+    // simply have no unapproved products.
+    unapprovedListingCount: d.product_info.filter((p) => p.approval_status === "unapproved").length,
     primaryCategories,
     domainType: "rogue-pharmacy",
     paymentInfo: mapPaymentInfo(d.payment_info),
@@ -736,6 +741,10 @@ export interface SocialPostLite {
   mentions: string[];
   categories: { primaryCategory: string; secondaryCategory: string }[];
   keywordCount: number;
+  /** Count of this post's product_list[] items reported with
+   *  approval_status === "unapproved" (2026-09-08 schema) — 0 for releases
+   *  predating the field or with no unapproved products on this row. */
+  unapprovedCount: number;
   /** Comments + likes reported on this post/comment row (0 when not
    *  reported by the release) — summed into `numInteractions` metrics. */
   numComments: number;
@@ -764,6 +773,7 @@ export function buildSocialIndex(
       mentions: extractMentions(post.contact_info),
       categories: resolveSocialCategories(post),
       keywordCount: productList.length,
+      unapprovedCount: productList.filter((p) => p.approval_status === "unapproved").length,
       numComments: post.num_comments ?? 0,
       numLikes: post.num_likes ?? 0,
     };
@@ -927,7 +937,7 @@ function filterSocialIndex(
 
 export interface SocialAggregates {
   platformTabs: SocialPlatformTab[];
-  metrics: { totalPosts: number; uniqueAccounts: number; activeCount: number; numInteractions: number };
+  metrics: { totalPosts: number; uniqueAccounts: number; activeCount: number; numInteractions: number; unapprovedCount: number };
   mentionsByApp: SocialMentionByApp[];
   productSignalCounts: { name: string; count: number }[];
 }
@@ -985,6 +995,7 @@ export function buildSocialAggregates(
   const uniqueAccounts = new Set(filtered.map((p) => p.username)).size;
   const activeCount = filtered.filter((p) => p.status === "active").length;
   const numInteractions = filtered.reduce((sum, p) => sum + p.numComments + p.numLikes, 0);
+  const unapprovedCount = filtered.reduce((sum, p) => sum + p.unapprovedCount, 0);
 
   const mentionMap = new Map<string, number>();
   for (const post of filtered) {
@@ -1000,7 +1011,7 @@ export function buildSocialAggregates(
 
   return {
     platformTabs,
-    metrics: { totalPosts: filtered.length, uniqueAccounts, activeCount, numInteractions },
+    metrics: { totalPosts: filtered.length, uniqueAccounts, activeCount, numInteractions, unapprovedCount },
     mentionsByApp,
     productSignalCounts,
   };
@@ -1061,7 +1072,7 @@ const PLATFORM_ALL_KEY = "all";
 
 export interface SocialAggregateEntry {
   platformTabs: SocialPlatformTab[];
-  metrics: { totalPosts: number; uniqueAccounts: number; activeCount: number; numInteractions: number };
+  metrics: { totalPosts: number; uniqueAccounts: number; activeCount: number; numInteractions: number; unapprovedCount: number };
   mentionsByApp: SocialMentionByApp[];
   productSignalCounts: { name: string; count: number }[];
 }
@@ -1120,6 +1131,7 @@ function aggregateSubset(
   const uniqueAccounts = new Set(filtered.map((p) => p.username)).size;
   const activeCount = filtered.filter((p) => p.status === "active").length;
   const numInteractions = filtered.reduce((sum, p) => sum + p.numComments + p.numLikes, 0);
+  const unapprovedCount = filtered.reduce((sum, p) => sum + p.unapprovedCount, 0);
 
   const mentionMap = new Map<string, number>();
   for (const post of filtered) {
@@ -1138,7 +1150,7 @@ function aggregateSubset(
 
   return {
     platformTabs,
-    metrics: { totalPosts: filtered.length, uniqueAccounts, activeCount, numInteractions },
+    metrics: { totalPosts: filtered.length, uniqueAccounts, activeCount, numInteractions, unapprovedCount },
     mentionsByApp,
     productSignalCounts,
   };

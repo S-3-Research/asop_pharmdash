@@ -176,6 +176,12 @@ export interface Domain {
    *  expanded product chips) rather than for "what category is this domain"
    *  filter matching. */
   categories: DomainCategoryPair[];
+  /** Count of this domain's own product_info items reported with
+   *  approval_status === "unapproved" (2026-09-08 schema). Domains from
+   *  releases predating this field, or with no unapproved products, report
+   *  0 — this is a count, not a flag, so it can be summed directly across
+   *  domains for a page-level "unapproved listings" total. */
+  unapprovedListingCount: number;
   /** Deduplicated, normalized list of this domain's own product_label tags —
    *  the single source of truth for "what category is this domain" (filter
    *  matching/options, map point coloring, Domain Samples pill labels,
@@ -258,6 +264,10 @@ export interface SocialMetrics {
    *  filter selection's flagged selling posts/comments — total user
    *  interaction volume on detected illicit content. */
   numInteractions: number;
+  /** Sum of matching posts/comments' product_list[] items flagged
+   *  approval_status === "unapproved" (2026-09-08 schema). 0 for releases
+   *  predating the field. */
+  unapprovedCount: number;
 }
 
 export interface SocialProductSignalCount {

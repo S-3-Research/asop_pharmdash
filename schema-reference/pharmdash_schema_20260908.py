@@ -202,6 +202,7 @@ class ProductInfoItem(BaseModel):
     
     product_category: Optional[ProductCategory] = None
     product_name: Optional[str] = None
+    approval_status: ApprovalStatus = ApprovalStatus.UNKNOWN
 
     in_stock: Optional[bool] = True
     product_sku: Optional[str] = None

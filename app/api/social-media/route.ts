@@ -75,7 +75,9 @@ export async function GET(request: NextRequest) {
     const uniqueKeywords = new Set(allKeywords).size;
     const activeCount    = filtered.filter((p) => p.status === "active").length;
     const numInteractions = filtered.reduce((sum, p) => sum + (p.numComments ?? 0) + (p.numLikes ?? 0), 0);
-    metrics = { totalPosts: filtered.length, uniqueAccounts, activeKeywords: uniqueKeywords, activeCount, totalRawCount: 0, numInteractions };
+    // Mock posts predate the 2026-09-08 approval_status field, so there's
+    // no unapproved-listing signal to sum — leave at 0.
+    metrics = { totalPosts: filtered.length, uniqueAccounts, activeKeywords: uniqueKeywords, activeCount, totalRawCount: 0, numInteractions, unapprovedCount: 0 };
 
     const kwCountMap = new Map<string, number>();
     for (const kw of allKeywords) {
@@ -143,7 +145,7 @@ export async function GET(request: NextRequest) {
     const table = await fetchSocialAggregateTable(releaseId);
     const platformKey = platformParam && platformParam !== PLATFORM_ALL_KEY ? platformParam : PLATFORM_ALL_KEY;
 
-    let aggregates: { platformTabs: SocialMediaPayload["platformTabs"]; metrics: { totalPosts: number; uniqueAccounts: number; activeCount: number; numInteractions: number }; mentionsByApp: SocialMediaPayload["mentionsByApp"]; productSignalCounts: SocialProductSignalCount[] };
+    let aggregates: { platformTabs: SocialMediaPayload["platformTabs"]; metrics: { totalPosts: number; uniqueAccounts: number; activeCount: number; numInteractions: number; unapprovedCount: number }; mentionsByApp: SocialMediaPayload["mentionsByApp"]; productSignalCounts: SocialProductSignalCount[] };
 
     if (selectedCategories.length <= 1) {
       const categoryKey = selectedCategories.length === 0 ? CATEGORY_ALL_KEY : selectedCategories[0];
@@ -206,6 +208,10 @@ export async function GET(request: NextRequest) {
       // `numInteractions` (added with the 2026-08-25 schema's num_comments/
       // num_likes fields).
       numInteractions: aggregates.metrics.numInteractions ?? 0,
+      // Same backward-compat concern: older cached aggregate tables predate
+      // `unapprovedCount` (added with the 2026-09-08 schema's approval_status
+      // field).
+      unapprovedCount: aggregates.metrics.unapprovedCount ?? 0,
     };
     keywordRankings = keywordAgg.keywordRankings;
     keywordBubbles = keywordAgg.keywordBubbles;

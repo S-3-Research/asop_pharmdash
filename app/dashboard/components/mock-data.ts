@@ -644,6 +644,10 @@ function generateDomains(): Domain[] {
         },
         seoClickHistory: buildMockClickHistory(),
         categories: [{ primary: primaryCategory, secondary: secondaryCategory }],
+        // Mock data predates the 2026-09-08 approval_status field — simulate
+        // a modest ~15% unapproved rate so the summary strip's "Unapproved
+        // Listings" tile has non-zero example data.
+        unapprovedListingCount: domainSeeded() > 0.85 ? 1 : 0,
         primaryCategories: [primaryCategory],
         domainType: pick(DOMAIN_TYPES),
         paymentInfo: [pick(PAYMENT_COMBOS)],
