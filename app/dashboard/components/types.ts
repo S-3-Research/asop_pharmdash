@@ -176,6 +176,9 @@ export interface Domain {
    *  expanded product chips) rather than for "what category is this domain"
    *  filter matching. */
   categories: DomainCategoryPair[];
+  /** Total count of this domain's own product_info items — the denominator
+   *  for "% unapproved products" alongside unapprovedListingCount. */
+  totalListingCount: number;
   /** Count of this domain's own product_info items reported with
    *  approval_status === "unapproved" (2026-09-08 schema). Domains from
    *  releases predating this field, or with no unapproved products, report
@@ -264,9 +267,11 @@ export interface SocialMetrics {
    *  filter selection's flagged selling posts/comments — total user
    *  interaction volume on detected illicit content. */
   numInteractions: number;
-  /** Sum of matching posts/comments' product_list[] items flagged
-   *  approval_status === "unapproved" (2026-09-08 schema). 0 for releases
-   *  predating the field. */
+  /** Count of matching selling posts/comments with at least one
+   *  product_list[] item flagged approval_status === "unapproved"
+   *  (2026-09-08 schema). 0 for releases predating the field. Denominator
+   *  for "% unapproved" is `totalPosts` above — both are counted in the
+   *  same unit (selling posts/comments), not individual products. */
   unapprovedCount: number;
 }
 

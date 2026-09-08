@@ -388,6 +388,7 @@ export function mapReleaseDomain(
     },
     seoClickHistory: mapSeoClickHistory(d.seo_info?.history_click_us),
     categories: categories.length > 0 ? categories : [representative],
+    totalListingCount: d.product_info.length,
     // Count of this domain's own products flagged "unapproved" (2026-09-08
     // schema's approval_status on ProductInfoItem) — 0 for releases that
     // predate the field (Zod defaults it to "unknown" per item) or that
@@ -741,10 +742,13 @@ export interface SocialPostLite {
   mentions: string[];
   categories: { primaryCategory: string; secondaryCategory: string }[];
   keywordCount: number;
-  /** Count of this post's product_list[] items reported with
-   *  approval_status === "unapproved" (2026-09-08 schema) — 0 for releases
-   *  predating the field or with no unapproved products on this row. */
-  unapprovedCount: number;
+  /** True when this post/comment's product_list[] contains at least one
+   *  item with approval_status === "unapproved" (2026-09-08 schema) —
+   *  false for releases predating the field or with no unapproved products
+   *  on this row. Post-level (not a count of unapproved products), since
+   *  the denominator for the "% unapproved" metric is total selling
+   *  posts/comments, not total product entries. */
+  hasUnapprovedProduct: boolean;
   /** Comments + likes reported on this post/comment row (0 when not
    *  reported by the release) — summed into `numInteractions` metrics. */
   numComments: number;
@@ -773,7 +777,7 @@ export function buildSocialIndex(
       mentions: extractMentions(post.contact_info),
       categories: resolveSocialCategories(post),
       keywordCount: productList.length,
-      unapprovedCount: productList.filter((p) => p.approval_status === "unapproved").length,
+      hasUnapprovedProduct: productList.some((p) => p.approval_status === "unapproved"),
       numComments: post.num_comments ?? 0,
       numLikes: post.num_likes ?? 0,
     };
@@ -995,7 +999,7 @@ export function buildSocialAggregates(
   const uniqueAccounts = new Set(filtered.map((p) => p.username)).size;
   const activeCount = filtered.filter((p) => p.status === "active").length;
   const numInteractions = filtered.reduce((sum, p) => sum + p.numComments + p.numLikes, 0);
-  const unapprovedCount = filtered.reduce((sum, p) => sum + p.unapprovedCount, 0);
+  const unapprovedCount = filtered.filter((p) => p.hasUnapprovedProduct).length;
 
   const mentionMap = new Map<string, number>();
   for (const post of filtered) {
@@ -1131,7 +1135,7 @@ function aggregateSubset(
   const uniqueAccounts = new Set(filtered.map((p) => p.username)).size;
   const activeCount = filtered.filter((p) => p.status === "active").length;
   const numInteractions = filtered.reduce((sum, p) => sum + p.numComments + p.numLikes, 0);
-  const unapprovedCount = filtered.reduce((sum, p) => sum + p.unapprovedCount, 0);
+  const unapprovedCount = filtered.filter((p) => p.hasUnapprovedProduct).length;
 
   const mentionMap = new Map<string, number>();
   for (const post of filtered) {
