@@ -210,7 +210,7 @@ const SOCIAL_PLATFORM_COLORS: Record<string, string> = {
   threads: "#000000", linkedin: "#0369a1", tiktok: "#06b6d4", youtube: "#ef4444",
   tumblr: "#6366f1", pinterest: "#db2777", quora: "#b45309", whatsapp: "#22c55e",
   telegram: "#38bdf8", snapchat: "#eab308", "about.me": "#14b8a6", kik: "#84cc16",
-  myspace: "#7e22ce", venmo: "#2563eb",
+  myspace: "#7e22ce", venmo: "#2563eb", googlegroup: "#4285F4",
 };
 
 const FALLBACK_PLATFORM_PALETTE = [

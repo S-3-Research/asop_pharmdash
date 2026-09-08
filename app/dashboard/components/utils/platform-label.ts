@@ -25,6 +25,7 @@ const SOCIAL_PLATFORM_LABELS: Record<string, string> = {
   venmo: "Venmo",
   signal: "Signal",
   discord: "Discord",
+  googlegroup: "Google Groups",
 };
 
 /** Case-insensitive lookup with a title-cased fallback for any platform not

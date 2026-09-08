@@ -26,6 +26,7 @@ export const PLATFORM_COLORS: Record<string, string> = {
   venmo:     "#3d95ce",
   signal:    "#3a76f0",
   discord:   "#5865f2",
+  googlegroup: "#4285F4",
   default:   "#64748b",
 };
 

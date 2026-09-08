@@ -84,6 +84,7 @@ export const SocialMediaPlatform = z.enum([
   "venmo",
   "signal",
   "discord",
+  "googlegroup",
 ]);
 
 export const PaymentType = z.enum([
