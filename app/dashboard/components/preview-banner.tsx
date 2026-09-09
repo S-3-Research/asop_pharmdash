@@ -9,10 +9,10 @@ const bannerConfig: Partial<Record<ChannelName, { bg: string; label: string }>> 
     bg: "bg-emerald-500",
     label: "Data Preview Mode — Work in Progress",
   },
-  production: {
-    bg: "bg-amber-500",
-    label: "Rx Watchdog Has Not Launched — Data Shown Is Mock Data",
-  },
+  // production: intentionally has no entry — banner disabled for this
+  // channel now that the "not launched / mock data" caveat no longer
+  // applies. Leave the key out (rather than `undefined`) so PreviewBanner's
+  // `if (!config) return null` short-circuits cleanly.
 };
 
 export function PreviewBanner({ channel }: { channel: ChannelName }) {
