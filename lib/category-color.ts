@@ -42,6 +42,17 @@ const FIXED_CATEGORY_COLORS: Record<string, string> = {
   "IND": "#a855f7",
 };
 
+/** Neutral, non-hued color for the "Uncategorized" placeholder (domains with
+ *  no product_label at all) — explicitly pinned rather than left to fall
+ *  through to hashColor(), whose palette-index-by-string-hash happened to
+ *  collide with IND's fixed purple (#a855f7), making genuinely-uncategorized
+ *  domains render (and appear in the map legend) as if they were IND. Same
+ *  slate tone as heatmap-map-client's MULTI_CATEGORY_COLOR so both
+ *  "not a single real category" cases read as visually de-emphasized/gray
+ *  rather than any real category hue. */
+const UNCATEGORIZED_COLOR = "#94a3b8";
+
 export function getCategoryColor(label: string): string {
+  if (label === "Uncategorized") return UNCATEGORIZED_COLOR;
   return FIXED_CATEGORY_COLORS[label] ?? hashColor(label);
 }

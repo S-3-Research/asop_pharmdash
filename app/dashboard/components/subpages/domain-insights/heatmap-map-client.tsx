@@ -85,10 +85,15 @@ export function HeatmapMapClient({
       const coordCounts = new Map<string, number>();
       return {
         type: "FeatureCollection" as const,
-        // Skip domains with no resolvable geo coordinates — avoids plotting a
-        // cluster of unrelated domains at (0,0) in the Gulf of Guinea.
         features: domains
+          // Skip domains with no resolvable geo coordinates — avoids plotting
+          // a cluster of unrelated domains at (0,0) in the Gulf of Guinea.
           .filter((d) => d.geoLocation.lat !== 0 || d.geoLocation.lng !== 0)
+          // Skip domains with no domain-level primary category at all
+          // (empty product_label — the "Uncategorized" case). These carry no
+          // real category signal, so plotting them just adds noise/uncolored
+          // dots to a map whose whole point is category-colored geography.
+          .filter((d) => d.primaryCategories.length > 0)
           .map((d) => {
             const payment = d.paymentInfo[0];
             const paymentLabel = !payment
