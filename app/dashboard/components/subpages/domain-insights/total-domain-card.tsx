@@ -78,7 +78,7 @@ export function TotalDomainCard({ domains, periodLabels = {} }: TotalDomainCardP
         value: pctChange !== null ? `${pctChange}%` : "n/a",
       },
     ],
-    "Bar chart of total rogue pharmacy domains detected, one bar per reporting period (x-axis), with a second 'Live' bar series showing how many of those were still active. " +
+    "Bar chart of total seller domains detected, one bar per reporting period (x-axis), with a second 'Live' bar series showing how many of those were still active. " +
       "Data source: the published data release's domain records, counted by reportingPeriodId after applying the page's category filter. " +
       "The % change compares the current period's bar against the immediately prior period's bar; 'n/a' means no prior-period data exists in this release.",
   );

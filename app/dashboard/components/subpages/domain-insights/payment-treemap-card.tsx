@@ -78,7 +78,7 @@ export function PaymentTreemapCard({ domains }: PaymentTreemapCardProps) {
     Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
       .map(([label, value]) => ({ label, value })),
-    "Treemap of payment methods accepted by the rogue pharmacy domains, grouped by payment type (e.g. Credit Card, Crypto, Bank Transfer) and provider. " +
+    "Treemap of payment methods accepted by the seller domains, grouped by payment type (e.g. Credit Card, Crypto, Bank Transfer) and provider. " +
       "Data source: each domain record's paymentInfo array (purported/listed payment options scraped from the site) from the published data release; " +
       "the value shown for each label is its 'purported payment count' — how many times that payment type appears across all domains' paymentInfo listings. " +
       "Counts reflect the page's current category filter.",

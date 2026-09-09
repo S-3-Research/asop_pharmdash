@@ -115,7 +115,7 @@ export function DomainInsightsSubpage() {
       <div className="mb-4">
         <h2 className="text-xl font-bold text-slate-800">Domain Insights</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Monitoring and analysis of rogue pharmacy domains across registrars,
+          Monitoring and analysis of seller domains across registrars,
           platforms, and geographies.
         </p>
       </div>
@@ -210,7 +210,7 @@ export function DomainInsightsSubpage() {
                 widgetId: "domain-registrar",
                 title: "Registrar Distribution",
                 type: "distribution",
-                description: "Shows which domain registrars host the most rogue pharmacy domains. Helps identify registrars that may warrant closer scrutiny or outreach.",
+                description: "Shows which domain registrars host the most seller domains. Helps identify registrars that may warrant closer scrutiny or outreach.",
               }}
             >
               <RegistrarSunburst domains={filteredDomains} />

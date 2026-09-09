@@ -28,13 +28,6 @@ export function DomainSummaryStrip({ allDomains }: DomainSummaryStripProps) {
     const nabpNotRecommendedPct =
       allDomains.length > 0 ? Math.round((nabpNotRecommendedCount / allDomains.length) * 100) : 0;
 
-    // Sum of each domain's own unapprovedListingCount / totalListingCount
-    // (products flagged approval_status === "unapproved" per the
-    // 2026-09-08 schema) — a page-wide share, not a per-domain average.
-    const totalListings = allDomains.reduce((sum, d) => sum + d.totalListingCount, 0);
-    const totalUnapproved = allDomains.reduce((sum, d) => sum + d.unapprovedListingCount, 0);
-    const unapprovedPct = totalListings > 0 ? Math.round((totalUnapproved / totalListings) * 100) : 0;
-
     return [
       {
         id: "dual-selling",
@@ -54,8 +47,8 @@ export function DomainSummaryStrip({ allDomains }: DomainSummaryStripProps) {
         id: "unapproved-listings",
         icon: AlertTriangle,
         accent: "bg-amber-50 text-amber-600",
-        headline: `${unapprovedPct}% unapproved products`,
-        label: `${totalUnapproved} of ${totalListings} products flagged as unapproved`,
+        headline: "Coming soon",
+        label: "Additional metric in progress",
       },
     ];
   }, [allDomains]);

@@ -26,9 +26,6 @@ export function SocialSummaryStrip({ metrics, productSignalCounts }: SocialSumma
     const totalSum = counts.reduce((sum, c) => sum + c.count, 0);
     const top5Pct  = totalSum > 0 ? Math.round((top5Sum / totalSum) * 100) : 0;
 
-    const unapprovedCount = metrics?.unapprovedCount ?? 0;
-    const unapprovedPct = totalPosts > 0 ? Math.round((unapprovedCount / totalPosts) * 100) : 0;
-
     return [
       {
         id: "active-selling-pct",
@@ -48,8 +45,8 @@ export function SocialSummaryStrip({ metrics, productSignalCounts }: SocialSumma
         id: "unapproved-listings",
         icon: AlertTriangle,
         accent: "bg-amber-50 text-amber-600",
-        headline: `${unapprovedPct}% unapproved listings`,
-        label: `${unapprovedCount} of ${totalPosts} selling posts/comments have an unapproved product`,
+        headline: "Coming soon",
+        label: "Additional metric in progress",
       },
     ];
   }, [metrics, productSignalCounts]);
