@@ -296,9 +296,35 @@ function releasePrefix(releaseId: string): string {
   return `releases/${releaseId}`;
 }
 
+// Manifests are effectively immutable per releaseId (the only mutation is
+// the rare admin "set display name" action), yet `getManifest` was
+// previously uncached and got called from many hot paths — including
+// `listReleases`, which fetches one manifest *per release* on every call.
+// Combined with `readChannel`/`resolveActiveRelease` also calling it on
+// every request, this was a major contributor to exhausting Storage's
+// small connection pool ("Too many connections issued to the database").
+// Cache indefinitely per releaseId (like `fetchReleaseData` etc. below),
+// invalidated explicitly wherever manifest.json is (re)written.
+const manifestCache = new Map<string, Promise<ReleaseManifest | null>>();
+
+function invalidateManifestCache(releaseId: string): void {
+  manifestCache.delete(releaseId);
+}
+
 export async function getManifest(releaseId: string): Promise<ReleaseManifest | null> {
   if (isMockRelease(releaseId)) return MOCK_RELEASE_MANIFEST;
-  return downloadJson<ReleaseManifest>(`${releasePrefix(releaseId)}/manifest.json`);
+
+  let entry = manifestCache.get(releaseId);
+  if (!entry) {
+    entry = downloadJson<ReleaseManifest>(`${releasePrefix(releaseId)}/manifest.json`).catch((err) => {
+      // Don't poison the cache with a rejected promise — allow retry on
+      // the next call (e.g. transient Storage/network failure).
+      manifestCache.delete(releaseId);
+      throw err;
+    });
+    manifestCache.set(releaseId, entry);
+  }
+  return entry;
 }
 
 // ---------------------------------------------------------------------------
@@ -381,22 +407,71 @@ export async function getActiveReleaseContext(channel: ChannelName): Promise<Act
  * labeled at once (e.g. a multi-period trend chart's axis/tooltip), unlike
  * `getActiveReleaseContext` which only resolves the single currently-active
  * one. When a reportPeriod has multiple release versions (v1, v2, ...), the
- * most-recently-generated one wins.
+ * highest version number wins (see the version-parsing note inside).
+ *
+ * Cached for a short TTL (like `readChannel`) since this used to be the
+ * single biggest source of Storage/DB load: every data API route calls it
+ * on every request, and it used to download *every* release's manifest
+ * just to build this map (an ever-growing amount of same-reportPeriod
+ * history, most of which gets thrown away immediately after). Combined
+ * with only fetching the latest version per reportPeriod (see below),
+ * repeated calls within the TTL window cost nothing at all.
  */
+const REPORT_PERIOD_DISPLAY_MAP_TTL_MS = 5000;
+let reportPeriodDisplayMapCache: { value: Record<string, string>; expiresAt: number } | null = null;
+
 export async function getReportPeriodDisplayMap(): Promise<Record<string, string>> {
-  const releases = await listReleases();
+  const now = Date.now();
+  if (reportPeriodDisplayMapCache && reportPeriodDisplayMapCache.expiresAt > now) {
+    return reportPeriodDisplayMapCache.value;
+  }
+
+  // Only the highest version number per reportPeriod can ever end up in
+  // the map (see the loop below), so there's no need to download every
+  // single version's manifest here — just to throw away all but the
+  // latest one. `releaseId` already encodes `${reportPeriod}-v${n}`
+  // (see `createRelease`), so the version number can be read straight off
+  // the Storage folder name without touching any manifest at all. This
+  // turns what used to be "one Storage download per release ever
+  // uploaded" (a full history of a single reportPeriod could easily be
+  // 10+ versions) into "one download per distinct reportPeriod" — the
+  // actual fix for this hammering every version of the *same* rpt.
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.storage.from(DATA_BUCKET).list("releases");
+  if (error || !data) return {};
+
+  const latestVersionByReportPeriod = new Map<string, { releaseId: string; version: number }>();
+  for (const entry of data) {
+    const match = entry.name.match(/^(.*)-v(\d+)$/);
+    if (!match) continue; // not a well-formed releaseId folder — skip
+    const [, reportPeriod, versionStr] = match;
+    const version = Number(versionStr);
+    const existing = latestVersionByReportPeriod.get(reportPeriod);
+    if (!existing || version > existing.version) {
+      latestVersionByReportPeriod.set(reportPeriod, { releaseId: entry.name, version });
+    }
+  }
+
+  const manifests = await Promise.all(
+    [...latestVersionByReportPeriod.values()].map(({ releaseId }) => getManifest(releaseId)),
+  );
+
   const map: Record<string, string> = {};
-  // `listReleases` is already sorted newest-first by generatedAt, and the
-  // mock release is always last — so the first manifest seen per
-  // reportingPeriodId is the most recent one; skip the mock entry (it has
-  // no meaningful reportPeriod of its own).
-  for (const m of releases) {
-    if (isMockRelease(m.releaseId)) continue;
+  for (const m of manifests) {
+    if (!m) continue;
     const id = convertReportPeriod(m.reportPeriod);
-    if (id in map) continue;
     map[id] = m.displayName || formatReportingPeriodId(id);
   }
+
+  reportPeriodDisplayMapCache = { value: map, expiresAt: now + REPORT_PERIOD_DISPLAY_MAP_TTL_MS };
   return map;
+}
+
+/** Invalidates the report-period display-name map cache; called wherever
+ *  a manifest's displayName changes or a new release is created, so
+ *  admin edits are reflected without waiting out the TTL. */
+function invalidateReportPeriodDisplayMapCache(): void {
+  reportPeriodDisplayMapCache = null;
 }
 
 /**
@@ -421,6 +496,8 @@ export async function setReleaseDisplayName(
     displayName: displayName?.trim() ? displayName.trim() : undefined,
   };
   await uploadJson(`${releasePrefix(releaseId)}/manifest.json`, next);
+  invalidateManifestCache(releaseId);
+  invalidateReportPeriodDisplayMapCache();
   return next;
 }
 
@@ -509,6 +586,7 @@ export async function createRelease(params: {
   await uploadJson(`${releasePrefix(releaseId)}/social-aggregates.json`, aggregateTable);
 
   await uploadJson(`${releasePrefix(releaseId)}/manifest.json`, manifest);
+  invalidateReportPeriodDisplayMapCache();
 
   await appendAuditLog({
     time: manifest.generatedAt,
