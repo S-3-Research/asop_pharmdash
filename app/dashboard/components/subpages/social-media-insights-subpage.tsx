@@ -8,7 +8,6 @@ import { MultiCategoryDropdown } from "../ui/multi-category-dropdown";
 import { useCopilot } from "../copilot/copilot-context";
 import type { FilterAction } from "../copilot/types";
 import { SelectableCard } from "../ui/selectable-card";
-import { SOCIAL_PRIMARY_CATEGORIES } from "./social-media/config";
 import { SocialSummaryStrip }     from "./social-media/social-summary-strip";
 import { StatsRow }               from "./social-media/stats-row";
 import { PlatformTabs }           from "./social-media/platform-tabs";
@@ -51,11 +50,12 @@ export function SocialMediaInsightsSubpage() {
     { revalidateOnFocus: false },
   );
 
-  // Dynamically derived from the real release's product categories (same
-  // taxonomy as Domain Insights / Top Products); falls back to the fixed
-  // list only if the API hasn't provided one yet.
+  // Dynamically derived from the release's product categories (real release:
+  // product_info-driven registry; mock release: derived from mockSocialPosts
+  // itself) — see buildSocialCategoryOptions() in lib/release-mapping.ts.
+  // Empty array until the first API response arrives.
   const categoryOptions = useMemo(
-    () => data?.categoryOptions ?? SOCIAL_PRIMARY_CATEGORIES,
+    () => data?.categoryOptions ?? [],
     [data?.categoryOptions],
   );
 

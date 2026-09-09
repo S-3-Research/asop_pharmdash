@@ -1,5 +1,3 @@
-import type { CategoryOption } from "../../types";
-
 // Keys match the lowercase `socialmedia_platform` enum values coming from the
 // release schema (see SocialMediaPlatform in lib/schemas/pharmdash.ts), NOT
 // the platforms' display/brand names. Always look these up via
@@ -55,12 +53,4 @@ export const APP_COLORS: Record<string, string> = {
 export const KEYWORD_COLORS = [
   "#ef4444", "#3b82f6", "#8b5cf6", "#f59e0b", "#10b981",
   "#ec4899", "#f97316", "#06b6d4", "#84cc16", "#6366f1",
-];
-
-// IDs match primaryCategory values stored in posts (name-as-id, same pattern as domain-insights)
-export const SOCIAL_PRIMARY_CATEGORIES: CategoryOption[] = [
-  { id: "GLP-1",      name: "GLP-1",      color: "#3b82f6" },
-  { id: "Cancer Med", name: "Cancer Med", color: "#10b981" },
-  { id: "CNS Med",    name: "CNS Med",    color: "#a855f7" },
-  { id: "Pain Med",   name: "Pain Med",   color: "#f59e0b" },
 ];

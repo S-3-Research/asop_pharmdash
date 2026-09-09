@@ -11,7 +11,7 @@ import type {
 import { getActiveChannel } from "@/lib/channel";
 import { fetchSocialIndex, fetchSocialAggregateTable, fetchReleaseData, getActiveReleaseContext } from "@/lib/releases";
 import { buildSocialAggregates, buildKeywordRankingsFromStats, buildKeywordBubblesFromStats, hasOnlyAccountBasedKeywordData, filterKeywordStats } from "@/lib/release-mapping";
-import { SOCIAL_PRIMARY_CATEGORIES } from "@/app/dashboard/components/subpages/social-media/config";
+import { getCategoryColor } from "@/lib/category-color";
 
 const CATEGORY_ALL_KEY = "__all__";
 const PLATFORM_ALL_KEY = "all";
@@ -128,9 +128,24 @@ export async function GET(request: NextRequest) {
     // No keyword_stats[] on the built-in mock release, so there's no raw
     // search-hit volume to sum — leave at 0 (declared above).
 
-    // Mock release has no product_info-derived category registry — fall
-    // back to the fixed list.
-    categoryOptions = SOCIAL_PRIMARY_CATEGORIES;
+    // Mock release has no product_info-derived category registry — derive
+    // options straight from mockSocialPosts' own {primaryCategory} values
+    // (same principle as buildDomainCategoryRegistry in lib/release-mapping.ts)
+    // instead of a hardcoded list, so this never drifts out of sync with
+    // whatever category names the mock data actually uses.
+    const mockCategoryCounts = new Map<string, number>();
+    for (const post of mockSocialPosts) {
+      for (const pair of post.categories) {
+        mockCategoryCounts.set(pair.primaryCategory, (mockCategoryCounts.get(pair.primaryCategory) ?? 0) + 1);
+      }
+    }
+    let mockTopName: string | null = null;
+    for (const [name, count] of mockCategoryCounts) {
+      if (mockTopName === null || count > (mockCategoryCounts.get(mockTopName) ?? 0)) mockTopName = name;
+    }
+    categoryOptions = Array.from(mockCategoryCounts.keys())
+      .sort()
+      .map((name) => ({ id: name, name, color: getCategoryColor(name), isTop: name === mockTopName }));
   } else {
     // ── Real release path ─────────────────────────────────────────────────
     // Fast path (0 or 1 selected category): every combination was
@@ -210,7 +225,19 @@ export async function GET(request: NextRequest) {
     };
     keywordRankings = keywordAgg.keywordRankings;
     keywordBubbles = keywordAgg.keywordBubbles;
-    categoryOptions = table.categoryOptions;
+    // `categoryOptions` themselves (id/name/isTop) are safe to trust as
+    // precomputed/persisted (see buildSocialAggregateTable in
+    // lib/release-mapping.ts), but `color` is NOT — it was baked in at
+    // upload time from whatever getCategoryColor()/FIXED_CATEGORY_COLORS
+    // looked like on that day. Every release uploaded before a category
+    // rename or palette tweak has a `social-aggregates.json` in Storage
+    // that permanently freezes the OLD colors, unlike Domain Insights'
+    // categoryOptions (buildDomainCategoryRegistry), which is computed
+    // live per-request from data.domains and therefore always reflects
+    // the current code. Re-deriving color here (not persisted fields)
+    // keeps the two pages' dropdowns in sync without needing to re-upload
+    // every historical release whenever the palette changes.
+    categoryOptions = table.categoryOptions.map((c) => ({ ...c, color: getCategoryColor(c.name) }));
     onlyAccountBasedData = keywordAgg.onlyAccountBasedData ?? false;
   }
 
