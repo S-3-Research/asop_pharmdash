@@ -21,8 +21,12 @@
  *   we want here: memoize immutable-per-releaseId data for the lifetime of
  *   the server process.
  * - Channel pointers (`channels/*.json`) are tiny (KB-scale) and change
- *   infrequently but must reflect Promote/Rollback immediately, so they are
- *   read directly from Storage on every call — no caching layer needed.
+ *   infrequently. They're read from Storage with a short (~2s) TTL cache
+ *   that's explicitly invalidated on Promote/Rollback, so admin actions
+ *   are reflected immediately while everyday request bursts don't each
+ *   issue their own Storage/DB round-trip (see `readChannel` below — this
+ *   also mitigates "Too many connections issued to the database" errors
+ *   from Supabase Storage's own metadata DB under load).
  * - Promote and Rollback are the same operation: point a channel at a given
  *   releaseId, shifting the old `current` into `previous`.
  */
@@ -143,7 +147,29 @@ export const MOCK_RELEASE_MANIFEST: ReleaseManifest = {
 // Low-level Storage helpers
 // ---------------------------------------------------------------------------
 
-async function downloadJson<T>(path: string): Promise<T | null> {
+/**
+ * Supabase Storage is backed by its own Postgres metadata DB, which on
+ * small/free-tier projects has a very small connection pool. A burst of
+ * concurrent requests can transiently exhaust that pool, surfacing as
+ * "Too many connections issued to the database" from the Storage API
+ * rather than a 404 or auth error. Retry those with a short backoff
+ * instead of failing the whole request.
+ */
+function isTransientConnectionError(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("too many connections") ||
+    (m.includes("connection") && m.includes("timeout")) ||
+    m.includes("econnreset") ||
+    m.includes("fetch failed")
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function downloadJson<T>(path: string, attempt = 0): Promise<T | null> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase.storage.from(DATA_BUCKET).download(path);
 
@@ -155,6 +181,10 @@ async function downloadJson<T>(path: string): Promise<T | null> {
     }
     if (error.message?.toLowerCase().includes("not found")) {
       return null;
+    }
+    if (isTransientConnectionError(error.message ?? "") && attempt < 3) {
+      await sleep(150 * 2 ** attempt + Math.random() * 100);
+      return downloadJson<T>(path, attempt + 1);
     }
     throw new Error(`Failed to download ${path}: ${error.message}`);
   }
@@ -186,10 +216,35 @@ function channelPath(channel: ChannelName): string {
   return `channels/${channel}.json`;
 }
 
-/** Always reads live from Storage — never cached. */
+// Channel pointers change infrequently (only on Promote/Rollback) but were
+// previously read live from Storage on every single request, which under
+// concurrent load could exhaust a small Supabase project's DB connection
+// pool (surfacing as "Too many connections issued to the database").
+// A very short TTL cache collapses request bursts into a single Storage
+// call while still reflecting Promote/Rollback within a couple seconds —
+// an imperceptible delay for an admin action, but a big reduction in load.
+const CHANNEL_CACHE_TTL_MS = 2000;
+const channelCache = new Map<ChannelName, { value: ChannelPointer; expiresAt: number }>();
+
 export async function readChannel(channel: ChannelName): Promise<ChannelPointer> {
-  const pointer = await downloadJson<ChannelPointer>(channelPath(channel));
-  return pointer ?? { current: null, previous: null };
+  const cached = channelCache.get(channel);
+  const now = Date.now();
+  if (cached && cached.expiresAt > now) {
+    return cached.value;
+  }
+
+  const pointer = (await downloadJson<ChannelPointer>(channelPath(channel))) ?? {
+    current: null,
+    previous: null,
+  };
+  channelCache.set(channel, { value: pointer, expiresAt: now + CHANNEL_CACHE_TTL_MS });
+  return pointer;
+}
+
+/** Invalidates the short-lived channel cache; called after Promote/Rollback
+ *  so the change is visible immediately rather than waiting out the TTL. */
+function invalidateChannelCache(channel: ChannelName): void {
+  channelCache.delete(channel);
 }
 
 /**
@@ -220,6 +275,7 @@ export async function setChannelRelease(
   };
 
   await uploadJson(channelPath(channel), next);
+  invalidateChannelCache(channel);
 
   await appendAuditLog({
     time: now,
