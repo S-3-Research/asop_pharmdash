@@ -210,7 +210,8 @@ export const PaymentInfoItemSchema = z.object({
 export const ProductCategory = z.enum([
   "cancer med",
   "glp",
-  "experimental therapeutic peptides",
+  "emerging molecules",
+  "investigational new drug",
 ]);
 
 // New in the 2026-09-08 schema — used by both ProductInfoItem
