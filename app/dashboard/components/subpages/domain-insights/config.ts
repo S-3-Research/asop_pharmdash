@@ -5,6 +5,7 @@ import type Highcharts from "highcharts";
 import type { CategoryOption, Domain } from "../../types";
 import { socialPlatformLabel } from "../../utils/platform-label";
 import { formatRptPeriodLabel } from "../top-products/config";
+import { getCategoryColor } from "@/lib/category-color";
 
 const CHART_STYLE = { fontFamily: "var(--font-geist-sans)" };
 
@@ -14,37 +15,22 @@ const CHART_STYLE = { fontFamily: "var(--font-geist-sans)" };
 // `buildDomainCategoryOptions(domains)` below, which derives the live set
 // of categories straight from the data, in the same spirit as
 // `buildCategoryRegistry()` in lib/release-mapping.ts.
+// Colors come from `getCategoryColor()` (lib/release-mapping.ts) — the
+// single shared color source, so this fallback list never drifts out of
+// sync with the live-data path below or with other charts on the page.
 export const DOMAIN_PRIMARY_CATEGORIES: CategoryOption[] = [
-  { id: "GLP",        name: "GLP",        color: "#3b82f6" },
-  { id: "Cancer Med", name: "Cancer Med", color: "#10b981", isTop: true },
-  { id: "CNS Med",    name: "CNS Med",    color: "#a855f7" },
-  { id: "Pain Med",   name: "Pain Med",   color: "#f59e0b" },
+  { id: "GLP",        name: "GLP",        color: getCategoryColor("GLP") },
+  { id: "Cancer Med", name: "Cancer Med", color: getCategoryColor("Cancer Med"), isTop: true },
 ];
-
-const FIXED_CATEGORY_COLORS: Record<string, string> = {
-  "GLP": "#3b82f6",
-  "GLP-1": "#3b82f6",
-  "Cancer Med": "#10b981",
-  "CNS Med": "#a855f7",
-  "Pain Med": "#f59e0b",
-};
-
-const FALLBACK_CATEGORY_PALETTE = [
-  "#3b82f6", "#10b981", "#a855f7", "#f59e0b", "#ef4444",
-  "#0ea5e9", "#84cc16", "#ec4899", "#14b8a6", "#8b5cf6",
-];
-
-function hashCategoryColor(label: string): string {
-  let hash = 0;
-  for (let i = 0; i < label.length; i++) hash = (hash * 31 + label.charCodeAt(i)) >>> 0;
-  return FALLBACK_CATEGORY_PALETTE[hash % FALLBACK_CATEGORY_PALETTE.length];
-}
 
 /** Derives the live set of selectable primary categories from whatever is
  *  actually present in `domains` (via each domain's `primaryCategories`,
  *  the domain-level product_label source of truth), instead of a hardcoded
  *  4-value list — so newly-introduced categories in a release automatically
- *  become selectable in the filter dropdown. */
+ *  become selectable in the filter dropdown. Colors always come from
+ *  `getCategoryColor()` — the single shared color source (lib/release-mapping.ts)
+ *  also used by the map, samples chips, sunburst, and treemap — so the same
+ *  category name always renders with the same color everywhere. */
 export function buildDomainCategoryOptions(domains: Domain[]): CategoryOption[] {
   const counts = new Map<string, number>();
   for (const d of domains) {
@@ -60,7 +46,7 @@ export function buildDomainCategoryOptions(domains: Domain[]): CategoryOption[] 
     .map((name) => ({
       id: name,
       name,
-      color: FIXED_CATEGORY_COLORS[name] ?? hashCategoryColor(name),
+      color: getCategoryColor(name),
       isTop: name === topName,
     }));
 }

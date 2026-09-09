@@ -100,41 +100,14 @@ export function normalizeCategoryLabel(raw: string): string {
   return CATEGORY_DISPLAY_LABELS[raw as ProductCategoryValue] ?? UNKNOWN_CATEGORY_LABEL;
 }
 
-/** Deterministic color for a category label — stable across reloads since
- *  it's derived from the label string itself, not array order. */
-function hashColor(label: string): string {
-  let hash = 0;
-  for (let i = 0; i < label.length; i++) {
-    hash = (hash * 31 + label.charCodeAt(i)) >>> 0;
-  }
-  return FALLBACK_PALETTE[hash % FALLBACK_PALETTE.length];
-}
-
-const FALLBACK_PALETTE = [
-  "#3b82f6",
-  "#10b981",
-  "#a855f7",
-  "#f59e0b",
-  "#ef4444",
-  "#0ea5e9",
-  "#84cc16",
-  "#ec4899",
-  "#14b8a6",
-  "#8b5cf6",
-];
-
-const FIXED_CATEGORY_COLORS: Record<string, string> = {
-  "GLP": "#3b82f6",
-  "Cancer Med": "#10b981",
-  "CNS Med": "#a855f7",
-  "Pain Med": "#f59e0b",
-  "Emerging Molecules": "#ec4899",
-  "IND": "#14b8a6",
-};
-
-export function getCategoryColor(label: string): string {
-  return FIXED_CATEGORY_COLORS[label] ?? hashColor(label);
-}
+/** Category -> color mapping, defined in lib/category-color.ts (a
+ *  client-safe module with no "server-only" dependency) so Client
+ *  Components (map, samples chips, domain-insights config) can import it
+ *  directly without pulling in this file's server-only dependency. Imported
+ *  here (and re-exported) so this remains the single import path for
+ *  existing server-side callers in this file. */
+import { getCategoryColor } from "@/lib/category-color";
+export { getCategoryColor };
 
 /** Builds the full set of selectable category options present in a release,
  *  fully derived from the data — no hardcoded "must be one of 4" cutoff.
@@ -796,7 +769,7 @@ export function buildSocialIndex(
  * keyword rankings/bubbles/raw-counts can now respect the page's category
  * filter the same way platformTabs/metrics/mentionsByApp already do.
  */
-function filterKeywordStats(
+export function filterKeywordStats(
   stats: KeywordStat[],
   selectedCategories: string[] | null | undefined,
   platform: string | null | undefined,

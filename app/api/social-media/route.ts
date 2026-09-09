@@ -10,7 +10,7 @@ import type {
 } from "@/app/dashboard/components/types";
 import { getActiveChannel } from "@/lib/channel";
 import { fetchSocialIndex, fetchSocialAggregateTable, fetchReleaseData, getActiveReleaseContext } from "@/lib/releases";
-import { buildSocialAggregates, buildKeywordRankingsFromStats, buildKeywordBubblesFromStats, hasOnlyAccountBasedKeywordData } from "@/lib/release-mapping";
+import { buildSocialAggregates, buildKeywordRankingsFromStats, buildKeywordBubblesFromStats, hasOnlyAccountBasedKeywordData, filterKeywordStats } from "@/lib/release-mapping";
 import { SOCIAL_PRIMARY_CATEGORIES } from "@/app/dashboard/components/subpages/social-media/config";
 
 const CATEGORY_ALL_KEY = "__all__";
@@ -178,12 +178,7 @@ export async function GET(request: NextRequest) {
       const release = await fetchReleaseData(releaseId);
       const keywordRankings = buildKeywordRankingsFromStats(release.keyword_stats, selectedCategories, platformParam, 25, KEYWORD_COLORS);
       const keywordBubbles = buildKeywordBubblesFromStats(release.keyword_stats, selectedCategories, platformParam, 15, KEYWORD_COLORS);
-      const relevantStats =
-        platformParam && platformParam !== PLATFORM_ALL_KEY
-          ? release.keyword_stats.filter(
-              (s) => s.socialmedia_platform === platformParam && s.product_category && selectedCategories.includes(s.product_category),
-            )
-          : release.keyword_stats.filter((s) => s.product_category && selectedCategories.includes(s.product_category));
+      const relevantStats = filterKeywordStats(release.keyword_stats, selectedCategories, platformParam);
       keywordAgg = {
         uniqueKeywordCount: new Set(relevantStats.map((s) => s.keyword)).size,
         keywordRankings,

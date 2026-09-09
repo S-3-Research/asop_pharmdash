@@ -5,22 +5,7 @@ import { ExternalLink, MapPin, Building2, ChevronDown } from "lucide-react";
 import type { Domain, DomainWithMatch } from "../../types";
 import { useWidgetData } from "../../copilot/copilot-context";
 import { formatCityDisplay, formatBestLocation, formatAddressSource } from "@/lib/geo-format";
-
-// ── Color helpers (mirrors heatmap-map-client.tsx's category palette) ────────
-const CAT_COLORS: Record<string, string> = {
-  "GLP-1":      "#3b82f6",
-  "Cancer Med": "#10b981",
-  "CNS Med":    "#a855f7",
-  "Pain Med":   "#f59e0b",
-};
-const FALLBACK_PALETTE = ["#ef4444", "#0ea5e9", "#84cc16", "#ec4899", "#14b8a6", "#8b5cf6"];
-
-function categoryColor(label: string): string {
-  if (CAT_COLORS[label]) return CAT_COLORS[label];
-  let hash = 0;
-  for (let i = 0; i < label.length; i++) hash = (hash * 31 + label.charCodeAt(i)) >>> 0;
-  return FALLBACK_PALETTE[hash % FALLBACK_PALETTE.length];
-}
+import { getCategoryColor as categoryColor } from "@/lib/category-color";
 
 function formatMoney(n: number): string {
   return n > 0 ? `$${n.toLocaleString()}` : "—";

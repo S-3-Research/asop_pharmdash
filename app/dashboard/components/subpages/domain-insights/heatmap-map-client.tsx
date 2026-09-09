@@ -4,29 +4,24 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import mapboxgl from "mapbox-gl";
 import type { Domain, DomainWithMatch } from "../../types";
 import { formatCityDisplay, formatAddressSource } from "@/lib/geo-format";
+import { getCategoryColor as categoryColor } from "@/lib/category-color";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
-const CAT_COLORS: Record<string, string> = {
-  "GLP-1":      "#3b82f6",
-  "Cancer Med": "#10b981",
-  "CNS Med":    "#a855f7",
-  "Pain Med":   "#f59e0b",
-};
-
-const FALLBACK_PALETTE = ["#ef4444", "#0ea5e9", "#84cc16", "#ec4899", "#14b8a6", "#8b5cf6"];
-
-// Distinct color for domains that sell products across 2+ primary categories
-// (primaryCategories.length > 1) — avoids implying such a domain belongs to
-// just one category via an arbitrary "first match" color.
-const MULTI_CATEGORY_COLOR = "#f43f5e";
-
-function categoryColor(label: string): string {
-  if (CAT_COLORS[label]) return CAT_COLORS[label];
-  let hash = 0;
-  for (let i = 0; i < label.length; i++) hash = (hash * 31 + label.charCodeAt(i)) >>> 0;
-  return FALLBACK_PALETTE[hash % FALLBACK_PALETTE.length];
-}
+// Distinct, deliberately neutral (non-hued) color for domains that sell
+// products across 2+ primary categories (primaryCategories.length > 1) —
+// avoids implying such a domain belongs to just one category via an
+// arbitrary "first match" color, and — being gray rather than a hue on the
+// same color wheel as the real categories — can never be visually confused
+// with any current or future single-category color (see getCategoryColor()
+// in lib/release-mapping.ts, the single shared source for those).
+// Lighter/softer than a plain solid gray (slate-400 vs. slate-500) so it
+// reads as visually "muted"/de-emphasized next to the more saturated
+// single-category hues, without needing true alpha transparency (which
+// Mapbox's circle-color paint property + the plain <span> legend swatch
+// background don't uniformly support at the same opacity as the other,
+// fully-opaque circle points).
+const MULTI_CATEGORY_COLOR = "#94a3b8";
 
 interface TooltipCategoryCount {
   primary: string;
@@ -162,6 +157,11 @@ export function HeatmapMapClient({
                 city:              d.geoLocation.city,
                 addressSource:     d.geoLocation.addressSource ?? "",
                 color:             isMultiCategory ? MULTI_CATEGORY_COLOR : categoryColor(matchedCategory),
+                // Drives the data-driven circle-opacity expression below —
+                // multi-category points render more transparent than
+                // single-category ones, on top of already using a muted
+                // gray color, so they read as visually de-emphasized.
+                isMultiCategory,
                 // Point size reflects the number of this domain's products
                 // matching the current filter (or its total product count
                 // when unfiltered) — see heatmap-card.tsx / domain-insights-
@@ -209,8 +209,8 @@ export function HeatmapMapClient({
     }
     const entries = Array.from(names)
       .sort()
-      .map((name) => ({ name, color: categoryColor(name) }));
-    if (hasMulti) entries.push({ name: "Multiple Categories", color: MULTI_CATEGORY_COLOR });
+      .map((name) => ({ name, color: categoryColor(name), opacity: 1 }));
+    if (hasMulti) entries.push({ name: "Multiple Categories", color: MULTI_CATEGORY_COLOR, opacity: 0.55 });
     return entries;
   }, [domains]);
 
@@ -283,7 +283,11 @@ export function HeatmapMapClient({
             9, ["interpolate", ["linear"], ["get", "weight"], 1, 14, 10, 22],
           ],
           "circle-color":          ["get", "color"],
-          "circle-opacity":        0.88,
+          // Multi-category points render more transparent than single-
+          // category ones (on top of their already-muted gray color), so
+          // they read as visually de-emphasized rather than competing with
+          // the more saturated single-category hues.
+          "circle-opacity":        ["case", ["get", "isMultiCategory"], 0.55, 0.88],
           "circle-stroke-width":   1.5,
           "circle-stroke-color":   "#ffffff",
           "circle-stroke-opacity": 0.9,
@@ -361,11 +365,11 @@ export function HeatmapMapClient({
       {legendEntries.length > 0 && (
         <div className="absolute z-20 bottom-3 left-3 bg-white/95 backdrop-blur rounded-lg shadow-md border border-slate-100 px-2.5 py-2 pointer-events-none">
           <div className="flex flex-col gap-1">
-            {legendEntries.map(({ name, color }) => (
+            {legendEntries.map(({ name, color, opacity }) => (
               <div key={name} className="flex items-center gap-1.5">
                 <span
                   className="inline-block h-2 w-2 rounded-full shrink-0"
-                  style={{ backgroundColor: color }}
+                  style={{ backgroundColor: color, opacity }}
                 />
                 <span className="text-[10px] font-medium text-slate-600 whitespace-nowrap">
                   {name}
