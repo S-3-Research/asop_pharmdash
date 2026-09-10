@@ -165,6 +165,18 @@ function isTransientConnectionError(message: string): boolean {
   );
 }
 
+/**
+ * Also retry HTTP 429 (rate limited) responses from the Storage API —
+ * distinct from `isTransientConnectionError` above (which matches on error
+ * *message* text for connection-pool exhaustion): this is a plain rate
+ * limit rejected before ever touching the metadata DB, surfaced via the
+ * error object's `statusCode`, same pattern already used for 404 below.
+ * Just as transient and just as safe to retry with backoff.
+ */
+function isRateLimitedError(error: { statusCode?: unknown }): boolean {
+  return String(error.statusCode) === "429";
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -182,7 +194,10 @@ async function downloadJson<T>(path: string, attempt = 0): Promise<T | null> {
     if (error.message?.toLowerCase().includes("not found")) {
       return null;
     }
-    if (isTransientConnectionError(error.message ?? "") && attempt < 3) {
+    if (
+      (isTransientConnectionError(error.message ?? "") || isRateLimitedError(error)) &&
+      attempt < 3
+    ) {
       await sleep(150 * 2 ** attempt + Math.random() * 100);
       return downloadJson<T>(path, attempt + 1);
     }
