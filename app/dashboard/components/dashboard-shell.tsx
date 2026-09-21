@@ -7,6 +7,8 @@ import "@/lib/highcharts-theme";
 import type { ChannelName } from "@/lib/releases";
 import { CopilotPanel } from "./copilot/copilot-panel";
 import { CopilotProvider, useCopilot } from "./copilot/copilot-context";
+import { FeedbackButton } from "./feedback-button";
+import { LogUseDialogProvider } from "./log-use-dialog-context";
 import { sidebarItems } from "./mock-data";
 import { PreviewBanner } from "./preview-banner";
 import { Sidebar } from "./sidebar";
@@ -174,6 +176,11 @@ function DashboardShellInner({ channel }: { channel: ChannelName }) {
                 }`}
               />
               {subPageContent}
+
+              {/* Fixed to this main panel's own bottom-right corner (not
+                  the viewport), so it never drifts over the Copilot panel
+                  when that's open alongside main content. */}
+              <FeedbackButton />
             </main>
 
             {/* Right-side Copilot panel — full height of this row, shows/hides via context */}
@@ -189,8 +196,10 @@ function DashboardShellInner({ channel }: { channel: ChannelName }) {
 
 export function DashboardShell({ channel }: { channel: ChannelName }) {
   return (
-    <CopilotProvider>
-      <DashboardShellInner channel={channel} />
-    </CopilotProvider>
+    <LogUseDialogProvider>
+      <CopilotProvider>
+        <DashboardShellInner channel={channel} />
+      </CopilotProvider>
+    </LogUseDialogProvider>
   );
 }

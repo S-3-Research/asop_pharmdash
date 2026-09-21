@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 
+import { useLogUseDialog } from "./log-use-dialog-context";
+
 type Me = { email: string; role: "admin" | "manager" | "viewer" } | null;
 
 export function UserMenu({ collapsed = false }: { collapsed?: boolean }) {
   const router = useRouter();
+  const { openLogUseDialog } = useLogUseDialog();
   const [open, setOpen] = useState(false);
   const [me, setMe] = useState<Me>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -35,6 +38,11 @@ export function UserMenu({ collapsed = false }: { collapsed?: boolean }) {
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
+  };
+
+  const handleLogoutClick = () => {
+    setOpen(false);
+    openLogUseDialog(onLogout);
   };
 
   const email = me?.email ?? "…";
@@ -77,7 +85,7 @@ export function UserMenu({ collapsed = false }: { collapsed?: boolean }) {
       </Link>
       <button
         type="button"
-        onClick={onLogout}
+        onClick={handleLogoutClick}
         className="block w-full px-4 py-2.5 text-left text-sm text-gray-200 transition-colors hover:bg-[#1a252c]"
       >
         Logout
