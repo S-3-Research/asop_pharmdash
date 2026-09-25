@@ -320,7 +320,25 @@ function releasePrefix(releaseId: string): string {
 // small connection pool ("Too many connections issued to the database").
 // Cache indefinitely per releaseId (like `fetchReleaseData` etc. below),
 // invalidated explicitly wherever manifest.json is (re)written.
-const manifestCache = new Map<string, Promise<ReleaseManifest | null>>();
+//
+// IMPORTANT: a *found* manifest is cached forever (immutable), but a
+// *not-found* (null) result is only cached briefly. `createRelease` writes
+// data.json.gz / social-aggregates.json / manifest.json as separate,
+// non-atomic Storage calls — if some other server instance calls
+// `getManifest` for a brand-new releaseId in the short window before
+// manifest.json exists, `downloadJson` resolves (not rejects) to `null` for
+// the expected 404. Without a short TTL here, that `null` used to get
+// memoized *indefinitely* on that instance, permanently 404-ing every
+// subsequent request it handled for that release (e.g. Top Products'
+// `fetchTopProductsListings` throwing "Failed to load manifest for release
+// ...") until the instance happened to be recycled — even though the
+// manifest existed in Storage the whole time. A short TTL lets it
+// self-heal within seconds instead of requiring a redeploy/cold start.
+const manifestCache = new Map<
+  string,
+  { promise: Promise<ReleaseManifest | null>; expiresAt: number | null }
+>();
+const MISSING_MANIFEST_CACHE_TTL_MS = 3000;
 
 function invalidateManifestCache(releaseId: string): void {
   manifestCache.delete(releaseId);
@@ -329,17 +347,33 @@ function invalidateManifestCache(releaseId: string): void {
 export async function getManifest(releaseId: string): Promise<ReleaseManifest | null> {
   if (isMockRelease(releaseId)) return MOCK_RELEASE_MANIFEST;
 
-  let entry = manifestCache.get(releaseId);
-  if (!entry) {
-    entry = downloadJson<ReleaseManifest>(`${releasePrefix(releaseId)}/manifest.json`).catch((err) => {
+  const now = Date.now();
+  const entry = manifestCache.get(releaseId);
+  if (entry && (entry.expiresAt === null || entry.expiresAt > now)) {
+    return entry.promise;
+  }
+
+  const promise = downloadJson<ReleaseManifest>(`${releasePrefix(releaseId)}/manifest.json`).then(
+    (result) => {
+      // Found: safe to cache forever (manifests are immutable once written).
+      // Not found: could be a genuinely unknown release, or `createRelease`
+      // simply hasn't finished writing manifest.json yet — cache only
+      // briefly so the next call re-checks Storage instead of being stuck.
+      manifestCache.set(releaseId, {
+        promise,
+        expiresAt: result === null ? Date.now() + MISSING_MANIFEST_CACHE_TTL_MS : null,
+      });
+      return result;
+    },
+    (err) => {
       // Don't poison the cache with a rejected promise — allow retry on
       // the next call (e.g. transient Storage/network failure).
       manifestCache.delete(releaseId);
       throw err;
-    });
-    manifestCache.set(releaseId, entry);
-  }
-  return entry;
+    },
+  );
+  manifestCache.set(releaseId, { promise, expiresAt: Date.now() + MISSING_MANIFEST_CACHE_TTL_MS });
+  return promise;
 }
 
 // ---------------------------------------------------------------------------
@@ -601,6 +635,12 @@ export async function createRelease(params: {
   await uploadJson(`${releasePrefix(releaseId)}/social-aggregates.json`, aggregateTable);
 
   await uploadJson(`${releasePrefix(releaseId)}/manifest.json`, manifest);
+  // This instance may have already memoized a "not found" result for this
+  // releaseId (e.g. the `getManifest` immutability check above, or a
+  // concurrent request from another route). Clear it now that the real
+  // manifest is written, so this instance doesn't have to wait out the
+  // short missing-manifest TTL to see its own upload.
+  invalidateManifestCache(releaseId);
   invalidateReportPeriodDisplayMapCache();
 
   await appendAuditLog({
@@ -694,7 +734,16 @@ export const fetchSocialAggregateTable = memoizeByKey(
 export const fetchTopProductsListings = memoizeByKey(
   async (releaseId: string): Promise<Listing[]> => {
     const release = await fetchReleaseData(releaseId);
-    const manifest = await getManifest(releaseId);
+    // `getManifest` only caches a "not found" result briefly (see its
+    // comment) precisely so this can self-heal: if `createRelease` is
+    // still mid-upload on another instance (data.json.gz written before
+    // manifest.json), retry a couple of times instead of hard-failing the
+    // whole Top Products page for the life of this instance.
+    let manifest = await getManifest(releaseId);
+    for (let attempt = 0; !manifest && attempt < 3; attempt++) {
+      await sleep(300 * 2 ** attempt);
+      manifest = await getManifest(releaseId);
+    }
     if (!manifest) {
       throw new Error(`Failed to load manifest for release "${releaseId}"`);
     }
