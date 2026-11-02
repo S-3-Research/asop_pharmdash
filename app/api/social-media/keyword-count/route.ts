@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAuthenticatedActor } from "@/app/api/admin/_auth";
+import { authError, requireAuthenticatedActor } from "@/app/api/admin/_auth";
 import { mockKwRawCounts } from "@/app/dashboard/components/mock-data";
 import type { SocialKeywordCountPayload } from "@/app/dashboard/components/types";
 import { getActiveChannel } from "@/lib/channel";
@@ -10,7 +10,7 @@ import { lookupKeywordRawCounts } from "@/lib/release-mapping";
 export async function GET(request: NextRequest) {
   const auth = await requireAuthenticatedActor();
   if (!auth.ok) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return authError(auth);
   }
 
   const { searchParams } = request.nextUrl;

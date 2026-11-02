@@ -1,3 +1,4 @@
+import { AccessSessionGuard } from "./components/access-session-guard";
 import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
@@ -24,7 +25,7 @@ export default function RootLayout({
       lang="en"
       className={`${GeistSans.variable} ${GeistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col"><AccessSessionGuard />{children}</body>
     </html>
   );
 }

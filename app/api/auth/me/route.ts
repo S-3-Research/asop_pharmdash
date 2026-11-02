@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireAuthenticatedActor } from "@/app/api/admin/_auth";
+import { authError, requireAuthenticatedActor } from "@/app/api/admin/_auth";
 
 /**
  * Returns the current logged-in user's basic profile info (email + role),
@@ -11,8 +11,8 @@ export async function GET() {
   const auth = await requireAuthenticatedActor();
 
   if (!auth.ok) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return authError(auth);
   }
 
-  return NextResponse.json({ email: auth.actor, role: auth.role });
+  return NextResponse.json({ email: auth.actor, role: auth.role, access_expires_at: auth.accessExpiresAt }, { headers: { "Cache-Control": "no-store" } });
 }

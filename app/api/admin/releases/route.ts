@@ -2,7 +2,7 @@ import { gunzipSync } from "node:zlib";
 
 import { NextResponse } from "next/server";
 
-import { requireRole } from "@/app/api/admin/_auth";
+import { authError, requireRole } from "@/app/api/admin/_auth";
 import { createRelease, listReleases, readChannel } from "@/lib/releases";
 import { getSupabaseAdmin, DATA_BUCKET } from "@/lib/supabase-admin";
 import { PharmDashReleaseDataSchema } from "@/lib/schemas/pharmdash";
@@ -33,7 +33,7 @@ import { runBusinessValidation } from "@/lib/release-validation";
 export async function GET() {
   const auth = await requireRole("admin");
   if (!auth.ok) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return authError(auth);
   }
 
   const [releases, dev, preview, production] = await Promise.all([
@@ -49,7 +49,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const auth = await requireRole("admin");
   if (!auth.ok) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return authError(auth);
   }
 
   let reportPeriod: string | undefined;

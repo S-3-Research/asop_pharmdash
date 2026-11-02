@@ -13,7 +13,7 @@ export default async function DataReleasesAdminPage() {
   const auth = await requireAuthenticatedActor();
 
   if (!auth.ok) {
-    redirect("/login");
+    redirect(auth.code === "ACCOUNT_EXPIRED" ? "/auth/expired" : "/login");
   }
 
   if (auth.role !== "admin") {

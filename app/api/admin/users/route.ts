@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { requireAnyRole } from "@/app/api/admin/_auth";
+import { authError, requireAnyRole } from "@/app/api/admin/_auth";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 type InviteBody = {
   email?: string;
+  accessDays?: 7 | 30 | null;
   role?: "admin" | "manager" | "viewer";
 };
 
@@ -30,13 +31,13 @@ type InviteBody = {
 export async function GET() {
   const auth = await requireAnyRole(["admin", "manager"]);
   if (!auth.ok) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return authError(auth);
   }
 
   const admin = getSupabaseAdmin();
   let query = admin
     .from("profiles")
-    .select("user_id, email, role, status, invited_by, invited_at, created_at, invite_quota")
+    .select("user_id, email, role, status, invited_by, invited_at, created_at, invite_quota, access_expires_at, access_setup_pending")
     .order("created_at", { ascending: false });
 
   // Managers only get their own invited viewers, not the full roster.
@@ -95,11 +96,24 @@ export async function GET() {
 export async function POST(request: Request) {
   const auth = await requireAnyRole(["admin", "manager"]);
   if (!auth.ok) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return authError(auth);
   }
 
-  const body = (await request.json()) as InviteBody;
-  const email = body.email?.trim().toLowerCase();
+  const parsed: unknown = await request.json().catch(() => null);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return NextResponse.json({ message: "Invalid request body" }, { status: 400 });
+  }
+  const body = parsed as InviteBody;
+  if (body.accessDays !== undefined && process.env.ACCOUNT_EXPIRY_MANAGEMENT_ENABLED !== "true") {
+    return NextResponse.json({ message: "Expiry management is not enabled" }, { status: 503 });
+  }
+  if (body.accessDays !== undefined && body.accessDays !== null && body.accessDays !== 7 && body.accessDays !== 30) {
+    return NextResponse.json({ message: "Invalid duration" }, { status: 400 });
+  }
+  if (auth.role === "manager" && body.accessDays === null) {
+    return NextResponse.json({ message: "Only admins can select unlimited access" }, { status: 403 });
+  }
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
 
   // Managers can only ever invite plain viewers, regardless of what the
   // client sent — never trust the client for privilege escalation.
@@ -110,6 +124,16 @@ export async function POST(request: Request) {
         ? body.role
         : "viewer";
 
+  if (role === "admin" && body.accessDays != null) {
+    return NextResponse.json({ message: "Admin accounts do not expire" }, { status: 400 });
+  }
+  if (body.accessDays != null && auth.role === "manager") {
+    const { data: actorProfile, error } = await getSupabaseAdmin().from("profiles")
+      .select("access_expires_at").eq("user_id", auth.userId).single();
+    if (error || (actorProfile.access_expires_at && Date.now() + body.accessDays * 86400000 > Date.parse(actorProfile.access_expires_at))) {
+      return NextResponse.json({ message: "Duration exceeds your own access deadline" }, { status: 400 });
+    }
+  }
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ message: "A valid email is required" }, { status: 400 });
   }
@@ -147,7 +171,7 @@ export async function POST(request: Request) {
   // profiles row with the intended role instead of always defaulting to
   // 'viewer'.
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { role },
+    data: { role, access_setup_required: true },
     redirectTo,
   });
 
@@ -165,10 +189,20 @@ export async function POST(request: Request) {
   // trigger fires within the same transaction as the admin API call, so it
   // should already be visible here. We still patch `invited_by` (not
   // available to the trigger) after the fact.
-  await admin
+  const { error: ownershipError } = await admin
     .from("profiles")
     .update({ invited_by: auth.actor })
     .eq("user_id", data.user.id);
 
+  if (ownershipError) {
+    return NextResponse.json({ message: "Invite created but setup failed. Account access is blocked; delete and re-invite.", userId: data.user.id }, { status: 500 });
+  }
+  const { error: expiryError } = await admin.rpc("change_account_access", {
+    p_actor: auth.userId, p_target: data.user.id, p_action: "initialize",
+    p_days: body.accessDays ?? null, p_request_id: crypto.randomUUID(),
+  });
+  if (expiryError) {
+    return NextResponse.json({ message: "Invite created but expiry setup failed. Account access is blocked; delete and re-invite.", userId: data.user.id }, { status: 500 });
+  }
   return NextResponse.json({ ok: true, userId: data.user.id });
 }

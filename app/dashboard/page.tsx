@@ -8,7 +8,7 @@ export default async function DashboardPage() {
   const auth = await requireAuthenticatedActor();
 
   if (!auth.ok) {
-    redirect("/login");
+    redirect(auth.code === "ACCOUNT_EXPIRED" ? "/auth/expired" : "/login");
   }
 
   const channel = getActiveChannel();

@@ -12,12 +12,12 @@ export default async function AdminUsersPage() {
   const auth = await requireAuthenticatedActor();
 
   if (!auth.ok) {
-    redirect("/login");
+    redirect(auth.code === "ACCOUNT_EXPIRED" ? "/auth/expired" : "/login");
   }
 
   if (auth.role !== "admin" && auth.role !== "manager") {
     redirect("/dashboard");
   }
 
-  return <UsersClient currentActor={auth.actor} currentRole={auth.role} />;
+  return <UsersClient currentActor={auth.actor} currentRole={auth.role} expiryEnabled={process.env.ACCOUNT_EXPIRY_MANAGEMENT_ENABLED === "true"} />;
 }

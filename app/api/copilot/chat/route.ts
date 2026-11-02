@@ -1,3 +1,4 @@
+import { authError, requireAuthenticatedActor } from "@/app/api/admin/_auth";
 import {
   convertToModelMessages,
   createUIMessageStreamResponse,
@@ -161,6 +162,9 @@ function buildSystemPrompt(
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
+  const auth = await requireAuthenticatedActor();
+  if (!auth.ok) return authError(auth);
+
   if (!process.env.OPENAI_API_KEY) {
     return Response.json(
       { error: "OPENAI_API_KEY is not configured." },

@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -12,7 +11,6 @@ type Step = "credentials" | "mfa" | "otp-request" | "otp-code";
 type Mode = "password" | "otp";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [mode, setMode] = useState<Mode>("password");
   const [step, setStep] = useState<Step>("credentials");
   const [email, setEmail] = useState("");
@@ -23,6 +21,27 @@ export default function LoginPage() {
   const [state, setState] = useState<LoginState>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [infoMessage, setInfoMessage] = useState("");
+
+  const finishSignIn = async () => {
+    try {
+      const response = await fetch("/api/auth/me", { cache: "no-store" });
+      const result = await response.json();
+      if (result.code === "ACCOUNT_EXPIRED") {
+        window.location.replace("/auth/expired");
+        return;
+      }
+      if (!response.ok) {
+        setState("error");
+        setErrorMessage(result.message ?? "Unable to verify account access. Please try again.");
+        return;
+      }
+      // Start a fresh request with the newly written session cookies.
+      window.location.replace("/dashboard");
+    } catch {
+      setState("error");
+      setErrorMessage("Unable to verify account access. Check your connection and try again.");
+    }
+  };
 
   const switchMode = (nextMode: Mode) => {
     setMode(nextMode);
@@ -85,9 +104,7 @@ export default function LoginPage() {
       return;
     }
 
-    setState("idle");
-    router.push("/dashboard");
-    router.refresh();
+    await finishSignIn();
   };
 
   const onSubmitCredentials = async (event: FormEvent<HTMLFormElement>) => {
@@ -120,9 +137,7 @@ export default function LoginPage() {
       return;
     }
 
-    setState("idle");
-    router.push("/dashboard");
-    router.refresh();
+    await finishSignIn();
   };
 
   const onSubmitCode = async (event: FormEvent<HTMLFormElement>) => {
@@ -144,9 +159,7 @@ export default function LoginPage() {
       return;
     }
 
-    setState("idle");
-    router.push("/dashboard");
-    router.refresh();
+    await finishSignIn();
   };
 
   return (

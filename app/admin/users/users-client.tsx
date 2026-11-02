@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { ExpiryEditor } from "./expiry-editor";
 import { useCallback, useEffect, useState } from "react";
 
 import { LogoNav } from "@/app/dashboard/components/logo-nav";
 
 type ProfileRow = {
   user_id: string;
+  access_expires_at: string | null;
+  access_setup_pending: boolean;
   email: string | null;
   role: "admin" | "manager" | "viewer";
   status: "invited" | "active" | "disabled";
@@ -39,12 +42,15 @@ const STATUS_STYLES: Record<ProfileRow["status"], string> = {
 export default function UsersClient({
   currentActor,
   currentRole,
+  expiryEnabled,
 }: {
+  expiryEnabled: boolean;
   currentActor: string;
   currentRole: "admin" | "manager";
 }) {
   const isManager = currentRole === "manager";
   const [users, setUsers] = useState<ProfileRow[]>([]);
+  const [observedAt, setObservedAt] = useState(0);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -53,26 +59,28 @@ export default function UsersClient({
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "manager" | "viewer">("viewer");
+  const [accessDays, setAccessDays] = useState("7");
   const [inviting, setInviting] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/admin/users");
-    if (res.ok) {
-      const data = (await res.json()) as {
-        users: ProfileRow[];
-        inviteQuota: number | null;
-        inviteQuotaUsed: number | null;
-      };
+    try {
+      const res = await fetch("/api/admin/users");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message ?? "Could not load users");
       setUsers(data.users);
+      setObservedAt(Date.now());
       setInviteQuota(data.inviteQuota ?? null);
       setInviteQuotaUsed(data.inviteQuotaUsed ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load users");
     }
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    refresh();
+    const timer = setTimeout(() => void refresh(), 0);
+    return () => clearTimeout(timer);
   }, [refresh]);
 
   const onInvite = async (event: React.FormEvent) => {
@@ -81,24 +89,30 @@ export default function UsersClient({
     setError(null);
     setMessage(null);
 
-    const res = await fetch("/api/admin/users", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
-    });
-    const body = await res.json();
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: inviteEmail, role: inviteRole, ...(expiryEnabled ? { accessDays: inviteRole === "admin" || accessDays === "unlimited" ? null : Number(accessDays) } : {}) }),
+      });
+      const body = await res.json();
 
-    if (!res.ok) {
-      setError(body.message ?? "Failed to send invite");
+      if (!res.ok) {
+        setError(body.message ?? "Failed to send invite");
+        void refresh();
+        return;
+      }
+
+      setMessage(`Invite sent to ${inviteEmail}.`);
+      setInviteEmail("");
+      setInviteRole("viewer");
+      refresh();
+    } catch {
+      setError("Invitation request interrupted. Refresh the list before retrying.");
+      void refresh();
+    } finally {
       setInviting(false);
-      return;
     }
-
-    setMessage(`Invite sent to ${inviteEmail}.`);
-    setInviteEmail("");
-    setInviteRole("viewer");
-    setInviting(false);
-    refresh();
   };
 
   const updateRole = async (userId: string, role: "admin" | "manager" | "viewer") => {
@@ -167,7 +181,7 @@ export default function UsersClient({
   return (
     <div className="flex min-h-screen flex-col bg-[#f3f7f9]">
       <LogoNav />
-      <main className="mx-auto w-full max-w-4xl flex-1 space-y-8 p-8 text-slate-900">
+      <main className="mx-auto w-full max-w-7xl flex-1 space-y-8 p-8 text-slate-900">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-slate-900">
           {isManager ? "My invited viewers" : "Users"}
@@ -204,7 +218,7 @@ export default function UsersClient({
               id="invite-email"
               type="email"
               required
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+              className="h-10 w-full box-border rounded-lg border border-slate-300 px-3 py-0 text-sm outline-none focus:border-blue-500"
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
               placeholder="name@example.com"
@@ -217,7 +231,7 @@ export default function UsersClient({
               </label>
               <select
                 id="invite-role"
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                className="h-10 box-border rounded-lg border border-slate-300 px-3 py-0 text-sm"
                 value={inviteRole}
                 onChange={(e) => setInviteRole(e.target.value as "admin" | "manager" | "viewer")}
               >
@@ -227,12 +241,29 @@ export default function UsersClient({
               </select>
             </div>
           ) : null}
+          {expiryEnabled && inviteRole !== "admin" ? (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="invite-access-duration">
+                Access duration
+              </label>
+              <select
+                id="invite-access-duration"
+                className="h-10 box-border rounded-lg border border-slate-300 px-3 py-0 text-sm"
+                value={accessDays}
+                onChange={(e) => setAccessDays(e.target.value)}
+              >
+                <option value="7">7 days</option>
+                <option value="30">30 days</option>
+                {!isManager && <option value="unlimited">Unlimited</option>}
+              </select>
+            </div>
+          ) : null}
           <button
             type="submit"
             disabled={
               inviting || (isManager && inviteQuota !== null && (inviteQuotaUsed ?? 0) >= inviteQuota)
             }
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="inline-flex h-10 box-border items-center justify-center rounded-lg bg-slate-900 px-4 py-0 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-400"
           >
             {inviting ? "Sending…" : "Send invite"}
           </button>
@@ -244,12 +275,13 @@ export default function UsersClient({
         {loading ? (
           <p className="mt-2 text-sm text-slate-500">Loading…</p>
         ) : (
-          <table className="mt-4 w-full text-left text-sm">
+          <div className="overflow-x-auto"><table className="mt-4 w-full text-left text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-slate-500">
                 <th className="py-2">Email</th>
                 <th>Role</th>
                 <th>Status</th>
+                <th>Access expiry</th>
                 <th>Last login</th>
                 <th>Invited by</th>
                 <th className="text-right">Actions</th>
@@ -290,6 +322,15 @@ export default function UsersClient({
                       >
                         {u.status}
                       </span>
+                    </td>
+                    <td className="p-2 text-xs">
+                      <div className="flex items-center gap-1">
+                        {u.access_setup_pending ? <span className="text-red-700">Setup incomplete — access blocked</span> : <span className={`font-medium ${u.access_expires_at && Date.parse(u.access_expires_at) <= observedAt ? "text-red-700" : "text-slate-700"}`}>
+                          {u.access_expires_at ? (Date.parse(u.access_expires_at) <= observedAt ? "Expired" : `${Math.ceil((Date.parse(u.access_expires_at) - observedAt) / 86400000)} days remaining`) : "Unlimited"}
+                        </span>}
+                        {expiryEnabled && !isSelf && u.role !== "admin" && !u.access_setup_pending && <ExpiryEditor userId={u.user_id} email={u.email} expiresAt={u.access_expires_at} isManager={isManager} onSaved={() => { setMessage("Access expiry updated."); void refresh(); }} />}
+                      </div>
+                      {!u.access_setup_pending && u.access_expires_at && <span className="mt-0.5 block text-slate-500">{new Date(u.access_expires_at).toLocaleString(undefined, { timeZoneName: "short" })}</span>}
                     </td>
                     <td
                       className="text-xs text-slate-500"
@@ -342,7 +383,7 @@ export default function UsersClient({
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
       </section>
       </main>

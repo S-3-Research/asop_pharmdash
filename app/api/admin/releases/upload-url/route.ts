@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { NextResponse } from "next/server";
 
-import { requireRole } from "@/app/api/admin/_auth";
+import { authError, requireRole } from "@/app/api/admin/_auth";
 import { getSupabaseAdmin, DATA_BUCKET } from "@/lib/supabase-admin";
 
 /**
@@ -20,7 +20,7 @@ import { getSupabaseAdmin, DATA_BUCKET } from "@/lib/supabase-admin";
 export async function POST() {
   const auth = await requireRole("admin");
   if (!auth.ok) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return authError(auth);
   }
 
   const path = `uploads/${randomUUID()}.json.gz`;

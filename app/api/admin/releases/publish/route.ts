@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireRole } from "@/app/api/admin/_auth";
+import { authError, requireRole } from "@/app/api/admin/_auth";
 import { setChannelRelease, type ChannelName } from "@/lib/releases";
 
 /**
@@ -18,7 +18,7 @@ import { setChannelRelease, type ChannelName } from "@/lib/releases";
 export async function POST(request: Request) {
   const auth = await requireRole("admin");
   if (!auth.ok) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return authError(auth);
   }
 
   let body: unknown;
