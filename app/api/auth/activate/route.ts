@@ -45,14 +45,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Invalid session" }, { status: 401 });
   }
 
-  const { error } = await admin
+  const { data: activated, error } = await admin
     .from("profiles")
     .update({ status: "active" })
-    .eq("user_id", data.user.id);
+    .eq("user_id", data.user.id)
+    .eq("status", "invited")
+    .eq("access_setup_pending", false)
+    .select("user_id");
 
   if (error) {
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 
+  if (!activated?.length) {
+    const { data: profile, error: profileError } = await admin.from("profiles")
+      .select("status, access_setup_pending").eq("user_id", data.user.id).single();
+    if (profileError || profile?.status !== "active" || profile.access_setup_pending) {
+      return NextResponse.json({ message: "Account setup is blocked. Contact your administrator." }, { status: 403 });
+    }
+  }
   return NextResponse.json({ ok: true });
 }

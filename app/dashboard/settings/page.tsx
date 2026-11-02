@@ -7,7 +7,7 @@ export default async function SettingsPage() {
   const auth = await requireAuthenticatedActor();
 
   if (!auth.ok) {
-    redirect("/login");
+    redirect(auth.code === "ACCOUNT_EXPIRED" ? "/auth/expired" : "/login");
   }
 
   return <SettingsClient />;

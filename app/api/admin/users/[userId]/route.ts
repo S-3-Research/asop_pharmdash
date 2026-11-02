@@ -1,10 +1,12 @@
+import { isExpiryChange } from "@/lib/account-access";
 import { NextResponse } from "next/server";
 
-import { requireAnyRole, requireRole } from "@/app/api/admin/_auth";
+import { authError, requireAnyRole } from "@/app/api/admin/_auth";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { supabase } from "@/lib/supabase";
 
 type PatchBody = {
+  expiry?: unknown;
   role?: "admin" | "manager" | "viewer";
   status?: "active" | "disabled";
 };
@@ -23,7 +25,7 @@ async function loadManageableProfile(
 ) {
   const { data: profile } = await admin
     .from("profiles")
-    .select("email, role, invited_by")
+    .select("email, role, invited_by, access_expires_at")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -89,7 +91,7 @@ export async function DELETE(
 ) {
   const auth = await requireAnyRole(["admin", "manager"]);
   if (!auth.ok) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return authError(auth);
   }
 
   const { userId } = await params;
@@ -136,11 +138,15 @@ export async function PATCH(
 ) {
   const auth = await requireAnyRole(["admin", "manager"]);
   if (!auth.ok) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return authError(auth);
   }
 
   const { userId } = await params;
-  const body = (await request.json()) as PatchBody;
+  const parsed: unknown = await request.json().catch(() => null);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return NextResponse.json({ message: "Invalid request body" }, { status: 400 });
+  }
+  const body = parsed as PatchBody;
   const admin = getSupabaseAdmin();
 
   // Managers may only toggle status (enable/disable) on viewers they
@@ -152,6 +158,24 @@ export async function PATCH(
   const gate = await loadManageableProfile(admin, userId, auth.actor, auth.role);
   if (!gate.ok) return gate.response;
 
+  if (body.expiry !== undefined) {
+    if (process.env.ACCOUNT_EXPIRY_MANAGEMENT_ENABLED !== "true") {
+      return NextResponse.json({ message: "Expiry management is not enabled" }, { status: 503 });
+    }
+    if (!isExpiryChange(body.expiry) || body.role !== undefined || body.status !== undefined) {
+      return NextResponse.json({ message: "Send one valid expiry change at a time" }, { status: 400 });
+    }
+    const { data, error } = await admin.rpc("change_account_access", {
+      p_actor: auth.userId, p_target: userId, p_action: body.expiry.action,
+      p_days: body.expiry.days ?? null, p_request_id: body.expiry.requestId,
+    });
+    if (error) return NextResponse.json({ message: error.code === "42501" ? "Unauthorized" : error.code === "22023" ? error.message : "Could not update expiry", code: error.code }, { status: error.code === "42501" ? 403 : error.code === "22023" ? 400 : 500 });
+    return NextResponse.json({ ok: true, access_expires_at: data });
+  }
+
+  if (body.role === "admin" && gate.profile.access_expires_at !== null) {
+    return NextResponse.json({ message: "Remove expiry before promoting to admin" }, { status: 400 });
+  }
   if (body.role) {
     if (body.role !== "admin" && body.role !== "manager" && body.role !== "viewer") {
       return NextResponse.json({ message: "Invalid role" }, { status: 400 });
@@ -197,7 +221,7 @@ export async function POST(
 ) {
   const auth = await requireAnyRole(["admin", "manager"]);
   if (!auth.ok) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return authError(auth);
   }
 
   const { userId } = await params;

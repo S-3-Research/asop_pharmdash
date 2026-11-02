@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireRole } from "@/app/api/admin/_auth";
+import { authError, requireRole } from "@/app/api/admin/_auth";
 import { fetchReleaseData, getManifest, isMockRelease } from "@/lib/releases";
 
 /**
@@ -16,7 +16,7 @@ export async function GET(
 ) {
   const auth = await requireRole("admin");
   if (!auth.ok) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return authError(auth);
   }
 
   const { releaseId } = await params;

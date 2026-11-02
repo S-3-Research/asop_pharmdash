@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:account-expiry": "node --test tests/account-access.test.ts tests/account-expiry-routes.test.cjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.5",

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireAuthenticatedActor } from "@/app/api/admin/_auth";
+import { authError, requireAuthenticatedActor } from "@/app/api/admin/_auth";
 import { mockDomains } from "@/app/dashboard/components/mock-data";
 import { getActiveChannel } from "@/lib/channel";
 import { fetchReleaseData, getActiveReleaseContext, getReportPeriodDisplayMap } from "@/lib/releases";
@@ -10,7 +10,7 @@ export async function GET() {
   const auth = await requireAuthenticatedActor();
 
   if (!auth.ok) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return authError(auth);
   }
 
   const channel = getActiveChannel();

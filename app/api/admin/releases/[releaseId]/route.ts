@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireRole } from "@/app/api/admin/_auth";
+import { authError, requireRole } from "@/app/api/admin/_auth";
 import { setReleaseDisplayName } from "@/lib/releases";
 
 /**
@@ -20,7 +20,7 @@ export async function PATCH(
 ) {
   const auth = await requireRole("admin");
   if (!auth.ok) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return authError(auth);
   }
 
   const { releaseId } = await params;

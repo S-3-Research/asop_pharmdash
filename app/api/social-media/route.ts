@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAuthenticatedActor } from "@/app/api/admin/_auth";
+import { authError, requireAuthenticatedActor } from "@/app/api/admin/_auth";
 import { mockSocialPosts } from "@/app/dashboard/components/mock-data";
 import type {
   SocialKeywordBubble,
@@ -23,7 +23,7 @@ const KEYWORD_COLORS = [
 export async function GET(request: NextRequest) {
   const auth = await requireAuthenticatedActor();
   if (!auth.ok) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return authError(auth);
   }
 
   const { searchParams } = request.nextUrl;
@@ -45,7 +45,6 @@ export async function GET(request: NextRequest) {
   let keywordBubbles: SocialKeywordBubble[];
   let categoryOptions: SocialMediaPayload["categoryOptions"];
   let productSignalCounts: SocialProductSignalCount[];
-  let totalRawCount = 0;
   let onlyAccountBasedData = false;
 
   if (ctx.isMock) {
